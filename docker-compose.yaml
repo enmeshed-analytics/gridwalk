@@ -1,0 +1,41 @@
+name: gridwalk
+
+services:
+  geodatabase:
+    image: postgis/postgis:16-3.4
+    container_name: gridwalk-geodatabase
+    platform: linux/amd64
+    volumes:
+      - ./local/postgresql/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: gridwalk
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+
+  martin:
+    image: ghcr.io/maplibre/martin
+    container_name: gridwalk-martin
+    depends_on:
+      - geodatabase
+    environment:
+      - PGPASSWORD=password
+      - DATABASE_URL=postgresql://admin:password@geodatabase:5432/gridwalk
+    volumes:
+      - ./martin.yaml:/config/martin.yaml
+    command: --config /config/martin.yaml
+
+  gridwalk:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gridwalk-app
+    depends_on:
+      - geodatabase
+      - martin
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://admin:password@geodatabase:5432/gridwalk
+      - TILE_SERVER_URL=http://martin:8080

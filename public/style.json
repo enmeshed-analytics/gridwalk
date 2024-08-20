@@ -1,0 +1,82 @@
+
+{
+  "version": 8,
+  "sources": {
+    "osm-tiles": {
+      "type": "vector",
+      "tiles": ["http://localhost:8080/xyz/london_osm/{z}/{x}/{y}.pbf"],
+      "minzoom": 0,
+      "maxzoom": 19
+    }
+  },
+  "layers": [
+    {
+      "id": "road",
+      "type": "line",
+      "source": "osm-tiles",
+      "source-layer": "road",
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#f9bd6a",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5, 1.5,
+          10, 2.5,
+          15, 5
+        ]
+      }
+    },
+    {
+      "id": "line",
+      "type": "line",
+      "source": "osm-tiles",
+      "source-layer": "line",
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#808080",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5, 1,
+          10, 2,
+          15, 4
+        ]
+      }
+    },
+    {
+      "id": "polygon",
+      "type": "fill",
+      "source": "osm-tiles",
+      "source-layer": "polygon",
+      "paint": {
+        "fill-color": "#d7e9d1"
+      }
+    },
+    {
+      "id": "point",
+      "type": "circle",
+      "source": "osm-tiles",
+      "source-layer": "point",
+      "paint": {
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5, 3,
+          10, 5,
+          15, 10
+        ],
+        "circle-color": "#ff0000"
+      }
+    }
+  ]
+}
