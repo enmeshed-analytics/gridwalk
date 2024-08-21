@@ -29,7 +29,7 @@ const INITIAL_VIEW_STATE = {
   bearing: 0
 };
 
-const INITIAL_LAYERS = ['roads', 'buildings', 'water', 'landuse', 'pois'];
+const INITIAL_LAYERS = ['roads', 'buildings'];
 
 const Home: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);

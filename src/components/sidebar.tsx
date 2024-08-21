@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLayerToggle, activeLayers }) => {
-  const layerNames = ['roads', 'buildings', 'water', 'landuse', 'pois'];
+  const layerNames = ['roads', 'buildings'];
   const isLayerActive = useCallback((layer: string) => activeLayers.includes(layer), [activeLayers]);
 
   const handleCheckboxChange = (layerName: string) => {
