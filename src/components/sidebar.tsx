@@ -1,17 +1,36 @@
 "use client"
-import React, { useEffect, useCallback } from 'react';
-import { X, Layers, Upload } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { X, Layers, Upload, FileText, Trash2 } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onLayerToggle: (layers: string[]) => void;
+  onFileUpload: (fileName: string) => void;
+  onFileDelete: (fileName: string) => void;
+  onFileToggle: (fileName: string, isActive: boolean) => void;
   activeLayers: string[];
+  layerNames: string[];
+  uploadedFiles: string[];
+  activeFiles: string[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLayerToggle, activeLayers }) => {
-  const layerNames = ['roads', 'buildings'];
+const Sidebar: React.FC<SidebarProps> = ({ 
+  isOpen,
+  onClose,
+  onLayerToggle,
+  onFileUpload,
+  onFileDelete,
+  onFileToggle,
+  activeLayers,
+  layerNames,
+  uploadedFiles,
+  activeFiles
+}) => {
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const isLayerActive = useCallback((layer: string) => activeLayers.includes(layer), [activeLayers]);
+  const isFileActive = useCallback((file: string) => activeFiles.includes(file), [activeFiles]);
 
   const handleCheckboxChange = (layerName: string) => {
     const updatedLayers = isLayerActive(layerName)
@@ -20,12 +39,63 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLayerToggle, activ
     onLayerToggle(updatedLayers);
   };
 
+  const handleFileCheckboxChange = (fileName: string) => {
+    onFileToggle(fileName, !isFileActive(fileName));
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    setUploadError(null);
+
     if (file) {
-      console.log('File uploaded:', file.name);
-      // Add your file handling logic here
+      // Check file type
+      if (!file.name.toLowerCase().endsWith('.json') && !file.name.toLowerCase().endsWith('.geojson')) {
+        setUploadError('Please upload a GeoJSON file.');
+        return;
+      }
+
+      // Check file size (5MB = 5 * 1024 * 1024 bytes)
+      if (file.size > 5 * 1024 * 1024) {
+        setUploadError('File size exceeds 5MB limit.');
+        return;
+      }
+
+      // Read and store the file
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          const jsonData = JSON.parse(content);
+
+          // Store in localStorage with a prefix to avoid conflicts
+          localStorage.setItem(`file:${file.name}`, JSON.stringify(jsonData));
+
+          // Store the file name in a separate localStorage item
+          const storedFiles = JSON.parse(localStorage.getItem('uploadedFiles') || '[]');
+          storedFiles.push(file.name);
+          localStorage.setItem('uploadedFiles', JSON.stringify(storedFiles));
+
+          console.log('GeoJSON file uploaded and stored:', file.name);
+          onFileUpload(file.name);
+        } catch (error) {
+          setUploadError('Invalid GeoJSON file.');
+        }
+      };
+      reader.readAsText(file);
     }
+  };
+
+  const handleFileDelete = (fileName: string) => {
+    // Remove file from localStorage
+    localStorage.removeItem(`file:${fileName}`);
+
+    // Update the list of uploaded files in localStorage
+    const storedFiles = JSON.parse(localStorage.getItem('uploadedFiles') || '[]');
+    const updatedFiles = storedFiles.filter((name: string) => name !== fileName);
+    localStorage.setItem('uploadedFiles', JSON.stringify(updatedFiles));
+
+    // Call the onFileDelete prop to update the parent component's state
+    onFileDelete(fileName);
   };
 
   const SidebarContent: React.FC = () => (
@@ -54,15 +124,49 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onLayerToggle, activ
         <div className="mt-8">
           <h2 className="flex items-center text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
             <Upload className="mr-2 h-5 w-5" />
-            Upload File
+            Upload GeoJSON File
           </h2>
           <label className="flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-700 text-blue-600 rounded-lg shadow-lg tracking-wide uppercase border border-blue-600 cursor-pointer hover:bg-blue-600 hover:text-white transition duration-300 ease-in-out">
             <svg className="w-8 h-8" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
               <path d="M16.88 9.1A4 4 0 0 1 16 17H5a5 5 0 0 1-1-9.9V7a3 3 0 0 1 4.52-2.59A4.98 4.98 0 0 1 17 8c0 .38-.04.74-.12 1.1zM11 11h3l-4-4-4 4h3v3h2v-3z" />
             </svg>
-            <span className="mt-2 text-sm leading-normal">Select a file</span>
-            <input type='file' className="hidden" onChange={handleFileUpload} />
+            <span className="mt-2 text-sm leading-normal">Select a GeoJSON file (max 5MB)</span>
+            <input type='file' accept=".json,.geojson" className="hidden" onChange={handleFileUpload} />
           </label>
+          {uploadError && (
+            <p className="mt-2 text-red-500 text-sm">{uploadError}</p>
+          )}
+        </div>
+        <div className="mt-8">
+          <h2 className="flex items-center text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
+            <FileText className="mr-2 h-5 w-5" />
+            Uploaded Layers
+          </h2>
+          {uploadedFiles.length > 0 ? (
+            <ul className="space-y-2">
+              {uploadedFiles.map((fileName, index) => (
+                <li key={index} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isFileActive(fileName)}
+                      onChange={() => handleFileCheckboxChange(fileName)}
+                      className="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out"
+                    />
+                    <span>{fileName}</span>
+                  </label>
+                  <button
+                    onClick={() => handleFileDelete(fileName)}
+                    className="text-red-500 hover:text-red-700 transition duration-150 ease-in-out"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400">No files uploaded yet.</p>
+          )}
         </div>
       </div>
     </>
