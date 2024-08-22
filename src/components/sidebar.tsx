@@ -6,7 +6,8 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onLayerToggle: (layers: string[]) => void;
-  onFileUpload: (fileName: string) => void;
+  onFileUpload: (file: File) => void;
+  uploadError: string | null;
   onFileDelete: (fileName: string) => void;
   onFileToggle: (fileName: string, isActive: boolean) => void;
   activeLayers: string[];
@@ -20,6 +21,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   onLayerToggle,
   onFileUpload,
+  uploadError,
   onFileDelete,
   onFileToggle,
   activeLayers,
@@ -27,8 +29,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   uploadedFiles,
   activeFiles
 }) => {
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
   const isLayerActive = useCallback((layer: string) => activeLayers.includes(layer), [activeLayers]);
   const isFileActive = useCallback((file: string) => activeFiles.includes(file), [activeFiles]);
 
@@ -45,43 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    setUploadError(null);
-
     if (file) {
-      // Check file type
-      if (!file.name.toLowerCase().endsWith('.json') && !file.name.toLowerCase().endsWith('.geojson')) {
-        setUploadError('Please upload a GeoJSON file.');
-        return;
-      }
-
-      // Check file size (5MB = 5 * 1024 * 1024 bytes)
-      if (file.size > 5 * 1024 * 1024) {
-        setUploadError('File size exceeds 5MB limit.');
-        return;
-      }
-
-      // Read and store the file
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          const jsonData = JSON.parse(content);
-
-          // Store in localStorage with a prefix to avoid conflicts
-          localStorage.setItem(`file:${file.name}`, JSON.stringify(jsonData));
-
-          // Store the file name in a separate localStorage item
-          const storedFiles = JSON.parse(localStorage.getItem('uploadedFiles') || '[]');
-          storedFiles.push(file.name);
-          localStorage.setItem('uploadedFiles', JSON.stringify(storedFiles));
-
-          console.log('GeoJSON file uploaded and stored:', file.name);
-          onFileUpload(file.name);
-        } catch (error) {
-          setUploadError('Invalid GeoJSON file.');
-        }
-      };
-      reader.readAsText(file);
+      onFileUpload(file);
     }
   };
 
