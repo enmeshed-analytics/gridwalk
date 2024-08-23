@@ -15,4 +15,5 @@ This is the data model used for the Gridwalk application. Currently, only Dynamo
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `connection_type` | String | Possible values: `[s3_delta_lake]` |
+| `name` | String | Name for the connection |
 | `s3_path` | String | Full S3 path to the delta lake |
