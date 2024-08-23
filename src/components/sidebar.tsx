@@ -1,6 +1,7 @@
 "use client"
 import React, { useCallback, useState } from 'react';
-import { X, Layers, Upload, FileText, Trash2 } from 'lucide-react';
+import { X, Layers, Upload, FileText, Trash2, Link, ChevronDown, ChevronRight } from 'lucide-react';
+import ConnectionsModal from './connectionsModal' 
 
 interface SidebarProps {
   isOpen: boolean;
@@ -31,6 +32,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isLayerActive = useCallback((layer: string) => activeLayers.includes(layer), [activeLayers]);
   const isFileActive = useCallback((file: string) => activeFiles.includes(file), [activeFiles]);
+  const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
+  const [isLayerOptionsVisible, setIsLayerOptionsVisible] = useState(false);
 
   const handleCheckboxChange = (layerName: string) => {
     const updatedLayers = isLayerActive(layerName)
@@ -51,16 +54,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleFileDelete = (fileName: string) => {
-    // Remove file from localStorage
     localStorage.removeItem(`file:${fileName}`);
-
-    // Update the list of uploaded files in localStorage
     const storedFiles = JSON.parse(localStorage.getItem('uploadedFiles') || '[]');
     const updatedFiles = storedFiles.filter((name: string) => name !== fileName);
     localStorage.setItem('uploadedFiles', JSON.stringify(updatedFiles));
-
-    // Call the onFileDelete prop to update the parent component's state
     onFileDelete(fileName);
+  };
+
+  const toggleLayerOptions = () => {
+    setIsLayerOptionsVisible(!isLayerOptionsVisible);
   };
 
   const SidebarContent: React.FC = () => (
@@ -69,23 +71,43 @@ const Sidebar: React.FC<SidebarProps> = ({
         <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">GridWalk</h1>
       </div>
       <div className="flex-1 px-6 py-4">
-        <h2 className="flex items-center text-lg font-semibold mb-6 text-gray-700 dark:text-gray-200">
-          <Layers className="mr-2 h-5 w-5" />
-          Layer Options
-        </h2>
-        {layerNames.map((layerName) => (
-          <div key={layerName} className="mb-4">
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isLayerActive(layerName)}
-                onChange={() => handleCheckboxChange(layerName)}
-                className="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out"
-              />
-              <span className="text-gray-700 dark:text-gray-300 capitalize">{layerName}</span>
-            </label>
-          </div>
-        ))}
+        <div className="mb-6">
+          <button
+            onClick={toggleLayerOptions}
+            className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-200 focus:outline-none"
+          >
+            {isLayerOptionsVisible ? <ChevronDown className="mr-2 h-5 w-5" /> : <ChevronRight className="mr-2 h-5 w-5" />}
+            <Layers className="mr-2 h-5 w-5" />
+            Layer Options
+          </button>
+          {isLayerOptionsVisible && (
+            <div className="mt-4 ml-7">
+              {layerNames.map((layerName) => (
+                <div key={layerName} className="mb-4">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isLayerActive(layerName)}
+                      onChange={() => handleCheckboxChange(layerName)}
+                      className="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300 capitalize">{layerName}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="mt-4">
+          <button
+            onClick={() => setIsConnectionsModalOpen(true)}
+            className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Link className="mr-2 h-5 w-5" />
+            Connections
+          </button>
+        </div>
+
         <div className="mt-8">
           <h2 className="flex items-center text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
             <Upload className="mr-2 h-5 w-5" />
@@ -139,12 +161,14 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Sidebar for larger screens */}
       <aside className="hidden md:flex flex-col w-80 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-lg">
         <SidebarContent />
       </aside>
+      <ConnectionsModal
+        isOpen={isConnectionsModalOpen}
+        onClose={() => setIsConnectionsModalOpen(false)}
+      />
 
-      {/* Mobile sidebar */}
       {isOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity duration-300 ease-in-out" onClick={onClose}></div>
