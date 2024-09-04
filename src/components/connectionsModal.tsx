@@ -1,12 +1,6 @@
+import { Connection } from '../utils/data'
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-
-interface Connection {
-  id: string;
-  name: string;
-  // Add other properties as needed
-  // TODO: Add type enum
-}
 
 interface ConnectionsModalProps {
   isOpen: boolean;
@@ -66,14 +60,26 @@ const ConnectionsModal: React.FC<ConnectionsModalProps> = ({ isOpen, onClose }) 
                   {isLoading && <p>Loading connections...</p>}
                   {error && <p className="text-red-500">{error}</p>}
                   {!isLoading && !error && (
-                    <ul className="divide-y divide-gray-200">
-                      {connections.map((connection) => (
-                        <li key={connection.id} className="py-4">
-                          <p className="text-sm font-medium text-gray-900">{connection.name}</p>
-                          {/* Add more connection details here, type etc... */}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Connector</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {connections.map((connection) => (
+                            <tr key={connection.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{connection.name}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{connection.connector}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{connection.id}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               </div>

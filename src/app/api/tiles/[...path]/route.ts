@@ -8,7 +8,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { path: string[] } }
 ): Promise<NextResponse> {
-  const tileServerUrl = process.env.TILE_SERVER_URL || 'http://localhost:8080';
+  const tileServerUrl = process.env.TILE_SERVER_URL || 'http://localhost:8081';
   const url = new URL(request.url);
   const layers = url.searchParams.get('layers');
   const path = params.path.join('/');

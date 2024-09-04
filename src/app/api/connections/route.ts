@@ -1,25 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { DynamoDBStrategy, DatabaseContext, getDynamoDBClient } from '@/utils/data';
 
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-// TODO: This is a mock implementation. Replace with actual database queries.
-const mockConnections = [
-  { id: '1', name: 'Connection 1' },
-  { id: '2', name: 'Connection 2' },
-  { id: '3', name: 'Connection 3' },
-];
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const region: string = process.env.AWS_REGION || '';
+  const tableName = process.env.DYNAMODB_TABLE || '';
+  const client = getDynamoDBClient(region);
+  const strategy = new DynamoDBStrategy(client, tableName);
+  const database = new DatabaseContext(strategy);
 
-export async function GET(
-  request: NextRequest,
-): Promise<NextResponse> {
-  // Convert mockConnections to a JSON string
-  const jsonResponse = JSON.stringify(mockConnections);
+  try {
+    // Fetch data sources from DynamoDB
+    const connections = await database.listConnections();
 
-  // Create a new NextResponse with the JSON data
-  return new NextResponse(jsonResponse, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+    // Convert dataSources to a JSON string
+    const jsonResponse = JSON.stringify(connections);
+
+    // Create a new NextResponse with the JSON data
+    return new NextResponse(jsonResponse, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching data sources:', error);
+    return new NextResponse(JSON.stringify({ error: 'Internal Server Error' }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
 }

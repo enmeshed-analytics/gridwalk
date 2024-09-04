@@ -165,7 +165,16 @@ const Home: React.FC = () => {
     getLineWidth: 1,
     lineWidthMinPixels: 1,
     pickable: true,
-    onHover: (info: any) => setHoverInfo(info)
+    renderSubLayers: (props) => {
+      console.log(props.data.lines)
+      return new GeoJsonLayer({
+        ...props,
+        getLineColor: (f) => ['motorway', 'primary', 'trunk', 'cycleway'].includes(f.properties.highway) ? [236, 183, 83] : [192, 192, 192],
+        getFillColor: [140, 170, 180],
+        getLineWidth: (f) => ['motorway', 'primary', 'trunk'].includes(f.properties.highway) ? 15 : 3,
+        lineWidthMinPixels: 1,
+      });
+    }
   }), [activeLayers]);
 
   const renderTooltip = () => {

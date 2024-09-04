@@ -1,34 +1,50 @@
-interface DataSource {
+import { DynamoDBClient, ScanCommand, ScanCommandInput } from "@aws-sdk/client-dynamodb";
+import { unmarshall } from "@aws-sdk/util-dynamodb";
+
+interface Connection {
   id: string;
   name: string;
-  connectorType: string;
+  connector: string;
 }
 
 interface DatabaseStrategy {
-  listDataSources(userId: string): Promise<DataSource[]>;
+  listConnections(): Promise<Connection[]>;
 }
 
-class DuckDBStrategy implements DatabaseStrategy {
-  private db: Database;
+class DynamoDBStrategy implements DatabaseStrategy {
+  private client: DynamoDBClient;
+  private tableName: string;
 
-  constructor(db: Database) {
-    this.db = db;
+  constructor(client: DynamoDBClient, tableName: string) {
+    this.client = client;
+    this.tableName = tableName;
   }
 
-  async listDataSources(): Promise<DataSource[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        `SELECT id, name, connector_type as connectorType 
-         FROM data_sources`,
-        (err, rows) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(rows as DataSource[]);
-          }
-        }
-      );
-    });
+  async listConnections(): Promise<Connection[]> {
+    const params: ScanCommandInput = {
+      TableName: this.tableName,
+      FilterExpression: 'begins_with(PK, :prefix)',
+      ExpressionAttributeValues: {
+        ':prefix': { S: 'CON#' },
+      },
+    };
+
+    try {
+      const command = new ScanCommand(params);
+      const result = await this.client.send(command);
+      
+      return (result.Items || []).map(item => {
+        const unmarshalledItem = unmarshall(item);
+        return {
+          id: unmarshalledItem.PK.replace('CON#', ''),
+          name: unmarshalledItem.name,
+          connector: unmarshalledItem.connector,
+        };
+      });
+    } catch (error) {
+      console.error('Error scanning DynamoDB:', error);
+      throw error;
+    }
   }
 }
 
@@ -39,7 +55,20 @@ class DatabaseContext {
     this.strategy = strategy;
   }
 
-  async listDataSources(userId: string): Promise<DataSource[]> {
-    return this.strategy.listDataSources();
+  async listConnections(): Promise<Connection[]> {
+    return this.strategy.listConnections();
   }
 }
+
+// Utility function to get or create a DynamoDBClient
+let dynamodbClient: DynamoDBClient;
+function getDynamoDBClient(region: string): DynamoDBClient {
+  if (!dynamodbClient) {
+    console.log('creating dynamodb client');
+    dynamodbClient = new DynamoDBClient({ region });
+  }
+  return dynamodbClient;
+}
+
+export type { Connection, DatabaseStrategy }
+export { DynamoDBStrategy, DatabaseContext, getDynamoDBClient };
