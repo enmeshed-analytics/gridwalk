@@ -3,24 +3,8 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { Menu } from 'lucide-react';
 import Sidebar from '../components/sidebar';
 import Modal from '../components/modal';
-import DeckGL from '@deck.gl/react';
-import { Map } from 'react-map-gl';
-import { MVTLayer } from '@deck.gl/geo-layers';
-import { GeoJsonLayer } from '@deck.gl/layers';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-
-// Create a more comprehensive type assertion for maplibregl
-const maplibreglTyped: any = {
-  Map: maplibregl.Map,
-  Marker: maplibregl.Marker,
-  Popup: maplibregl.Popup,
-  AttributionControl: maplibregl.AttributionControl,
-  FullscreenControl: maplibregl.FullscreenControl,
-  GeolocateControl: maplibregl.GeolocateControl,
-  NavigationControl: maplibregl.NavigationControl,
-  ScaleControl: maplibregl.ScaleControl
-};
 
 const INITIAL_VIEW_STATE = {
   latitude: 51.5074,
@@ -33,6 +17,8 @@ const INITIAL_VIEW_STATE = {
 const LAYER_NAMES = ['roads', 'buildings'];
 
 const Home: React.FC = () => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<maplibregl.Map | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [hoverInfo, setHoverInfo] = useState<any>(null);
   const [activeLayers, setActiveLayers] = useState<string[]>([]);
@@ -43,7 +29,129 @@ const Home: React.FC = () => {
   const [currentUploadedFileName, setCurrentUploadedFileName] = useState('');
   const [currentUploadedFileContent, setCurrentUploadedFileContent] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const prevActiveFilesRef = useRef([]);
   const dragCounter = useRef(0);
+
+  // Initialize map only once
+  useEffect(() => {
+    if (map.current) return;
+    if (!mapContainer.current) {
+      console.error("Map container not found");
+      setMapError("Map container not found");
+      return;
+    }
+    try {
+      map.current = new maplibregl.Map({
+        container: mapContainer.current,
+        style: {
+          version: 8,
+          sources: {
+            'gridwalk-osm-tiles': {
+              type: 'vector',
+              tiles: [`http://localhost:3000/api/tiles/{z}/{x}/{y}?layers=${activeLayers}`],
+              minzoom: 0,
+              maxzoom: 20
+            }
+          },
+          layers: [
+            {
+              id: 'mvt-layer-roads',
+              type: 'line',
+              source: 'gridwalk-osm-tiles',
+              'source-layer': 'roads',
+              paint: {}
+            },
+            {
+              id: 'mvt-layer-buildings',
+              type: 'fill',
+              source: 'gridwalk-osm-tiles',
+              'source-layer': 'buildings',
+              paint: {}
+            }
+          ]
+        },
+        center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
+        zoom: INITIAL_VIEW_STATE.zoom
+      });
+  
+      map.current.on('load', () => {
+        console.log("Map loaded successfully");
+      });
+  
+      map.current.on('error', (e) => {
+        console.error("Map error:", e);
+        // TODO: Handle tile server error properly
+        //setMapError(`Map error: ${e.error.message}`);
+      });
+    } catch (error) {
+      console.error("Error initializing map:", error);
+      setMapError(`Error initializing map: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
+  }, []); // Empty dependency array means this effect runs once on mount
+  
+  // Update tile URL when activeLayers changes
+  useEffect(() => {
+    if (!map.current) return;
+  
+    const source = map.current.getSource('gridwalk-osm-tiles');
+    if (source) {
+      const newTileUrl = `http://localhost:3000/api/tiles/{z}/{x}/{y}?layers=${activeLayers}`;
+      source.setTiles([newTileUrl]);
+    }
+  }, [activeLayers]);
+
+  const updateMapSources = useEffect(() => {
+    if (!map.current) return;
+
+    const prevActiveFiles = prevActiveFilesRef.current;
+
+    // Remove layers and sources for files that are no longer active
+    prevActiveFiles.forEach(fileName => {
+      if (!activeFiles.includes(fileName)) {
+        if (map.current.getLayer(`geojson-layer-${fileName}`)) {
+          map.current.removeLayer(`geojson-layer-${fileName}`);
+        }
+        if (map.current.getSource(`geojson-${fileName}`)) {
+          map.current.removeSource(`geojson-${fileName}`);
+        }
+      }
+    });
+
+    // Add new sources and layers for active files
+    activeFiles.forEach(fileName => {
+      if (!map.current.getSource(`geojson-${fileName}`)) {
+        const geojsonData = safeGetItem(`file:${fileName}`);
+        if (geojsonData) {
+          map.current.addSource(`geojson-${fileName}`, {
+            type: 'geojson',
+            data: geojsonData
+          });
+
+          map.current.addLayer({
+            id: `geojson-layer-${fileName}`,
+            type: 'fill',
+            source: `geojson-${fileName}`,
+            paint: {
+              'fill-color': '#888888',
+              'fill-opacity': 0.5,
+              'fill-outline-color': 'rgba(0, 255, 0, 1)'
+            }
+          });
+        }
+      }
+    });
+
+    // Update the ref with the current activeFiles
+    prevActiveFilesRef.current = activeFiles;
+  }, [activeFiles]);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -154,39 +262,6 @@ const Home: React.FC = () => {
     }
   };
 
-  const mvtLayer = useMemo(() => new MVTLayer({
-    id: 'mvt',
-    data: `/api/tiles/{z}/{x}/{y}?layers=${activeLayers.join(',')}`,
-    maxRequests: 20,
-    minZoom: 0,
-    maxZoom: 23,
-    getLineColor: [192, 192, 192],
-    getFillColor: [140, 170, 180],
-    getLineWidth: 1,
-    lineWidthMinPixels: 1,
-    pickable: true,
-    renderSubLayers: (props) => {
-      console.log(props.data.lines)
-      return new GeoJsonLayer({
-        ...props,
-        getLineColor: (f) => ['motorway', 'primary', 'trunk', 'cycleway'].includes(f.properties.highway) ? [236, 183, 83] : [192, 192, 192],
-        getFillColor: [140, 170, 180],
-        getLineWidth: (f) => ['motorway', 'primary', 'trunk'].includes(f.properties.highway) ? 15 : 3,
-        lineWidthMinPixels: 1,
-      });
-    }
-  }), [activeLayers]);
-
-  const renderTooltip = () => {
-    if (!hoverInfo || !hoverInfo.object) return null;
-    const { x, y, object } = hoverInfo;
-    return (
-      <div className="absolute z-10 bg-white dark:bg-gray-800 p-2 rounded shadow-md" style={{left: x, top: y}}>
-        <p className="text-sm font-semibold">{object.properties?.name || 'Unnamed Feature'}</p>
-      </div>
-    );
-  };
-
   const handleFileUpload = (file: File) => {
     setUploadError(null);
 
@@ -262,25 +337,6 @@ const Home: React.FC = () => {
     safeSetItem('activeLayers', JSON.stringify(updatedLayers));
   };
 
-  const geoJsonLayers = useMemo(() =>
-    activeFiles.map(fileName => {
-      const geoJsonData = safeGetItem(`file:${fileName}`, {});
-      return new GeoJsonLayer({
-        id: `geojson-${fileName}`,
-        data: geoJsonData,
-        pickable: true,
-        stroked: false,
-        filled: true,
-        lineWidthScale: 20,
-        lineWidthMinPixels: 2,
-        getFillColor: [160, 160, 180, 200],
-        getLineColor: [255, 160, 180, 200],
-        getPointRadius: 100,
-        getLineWidth: 1,
-      });
-    }),
-  [activeFiles]);
-
   return (
     <div 
       className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200"
@@ -309,18 +365,12 @@ const Home: React.FC = () => {
         >
           <Menu className="w-6 h-6" />
         </button>
-        <DeckGL
-          initialViewState={INITIAL_VIEW_STATE}
-          controller={true}
-          layers={[mvtLayer, ...geoJsonLayers]}
-          getTooltip={({object}) => object && `${object.properties.name || 'Unnamed Feature'}`}
-        >
-          <Map
-            mapLib={maplibreglTyped}
-            mapStyle={{version: 8, sources: {}, layers: []}}
-          />
-          {renderTooltip()}
-        </DeckGL>
+        <div ref={mapContainer} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
+        {mapError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-75">
+            <p className="text-red-700 font-bold">{mapError}</p>
+          </div>
+        )}
       </main>
       <Modal
         isOpen={isModalOpen}
