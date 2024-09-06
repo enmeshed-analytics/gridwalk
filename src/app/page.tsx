@@ -1,20 +1,26 @@
 "use client";
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Menu } from 'lucide-react';
-import Sidebar from '../components/sidebar';
-import Modal from '../components/modal';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+import { Menu } from "lucide-react";
+import Sidebar from "../components/Sidebar";
+import FileUploadModal from "../components/FileUploadModal";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 const INITIAL_VIEW_STATE = {
   latitude: 51.5074,
   longitude: -0.1278,
   zoom: 11,
   pitch: 0,
-  bearing: 0
+  bearing: 0,
 };
 
-const LAYER_NAMES = ['roads', 'buildings'];
+const LAYER_NAMES = ["roads", "buildings"];
 
 const Home: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -26,8 +32,9 @@ const Home: React.FC = () => {
   const [activeFiles, setActiveFiles] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentUploadedFileName, setCurrentUploadedFileName] = useState('');
-  const [currentUploadedFileContent, setCurrentUploadedFileContent] = useState('');
+  const [currentUploadedFileName, setCurrentUploadedFileName] = useState("");
+  const [currentUploadedFileContent, setCurrentUploadedFileContent] =
+    useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const prevActiveFilesRef = useRef([]);
@@ -47,48 +54,52 @@ const Home: React.FC = () => {
         style: {
           version: 8,
           sources: {
-            'gridwalk-osm-tiles': {
-              type: 'vector',
-              tiles: [`http://localhost:3000/api/tiles/{z}/{x}/{y}?layers=${activeLayers}`],
+            "gridwalk-osm-tiles": {
+              type: "vector",
+              tiles: [
+                `http://localhost:3000/api/tiles/{z}/{x}/{y}?layers=${activeLayers}`,
+              ],
               minzoom: 0,
-              maxzoom: 20
-            }
+              maxzoom: 20,
+            },
           },
           layers: [
             {
-              id: 'mvt-layer-roads',
-              type: 'line',
-              source: 'gridwalk-osm-tiles',
-              'source-layer': 'roads',
-              paint: {}
+              id: "mvt-layer-roads",
+              type: "line",
+              source: "gridwalk-osm-tiles",
+              "source-layer": "roads",
+              paint: {},
             },
             {
-              id: 'mvt-layer-buildings',
-              type: 'fill',
-              source: 'gridwalk-osm-tiles',
-              'source-layer': 'buildings',
-              paint: {}
-            }
-          ]
+              id: "mvt-layer-buildings",
+              type: "fill",
+              source: "gridwalk-osm-tiles",
+              "source-layer": "buildings",
+              paint: {},
+            },
+          ],
         },
         center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
-        zoom: INITIAL_VIEW_STATE.zoom
+        zoom: INITIAL_VIEW_STATE.zoom,
       });
-  
-      map.current.on('load', () => {
+
+      map.current.on("load", () => {
         console.log("Map loaded successfully");
       });
-  
-      map.current.on('error', (e) => {
+
+      map.current.on("error", (e) => {
         console.error("Map error:", e);
         // TODO: Handle tile server error properly
         //setMapError(`Map error: ${e.error.message}`);
       });
     } catch (error) {
       console.error("Error initializing map:", error);
-      setMapError(`Error initializing map: ${error instanceof Error ? error.message : String(error)}`);
+      setMapError(
+        `Error initializing map: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-  
+
     return () => {
       if (map.current) {
         map.current.remove();
@@ -96,12 +107,12 @@ const Home: React.FC = () => {
       }
     };
   }, []); // Empty dependency array means this effect runs once on mount
-  
+
   // Update tile URL when activeLayers changes
   useEffect(() => {
     if (!map.current) return;
-  
-    const source = map.current.getSource('gridwalk-osm-tiles');
+
+    const source = map.current.getSource("gridwalk-osm-tiles");
     if (source) {
       const newTileUrl = `http://localhost:3000/api/tiles/{z}/{x}/{y}?layers=${activeLayers}`;
       source.setTiles([newTileUrl]);
@@ -114,7 +125,7 @@ const Home: React.FC = () => {
     const prevActiveFiles = prevActiveFilesRef.current;
 
     // Remove layers and sources for files that are no longer active
-    prevActiveFiles.forEach(fileName => {
+    prevActiveFiles.forEach((fileName) => {
       if (!activeFiles.includes(fileName)) {
         if (map.current.getLayer(`geojson-layer-${fileName}`)) {
           map.current.removeLayer(`geojson-layer-${fileName}`);
@@ -126,24 +137,24 @@ const Home: React.FC = () => {
     });
 
     // Add new sources and layers for active files
-    activeFiles.forEach(fileName => {
+    activeFiles.forEach((fileName) => {
       if (!map.current.getSource(`geojson-${fileName}`)) {
         const geojsonData = safeGetItem(`file:${fileName}`);
         if (geojsonData) {
           map.current.addSource(`geojson-${fileName}`, {
-            type: 'geojson',
-            data: geojsonData
+            type: "geojson",
+            data: geojsonData,
           });
 
           map.current.addLayer({
             id: `geojson-layer-${fileName}`,
-            type: 'fill',
+            type: "fill",
             source: `geojson-${fileName}`,
             paint: {
-              'fill-color': '#888888',
-              'fill-opacity': 0.5,
-              'fill-outline-color': 'rgba(0, 255, 0, 1)'
-            }
+              "fill-color": "#888888",
+              "fill-opacity": 0.5,
+              "fill-outline-color": "rgba(0, 255, 0, 1)",
+            },
           });
         }
       }
@@ -179,13 +190,16 @@ const Home: React.FC = () => {
   const handleFileDrop = useCallback((file: File) => {
     setUploadError(null);
 
-    if (!file.name.toLowerCase().endsWith('.json') && !file.name.toLowerCase().endsWith('.geojson')) {
-      setUploadError('Please upload a GeoJSON file.');
+    if (
+      !file.name.toLowerCase().endsWith(".json") &&
+      !file.name.toLowerCase().endsWith(".geojson")
+    ) {
+      setUploadError("Please upload a GeoJSON file.");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setUploadError('File size exceeds 5MB limit.');
+      setUploadError("File size exceeds 5MB limit.");
       return;
     }
 
@@ -198,47 +212,50 @@ const Home: React.FC = () => {
         setCurrentUploadedFileContent(content);
         setIsModalOpen(true);
       } catch (error) {
-        setUploadError('Invalid GeoJSON file.');
+        setUploadError("Invalid GeoJSON file.");
       }
     };
     reader.readAsText(file);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    dragCounter.current = 0;
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      dragCounter.current = 0;
 
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileDrop(files[0]);
-    }
-  }, [handleFileDrop]);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        handleFileDrop(files[0]);
+      }
+    },
+    [handleFileDrop],
+  );
 
   useEffect(() => {
     // Load layers and uploaded files from localStorage on component mount
     try {
-      const savedLayers = localStorage.getItem('activeLayers');
+      const savedLayers = localStorage.getItem("activeLayers");
       if (savedLayers) {
         setActiveLayers(JSON.parse(savedLayers));
       } else {
-        setActiveLayers(['roads']); // Set 'roads' layer active by default
+        setActiveLayers(["roads"]); // Set 'roads' layer active by default
       }
 
-      const savedFiles = localStorage.getItem('uploadedFiles');
+      const savedFiles = localStorage.getItem("uploadedFiles");
       if (savedFiles) {
         setUploadedFiles(JSON.parse(savedFiles));
       }
 
-      const savedActiveFiles = localStorage.getItem('activeFiles');
+      const savedActiveFiles = localStorage.getItem("activeFiles");
       if (savedActiveFiles) {
         setActiveFiles(JSON.parse(savedActiveFiles));
       }
     } catch (error) {
-      console.error('Error loading data from localStorage:', error);
+      console.error("Error loading data from localStorage:", error);
       // Set default values if there's an error
-      setActiveLayers(['roads']);
+      setActiveLayers(["roads"]);
       setUploadedFiles([]);
       setActiveFiles([]);
     }
@@ -265,13 +282,16 @@ const Home: React.FC = () => {
   const handleFileUpload = (file: File) => {
     setUploadError(null);
 
-    if (!file.name.toLowerCase().endsWith('.json') && !file.name.toLowerCase().endsWith('.geojson')) {
-      setUploadError('Please upload a GeoJSON file.');
+    if (
+      !file.name.toLowerCase().endsWith(".json") &&
+      !file.name.toLowerCase().endsWith(".geojson")
+    ) {
+      setUploadError("Please upload a GeoJSON file.");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setUploadError('File size exceeds 5MB limit.');
+      setUploadError("File size exceeds 5MB limit.");
       return;
     }
 
@@ -284,28 +304,68 @@ const Home: React.FC = () => {
         setCurrentUploadedFileContent(content);
         setIsModalOpen(true);
       } catch (error) {
-        setUploadError('Invalid GeoJSON file.');
+        setUploadError("Invalid GeoJSON file.");
       }
     };
     reader.readAsText(file);
   };
 
-  const handleLayerNameConfirm = (layerName: string) => {
+  const handleLayerNameConfirm = async (
+    layerName: string,
+    isRemote: boolean,
+  ) => {
+    console.log(
+      `handleLayerNameConfirm called with: ${layerName}, isRemote: ${isRemote}`,
+    );
     try {
       const jsonData = JSON.parse(currentUploadedFileContent);
-      safeSetItem(`file:${layerName}`, JSON.stringify(jsonData));
-      setUploadedFiles(prev => {
+      if (isRemote) {
+        // Remote upload logic
+        console.log("Initiating remote upload...");
+        const response = await fetch("/api/remote-file-s3-upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            layerName: layerName,
+            data: jsonData,
+          }),
+        });
+        console.log("Response status:", response.status);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            "Upload failed:",
+            response.status,
+            response.statusText,
+            errorText,
+          );
+          throw new Error(
+            `Remote upload failed: ${response.status} ${response.statusText}`,
+          );
+        }
+        const result = await response.json();
+        console.log("Remote upload successful:");
+        safeSetItem(`file:${layerName}`, result.url);
+      } else {
+        // Local upload logic
+        console.log("Performing local upload...");
+        safeSetItem(`file:${layerName}`, JSON.stringify(jsonData));
+      }
+      setUploadedFiles((prev) => {
         const updatedFiles = [...prev, layerName];
-        safeSetItem('uploadedFiles', JSON.stringify(updatedFiles));
+        safeSetItem("uploadedFiles", JSON.stringify(updatedFiles));
         return updatedFiles;
       });
     } catch (error) {
-      console.error('Error parsing GeoJSON file:', error);
-      setUploadError('Error saving file. Please try again.');
+      console.error("Error handling file upload:", error);
+      setUploadError("Error saving file. Please try again.");
     }
+    console.log("Closing modal and resetting state...");
     setIsModalOpen(false);
-    setCurrentUploadedFileName('');
-    setCurrentUploadedFileContent('');
+    setCurrentUploadedFileName("");
+    setCurrentUploadedFileContent("");
   };
 
   const handleFileDelete = (fileName: string) => {
@@ -314,40 +374,40 @@ const Home: React.FC = () => {
     } catch (error) {
       console.error(`Error removing ${fileName} from localStorage:`, error);
     }
-    setUploadedFiles(prev => {
-      const updatedFiles = prev.filter(file => file !== fileName);
-      safeSetItem('uploadedFiles', JSON.stringify(updatedFiles));
+    setUploadedFiles((prev) => {
+      const updatedFiles = prev.filter((file) => file !== fileName);
+      safeSetItem("uploadedFiles", JSON.stringify(updatedFiles));
       return updatedFiles;
     });
-    setActiveFiles(prev => prev.filter(file => file !== fileName));
+    setActiveFiles((prev) => prev.filter((file) => file !== fileName));
   };
 
   const handleFileToggle = (fileName: string, isActive: boolean) => {
-    setActiveFiles(prev => {
+    setActiveFiles((prev) => {
       const updatedFiles = isActive
         ? [...prev, fileName]
-        : prev.filter(file => file !== fileName);
-      safeSetItem('activeFiles', JSON.stringify(updatedFiles));
+        : prev.filter((file) => file !== fileName);
+      safeSetItem("activeFiles", JSON.stringify(updatedFiles));
       return updatedFiles;
     });
   };
 
   const handleLayerToggle = (updatedLayers: string[]) => {
     setActiveLayers(updatedLayers);
-    safeSetItem('activeLayers', JSON.stringify(updatedLayers));
+    safeSetItem("activeLayers", JSON.stringify(updatedLayers));
   };
 
   return (
-    <div 
+    <div
       className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
         onLayerToggle={handleLayerToggle}
         onFileUpload={handleFileUpload}
         onFileDelete={handleFileDelete}
@@ -359,24 +419,30 @@ const Home: React.FC = () => {
         uploadError={uploadError}
       />
       <main className="flex-1 relative">
-        <button 
-          className="absolute top-4 left-4 z-10 md:hidden text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded-md shadow-md" 
+        <button
+          className="absolute top-4 left-4 z-10 md:hidden text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded-md shadow-md"
           onClick={() => setSidebarOpen(true)}
         >
           <Menu className="w-6 h-6" />
         </button>
-        <div ref={mapContainer} className="absolute inset-0" style={{ width: '100%', height: '100%' }} />
+        <div
+          ref={mapContainer}
+          className="absolute inset-0"
+          style={{ width: "100%", height: "100%" }}
+        />
         {mapError && (
           <div className="absolute inset-0 flex items-center justify-center bg-red-100 bg-opacity-75">
             <p className="text-red-700 font-bold">{mapError}</p>
           </div>
         )}
       </main>
-      <Modal
+      <FileUploadModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onConfirm={handleLayerNameConfirm}
-        defaultLayerName={currentUploadedFileName || ''}
+        onConfirm={(layerName, isRemote) =>
+          handleLayerNameConfirm(layerName, isRemote)
+        }
+        defaultLayerName={currentUploadedFileName || ""}
       />
       {isDragging && (
         <div className="absolute inset-0 bg-blue-500 bg-opacity-50 flex items-center justify-center">
@@ -387,6 +453,6 @@ const Home: React.FC = () => {
       )}
     </div>
   );
-}
+};
 
 export default Home;
