@@ -2,5 +2,9 @@
 
 Geo me up Scotty! 
 
-## Architecture Diagram
-![GridWalk - Frame 1](https://github.com/user-attachments/assets/d71b5f46-3d46-4f6d-9497-d2e2861757b5)
+## MVP Architecture Diagram
+
+Organge = To be delivered for MVP
+Blue = To be delivered later.
+
+![GridWalk MVP](https://github.com/user-attachments/assets/a29d8837-af0e-4c3d-ae98-90f1310fe231)
