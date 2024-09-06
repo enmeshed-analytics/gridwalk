@@ -4,7 +4,7 @@ Geo me up Scotty!
 
 ## MVP Architecture Diagram
 
-- Organge = To be delivered for MVP
+- Orange = To be delivered for MVP
 
 - Blue = To be delivered later.
 
