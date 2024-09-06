@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useState } from "react";
+import Clock from "./SidebarClock";
 import {
   X,
   Layers,
@@ -10,7 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import ConnectionsModal from "./ConnectionsModal";
+import ConnectionsModal from "../Modals/ConnectionsModal";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -87,9 +88,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const SidebarContent: React.FC = () => (
     <>
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-          GridWalk
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+            GridWalk
+          </h1>
+          <Clock />
+        </div>
       </div>
       <div className="flex-1 px-6 py-4">
         <div className="mb-6">

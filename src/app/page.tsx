@@ -7,8 +7,8 @@ import React, {
   useRef,
 } from "react";
 import { Menu } from "lucide-react";
-import Sidebar from "../components/Sidebar";
-import FileUploadModal from "../components/FileUploadModal";
+import Sidebar from "../components/Sidebar/Sidebar";
+import FileUploadModal from "../components/Modals/FileUploadModal";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 

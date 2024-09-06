@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: 'media',
+  darkMode: "media",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -14,8 +14,13 @@ const config: Config = {
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
+      fontFamily: {
+        mono: ["IBM Plex Mono", "Fira Code", "Source Code Pro", "monospace"],
+        sans: ["IBM Plex Mono", "Fira Code", "Source Code Pro", "monospace"],
+      },
     },
   },
   plugins: [],
 };
+
 export default config;

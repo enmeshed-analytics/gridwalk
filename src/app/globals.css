@@ -3,13 +3,17 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200;
-  }
+    html {
+        font-family: "IBM Plex Mono", "Fira Code", "Source Code Pro", monospace;
+        font-weight: 300;
+    }
+    body {
+        @apply bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200;
+    }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+    .text-balance {
+        text-wrap: balance;
+    }
 }
