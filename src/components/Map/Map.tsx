@@ -58,7 +58,6 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
 
       map.current.on("error", (e) => {
         console.error("Map error:", e);
-        setMapError(`Map error: ${e.error.message}`);
       });
 
     } catch (error) {
