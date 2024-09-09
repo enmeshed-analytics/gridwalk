@@ -5,8 +5,30 @@ import { Menu } from "lucide-react";
 import Sidebar from "../components/Sidebar/Sidebar";
 import FileUploadModal from "../components/Modals/FileUploadModal";
 
+
+const LoadingSpinner = () => {
+  const [rotation, setRotation] = useState(0);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setRotation((prevRotation) => (prevRotation + 45) % 360);
+    }, 100);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div className="flex justify-center items-center h-full w-full">
+      <div 
+        className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full"
+        style={{ transform: `rotate(${rotation}deg)` }}
+      ></div>
+    </div>
+  );
+};
+
 const Map = dynamic(() => import('../components/Map/Map'), {
-  loading: () => <p>Loading map...</p>,
+  loading: () => <div className="w-full h-full flex items-center justify-center"><LoadingSpinner /></div>,
   ssr: false
 });
 
