@@ -1,10 +1,16 @@
 'use client'
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 interface MapProps {
   activeFiles: string[];
+}
+
+interface TokenData {
+  access_token: string;
+  issued_at: number;
+  expires_in: number;
 }
 
 const INITIAL_VIEW_STATE = {
@@ -13,43 +19,80 @@ const INITIAL_VIEW_STATE = {
   zoom: 11,
 };
 
+const REFRESH_THRESHOLD = 60; // Refresh token 60 seconds before expiry
+
 const Map: React.FC<MapProps> = ({ activeFiles }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [tokenData, setTokenData] = useState<TokenData | null>(null);
 
-  // Initialize map
-  useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+  const fetchToken = useCallback(async () => {
+    try {
+      const response = await fetch('/api/token', { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data: TokenData = await response.json();
+      setTokenData(data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching token:', error);
+      setMapError(`Error fetching access token: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }, []);
+
+  const getValidToken = useCallback(async (): Promise<string | null> => {
+    if (!tokenData) {
+      const newTokenData = await fetchToken();
+      return newTokenData?.access_token || null;
+    }
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    const expirationTime = tokenData.issued_at + tokenData.expires_in;
+
+    if (currentTime >= expirationTime - REFRESH_THRESHOLD) {
+      const newTokenData = await fetchToken();
+      return newTokenData?.access_token || null;
+    }
+
+    return tokenData.access_token;
+  }, [tokenData, fetchToken]);
+
+  const transformRequest = useCallback((url: string, resourceType: string) => {
+    if (true) { // TODO: Fix this to only add header to relevant requests
+      return {
+        url: url,
+        headers: {
+          'Authorization': `Bearer ${tokenData?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+      };
+    }
+  }, [tokenData]);
+
+  const initMap = useCallback(async () => {
+    if (!mapContainer.current) return;
 
     try {
+      await getValidToken(); // Ensure we have a valid token before initializing the map
+
+      const styleUrl = 'https://api.os.uk/maps/vector/v1/vts/resources/styles?srs=3857';
+
       map.current = new maplibregl.Map({
         container: mapContainer.current,
-        style: {
-          version: 8,
-          sources: {
-            "gridwalk-osm-tiles": {
-              type: "vector",
-              tiles: [
-                `${window.location.origin}/api/tiles/{z}/{x}/{y}?layers=roads`,
-              ],
-              minzoom: 0,
-              maxzoom: 20,
-            },
-          },
-          layers: [
-            {
-              id: "mvt-layer-roads",
-              type: "line",
-              source: "gridwalk-osm-tiles",
-              "source-layer": "roads",
-              paint: {},
-            },
-          ],
-        },
+        style: styleUrl,
         center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
         zoom: INITIAL_VIEW_STATE.zoom,
+        maxZoom: 18,
+        minZoom: 6,
+        maxBounds: [
+          [-11.8, 49.4], // Southwest coordinates
+          [3.6, 61.5] // Northeast coordinates
+        ],
+        transformRequest: transformRequest,
       });
 
       map.current.on('load', () => {
@@ -59,13 +102,17 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
       map.current.on("error", (e) => {
         console.error("Map error:", e);
       });
-
     } catch (error) {
       console.error("Error initializing map:", error);
       setMapError(
         `Error initializing map: ${error instanceof Error ? error.message : String(error)}`
       );
     }
+  }, [getValidToken, transformRequest]);
+
+  // Initialize map
+  useEffect(() => {
+    initMap();
 
     return () => {
       if (map.current) {
@@ -73,12 +120,20 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
         map.current = null;
       }
     };
-  }, []); // Empty dependency array ensures this runs only once
+  }, [initMap]);
+
+  // Set up token refresh interval
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      await getValidToken();
+    }, (REFRESH_THRESHOLD * 1000) / 2);
+
+    return () => clearInterval(refreshInterval);
+  }, [getValidToken]);
 
   // Handle active files
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
-
     // Remove layers and sources for files that are no longer active
     map.current.getStyle().layers.forEach((layer) => {
       if (layer.id.startsWith('geojson-layer-') && !activeFiles.includes(layer.id.replace('geojson-layer-', ''))) {
@@ -86,7 +141,6 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
         map.current?.removeSource(layer.id.replace('layer', 'source'));
       }
     });
-
     // Add new sources and layers for active files
     activeFiles.forEach((fileName) => {
       if (!map.current?.getSource(`geojson-source-${fileName}`)) {
@@ -96,7 +150,6 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
             type: "geojson",
             data: JSON.parse(geojsonData),
           });
-
           map.current?.addLayer({
             id: `geojson-layer-${fileName}`,
             type: "fill",
