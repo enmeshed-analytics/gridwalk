@@ -1,7 +1,7 @@
-'use client'
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+"use client";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 interface MapProps {
   activeFiles: string[];
@@ -30,7 +30,7 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
 
   const fetchToken = useCallback(async () => {
     try {
-      const response = await fetch('/api/token', { method: 'POST' });
+      const response = await fetch("/api/os-map-auth", { method: "POST" });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -38,8 +38,10 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
       setTokenData(data);
       return data;
     } catch (error) {
-      console.error('Error fetching token:', error);
-      setMapError(`Error fetching access token: ${error instanceof Error ? error.message : String(error)}`);
+      console.error("Error fetching token:", error);
+      setMapError(
+        `Error fetching access token: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   }, []);
@@ -61,17 +63,21 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     return tokenData.access_token;
   }, [tokenData, fetchToken]);
 
-  const transformRequest = useCallback((url: string, resourceType?: maplibregl.ResourceType) => {
-    if (true) { // TODO: Fix this to only add header to relevant requests
-      return {
-        url: url,
-        headers: {
-          'Authorization': `Bearer ${tokenData?.access_token}`,
-          'Content-Type': 'application/json'
-        },
-      };
-    }
-  }, [tokenData]);
+  const transformRequest = useCallback(
+    (url: string, resourceType?: maplibregl.ResourceType) => {
+      if (true) {
+        // TODO: Fix this to only add header to relevant requests
+        return {
+          url: url,
+          headers: {
+            Authorization: `Bearer ${tokenData?.access_token}`,
+            "Content-Type": "application/json",
+          },
+        };
+      }
+    },
+    [tokenData],
+  );
 
   const initMap = useCallback(async () => {
     if (!mapContainer.current) return;
@@ -79,7 +85,8 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     try {
       await getValidToken(); // Ensure we have a valid token before initializing the map
 
-      const styleUrl = 'https://api.os.uk/maps/vector/v1/vts/resources/styles?srs=3857';
+      const styleUrl =
+        "https://api.os.uk/maps/vector/v1/vts/resources/styles?srs=3857";
 
       map.current = new maplibregl.Map({
         container: mapContainer.current,
@@ -90,12 +97,12 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
         minZoom: 6,
         maxBounds: [
           [-11.8, 49.4], // Southwest coordinates
-          [3.6, 61.5] // Northeast coordinates
+          [3.6, 61.5], // Northeast coordinates
         ],
         transformRequest: transformRequest,
       });
 
-      map.current.on('load', () => {
+      map.current.on("load", () => {
         setMapLoaded(true);
       });
 
@@ -105,7 +112,7 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     } catch (error) {
       console.error("Error initializing map:", error);
       setMapError(
-        `Error initializing map: ${error instanceof Error ? error.message : String(error)}`
+        `Error initializing map: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }, [getValidToken, transformRequest]);
@@ -124,9 +131,12 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
 
   // Set up token refresh interval
   useEffect(() => {
-    const refreshInterval = setInterval(async () => {
-      await getValidToken();
-    }, (REFRESH_THRESHOLD * 1000) / 2);
+    const refreshInterval = setInterval(
+      async () => {
+        await getValidToken();
+      },
+      (REFRESH_THRESHOLD * 1000) / 2,
+    );
 
     return () => clearInterval(refreshInterval);
   }, [getValidToken]);
@@ -136,9 +146,12 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     if (!map.current || !mapLoaded) return;
     // Remove layers and sources for files that are no longer active
     map.current.getStyle().layers.forEach((layer) => {
-      if (layer.id.startsWith('geojson-layer-') && !activeFiles.includes(layer.id.replace('geojson-layer-', ''))) {
+      if (
+        layer.id.startsWith("geojson-layer-") &&
+        !activeFiles.includes(layer.id.replace("geojson-layer-", ""))
+      ) {
         map.current?.removeLayer(layer.id);
-        map.current?.removeSource(layer.id.replace('layer', 'source'));
+        map.current?.removeSource(layer.id.replace("layer", "source"));
       }
     });
     // Add new sources and layers for active files

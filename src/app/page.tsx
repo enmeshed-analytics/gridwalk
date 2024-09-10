@@ -1,10 +1,16 @@
 "use client";
-import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import dynamic from 'next/dynamic';
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { Menu } from "lucide-react";
 import Sidebar from "../components/Sidebar/Sidebar";
 import FileUploadModal from "../components/Modals/FileUploadModal";
-
+import {
+  getLocalStorageItem,
+  safeSetItem,
+  handleFileUpload as handleFileUploadUtil,
+  handleFileDelete as handleFileDeleteUtil,
+  handleFileToggle as handleFileToggleUtil,
+} from "../utils/fileHandler";
 
 const LoadingSpinner = () => {
   const [rotation, setRotation] = useState(0);
@@ -19,7 +25,7 @@ const LoadingSpinner = () => {
 
   return (
     <div className="flex justify-center items-center h-full w-full">
-      <div 
+      <div
         className="w-12 h-12 border-4 border-blue-200 border-t-blue-500 rounded-full"
         style={{ transform: `rotate(${rotation}deg)` }}
       ></div>
@@ -27,46 +33,35 @@ const LoadingSpinner = () => {
   );
 };
 
-const Map = dynamic(() => import('../components/Map/Map'), {
-  loading: () => <div className="w-full h-full flex items-center justify-center"><LoadingSpinner /></div>,
-  ssr: false
+const Map = dynamic(() => import("../components/Map/Map"), {
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center">
+      <LoadingSpinner />
+    </div>
+  ),
+  ssr: false,
 });
 
 const LAYER_NAMES = ["roads", "buildings"];
 
-// Function to safely get items from localStorage
-const getLocalStorageItem = (key: string, defaultValue: any) => {
-  if (typeof window === 'undefined') {
-    return defaultValue;
-  }
-  try {
-    const item = window.localStorage.getItem(key);
-    return item ? JSON.parse(item) : defaultValue;
-  } catch (error) {
-    console.error(`Error reading ${key} from localStorage:`, error);
-    return defaultValue;
-  }
-};
-
 const Home: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [activeLayers, setActiveLayers] = useState<string[]>(() => getLocalStorageItem("activeLayers", ["roads"]));
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>(() => getLocalStorageItem("uploadedFiles", []));
-  const [activeFiles, setActiveFiles] = useState<string[]>(() => getLocalStorageItem("activeFiles", []));
+  const [activeLayers, setActiveLayers] = useState<string[]>(() =>
+    getLocalStorageItem("activeLayers", ["roads"]),
+  );
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>(() =>
+    getLocalStorageItem("uploadedFiles", []),
+  );
+  const [activeFiles, setActiveFiles] = useState<string[]>(() =>
+    getLocalStorageItem("activeFiles", []),
+  );
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUploadedFileName, setCurrentUploadedFileName] = useState("");
-  const [currentUploadedFileContent, setCurrentUploadedFileContent] = useState("");
+  const [currentUploadedFileContent, setCurrentUploadedFileContent] =
+    useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const dragCounter = useRef(0);
-
-  const safeSetItem = useCallback((key: string, value: string) => {
-    try {
-      localStorage.setItem(key, value);
-    } catch (error) {
-      console.error(`Error setting ${key} in localStorage:`, error);
-    }
-  }, []);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -91,32 +86,14 @@ const Home: React.FC = () => {
     e.stopPropagation();
   }, []);
 
-  const handleFileDrop = useCallback((file: File) => {
-    setUploadError(null);
-
-    if (!file.name.toLowerCase().endsWith(".json") && !file.name.toLowerCase().endsWith(".geojson")) {
-      setUploadError("Please upload a GeoJSON file.");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("File size exceeds 5MB limit.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      try {
-        JSON.parse(content); // Validate JSON
-        setCurrentUploadedFileName(file.name);
-        setCurrentUploadedFileContent(content);
-        setIsModalOpen(true);
-      } catch (error) {
-        setUploadError("Invalid GeoJSON file.");
-      }
-    };
-    reader.readAsText(file);
+  const handleFileUpload = useCallback((file: File) => {
+    handleFileUploadUtil(
+      file,
+      setUploadError,
+      setCurrentUploadedFileName,
+      setCurrentUploadedFileContent,
+      setIsModalOpen,
+    );
   }, []);
 
   const handleDrop = useCallback(
@@ -128,114 +105,83 @@ const Home: React.FC = () => {
 
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) {
-        handleFileDrop(files[0]);
+        handleFileUpload(files[0]);
       }
     },
-    [handleFileDrop]
+    [handleFileUpload],
   );
 
-  const handleFileUpload = useCallback((file: File) => {
-    setUploadError(null);
-
-    if (!file.name.toLowerCase().endsWith(".json") && !file.name.toLowerCase().endsWith(".geojson")) {
-      setUploadError("Please upload a GeoJSON file.");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("File size exceeds 5MB limit.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      try {
-        JSON.parse(content); // Validate JSON
-        setCurrentUploadedFileName(file.name);
-        setCurrentUploadedFileContent(content);
-        setIsModalOpen(true);
-      } catch (error) {
-        setUploadError("Invalid GeoJSON file.");
-      }
-    };
-    reader.readAsText(file);
+  const handleFileDelete = useCallback((fileName: string) => {
+    handleFileDeleteUtil(fileName, setUploadedFiles, setActiveFiles);
   }, []);
 
-  const handleLayerNameConfirm = useCallback(async (layerName: string, isRemote: boolean) => {
-    console.log(`handleLayerNameConfirm called with: ${layerName}, isRemote: ${isRemote}`);
-    try {
-      const jsonData = JSON.parse(currentUploadedFileContent);
-      if (isRemote) {
-        // Remote upload logic
-        console.log("Initiating remote upload...");
-        const response = await fetch("/api/remote-file-s3-upload", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            layerName: layerName,
-            data: jsonData,
-          }),
-        });
-        console.log("Response status:", response.status);
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Upload failed:", response.status, response.statusText, errorText);
-          throw new Error(`Remote upload failed: ${response.status} ${response.statusText}`);
-        }
-        const result = await response.json();
-        console.log("Remote upload successful:");
-        safeSetItem(`file:${layerName}`, result.url);
-      } else {
-        // Local upload logic
-        console.log("Performing local upload...");
-        safeSetItem(`file:${layerName}`, JSON.stringify(jsonData));
-      }
-      setUploadedFiles((prev) => {
-        const updatedFiles = [...prev, layerName];
-        safeSetItem("uploadedFiles", JSON.stringify(updatedFiles));
-        return updatedFiles;
-      });
-    } catch (error) {
-      console.error("Error handling file upload:", error);
-      setUploadError("Error saving file. Please try again.");
-    }
-    console.log("Closing modal and resetting state...");
-    setIsModalOpen(false);
-    setCurrentUploadedFileName("");
-    setCurrentUploadedFileContent("");
-  }, [currentUploadedFileContent, safeSetItem]);
-
-  const handleFileDelete = useCallback((fileName: string) => {
-    try {
-      localStorage.removeItem(`file:${fileName}`);
-    } catch (error) {
-      console.error(`Error removing ${fileName} from localStorage:`, error);
-    }
-    setUploadedFiles((prev) => {
-      const updatedFiles = prev.filter((file) => file !== fileName);
-      safeSetItem("uploadedFiles", JSON.stringify(updatedFiles));
-      return updatedFiles;
-    });
-    setActiveFiles((prev) => prev.filter((file) => file !== fileName));
-  }, [safeSetItem]);
-
-  const handleFileToggle = useCallback((fileName: string, isActive: boolean) => {
-    setActiveFiles((prev) => {
-      const updatedFiles = isActive
-        ? [...prev, fileName]
-        : prev.filter((file) => file !== fileName);
-      safeSetItem("activeFiles", JSON.stringify(updatedFiles));
-      return updatedFiles;
-    });
-  }, [safeSetItem]);
+  const handleFileToggle = useCallback(
+    (fileName: string, isActive: boolean) => {
+      handleFileToggleUtil(fileName, isActive, setActiveFiles);
+    },
+    [],
+  );
 
   const handleLayerToggle = useCallback((updatedLayers: string[]) => {
     setActiveLayers(updatedLayers);
     safeSetItem("activeLayers", JSON.stringify(updatedLayers));
-  }, [safeSetItem]);
+  }, []);
+
+  const handleLayerNameConfirm = useCallback(
+    async (layerName: string, isRemote: boolean) => {
+      console.log(
+        `handleLayerNameConfirm called with: ${layerName}, isRemote: ${isRemote}`,
+      );
+      try {
+        const jsonData = JSON.parse(currentUploadedFileContent);
+        if (isRemote) {
+          console.log("Initiating remote upload...");
+          const response = await fetch("/api/remote-file-s3-upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              layerName: layerName,
+              data: jsonData,
+            }),
+          });
+          console.log("Response status:", response.status);
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(
+              "Upload failed:",
+              response.status,
+              response.statusText,
+              errorText,
+            );
+            throw new Error(
+              `Remote upload failed: ${response.status} ${response.statusText}`,
+            );
+          }
+          const result = await response.json();
+          console.log("Remote upload successful:");
+          safeSetItem(`file:${layerName}`, result.url);
+        } else {
+          console.log("Performing local upload...");
+          safeSetItem(`file:${layerName}`, JSON.stringify(jsonData));
+        }
+        setUploadedFiles((prev) => {
+          const updatedFiles = [...prev, layerName];
+          safeSetItem("uploadedFiles", JSON.stringify(updatedFiles));
+          return updatedFiles;
+        });
+      } catch (error) {
+        console.error("Error handling file upload:", error);
+        setUploadError("Error saving file. Please try again.");
+      }
+      console.log("Closing modal and resetting state...");
+      setIsModalOpen(false);
+      setCurrentUploadedFileName("");
+      setCurrentUploadedFileContent("");
+    },
+    [currentUploadedFileContent],
+  );
 
   return (
     <div

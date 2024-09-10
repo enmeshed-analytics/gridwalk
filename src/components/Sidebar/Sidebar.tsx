@@ -49,7 +49,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     [activeFiles],
   );
   const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
-  const [isLayerOptionsVisible, setIsLayerOptionsVisible] = useState(false);
+
+  // Separate state for each layer options visibility
+  const [isBaseLayerVisible, setIsBaseLayerVisible] = useState(false);
+  const [isCoreLayerVisible, setIsCoreLayerVisible] = useState(false);
+  const [isThematicLayerVisible, setIsThematicLayerVisible] = useState(false);
+  const [isUserDefinedLayerVisible, setIsUserDefinedLayerVisible] =
+    useState(false);
 
   const handleCheckboxChange = (layerName: string) => {
     const updatedLayers = isLayerActive(layerName)
@@ -81,10 +87,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     onFileDelete(fileName);
   };
 
-  const toggleLayerOptions = () => {
-    setIsLayerOptionsVisible(!isLayerOptionsVisible);
-  };
-
   const SidebarContent: React.FC = () => (
     <>
       <div className="p-6">
@@ -96,39 +98,20 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
       <div className="flex-1 px-6 py-4">
-        <div className="mb-6">
-          <button
-            onClick={toggleLayerOptions}
-            className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-200 focus:outline-none"
-          >
-            {isLayerOptionsVisible ? (
-              <ChevronDown className="mr-2 h-5 w-5" />
-            ) : (
-              <ChevronRight className="mr-2 h-5 w-5" />
-            )}
-            <Layers className="mr-2 h-5 w-5" />
-            Layer Options
-          </button>
-          {isLayerOptionsVisible && (
-            <div className="mt-4 ml-7">
-              {layerNames.map((layerName) => (
-                <div key={layerName} className="mb-4">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isLayerActive(layerName)}
-                      onChange={() => handleCheckboxChange(layerName)}
-                      className="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out"
-                    />
-                    <span className="text-gray-700 dark:text-gray-300 capitalize">
-                      {layerName}
-                    </span>
-                  </label>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Dropdown for each layer type */}
+        {renderLayerDropdown("Base", isBaseLayerVisible, setIsBaseLayerVisible)}
+        {renderLayerDropdown("Core", isCoreLayerVisible, setIsCoreLayerVisible)}
+        {renderLayerDropdown(
+          "Thematic",
+          isThematicLayerVisible,
+          setIsThematicLayerVisible,
+        )}
+        {renderLayerDropdown(
+          "User Defined",
+          isUserDefinedLayerVisible,
+          setIsUserDefinedLayerVisible,
+        )}
+
         <div className="mt-4">
           <button
             onClick={() => setIsConnectionsModalOpen(true)}
@@ -139,6 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
+        {/* Upload section */}
         <div className="mt-8">
           <h2 className="flex items-center text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
             <Upload className="mr-2 h-5 w-5" />
@@ -205,6 +189,46 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
     </>
+  );
+
+  const renderLayerDropdown = (
+    title: string,
+    isVisible: boolean,
+    setVisible: React.Dispatch<React.SetStateAction<boolean>>,
+  ) => (
+    <div className="mb-6">
+      <button
+        onClick={() => setVisible(!isVisible)}
+        className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-200 focus:outline-none"
+      >
+        {isVisible ? (
+          <ChevronDown className="mr-2 h-5 w-5" />
+        ) : (
+          <ChevronRight className="mr-2 h-5 w-5" />
+        )}
+        <Layers className="mr-2 h-5 w-5" />
+        {title} {/* NO TITLE*/}
+      </button>
+      {isVisible && (
+        <div className="mt-4 ml-7">
+          {layerNames.map((layerName) => (
+            <div key={layerName} className="mb-4">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isLayerActive(layerName)}
+                  onChange={() => handleCheckboxChange(layerName)}
+                  className="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out"
+                />
+                <span className="text-gray-700 dark:text-gray-300 capitalize">
+                  {layerName}
+                </span>
+              </label>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 
   return (

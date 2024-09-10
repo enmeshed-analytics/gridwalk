@@ -6,7 +6,9 @@ const s3Client = new S3Client({
 });
 
 // Bucket Namme for remote file upload
-const BUCKET_NAME = process.env.S3_BUCKET_NAME;
+// const BUCKET_NAME = process.env.S3_BUCKET_NAME;
+const BUCKET_NAME =
+  "gridwalkinfrastructureprodgridwalkfbf71770-remote-file-bucket";
 
 export async function POST(request: NextRequest) {
   console.log("API route hit");

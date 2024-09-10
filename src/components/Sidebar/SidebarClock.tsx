@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
 import React, { useState, useEffect } from "react";
 
 const Clock: React.FC = () => {
-  const [time, setTime] = useState<string>('');
+  const [time, setTime] = useState<string>("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -20,7 +20,6 @@ const Clock: React.FC = () => {
     };
   }, []);
 
-  // Render nothing on the server side or before mounting
   if (!mounted) {
     return null;
   }
