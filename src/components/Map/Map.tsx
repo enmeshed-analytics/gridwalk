@@ -61,7 +61,7 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     return tokenData.access_token;
   }, [tokenData, fetchToken]);
 
-  const transformRequest = useCallback((url: string, resourceType: string) => {
+  const transformRequest = useCallback((url: string, resourceType?: maplibregl.ResourceType) => {
     if (true) { // TODO: Fix this to only add header to relevant requests
       return {
         url: url,
