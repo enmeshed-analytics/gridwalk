@@ -5,8 +5,8 @@ const s3Client = new S3Client({
   region: process.env.AWS_REGION,
 });
 
-// Hardcoded bucket name - NEED TO CHANGE THIS
-const BUCKET_NAME = "gridwalk-remote-file-test-bucket";
+// Bucket Namme for remote file upload
+const BUCKET_NAME = process.env.S3_BUCKET_NAME;
 
 export async function POST(request: NextRequest) {
   console.log("API route hit");
