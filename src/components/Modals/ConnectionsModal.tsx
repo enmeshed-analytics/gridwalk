@@ -25,7 +25,7 @@ const ConnectionsModal: React.FC<ConnectionsModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/connections");
+      const response = await fetch("/api/connections-modal");
       if (!response.ok) {
         throw new Error("Failed to fetch connections");
       }
