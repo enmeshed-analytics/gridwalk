@@ -96,8 +96,8 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
         maxZoom: 18,
         minZoom: 6,
         maxBounds: [
-          [-11.8, 49.4], // Southwest coordinates
-          [3.6, 61.5], // Northeast coordinates
+          [-10.7, 49.5], // Southwest coordinates
+          [1.9, 61.0] // Northeast coordinates
         ],
         transformRequest: transformRequest,
       });
