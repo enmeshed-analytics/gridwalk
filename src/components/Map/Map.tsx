@@ -79,6 +79,18 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     [tokenData],
   );
 
+  // Set up token refresh interval
+  useEffect(() => {
+    const refreshToken = async () => {
+      await getValidToken();
+    };
+
+    refreshToken(); // Initial token fetch
+    const refreshInterval = setInterval(refreshToken, 4 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
+  }, [getValidToken]);
+
   const initMap = useCallback(async () => {
     if (!mapContainer.current) return;
 
