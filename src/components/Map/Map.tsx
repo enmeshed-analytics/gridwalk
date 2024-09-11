@@ -65,8 +65,7 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
 
   const transformRequest = useCallback(
     (url: string, resourceType?: maplibregl.ResourceType) => {
-      if (true) {
-        // TODO: Fix this to only add header to relevant requests
+      if (url.startsWith("https://api.os.uk")) {
         return {
           url: url,
           headers: {
