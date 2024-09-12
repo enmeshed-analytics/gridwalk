@@ -27,6 +27,8 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [tokenData, setTokenData] = useState<TokenData | null>(null);
+  const tokenDataRef = useRef<TokenData | null>(null);
+  const tokenPromiseRef = useRef<Promise<string | null> | null>(null);
 
   const fetchToken = useCallback(async () => {
     try {
@@ -35,8 +37,8 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data: TokenData = await response.json();
-      setTokenData(data);
-      return data;
+      tokenDataRef.current = data;
+      return data.access_token;
     } catch (error) {
       console.error("Error fetching token:", error);
       setMapError(
@@ -47,21 +49,29 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
   }, []);
 
   const getValidToken = useCallback(async (): Promise<string | null> => {
-    if (!tokenData) {
-      const newTokenData = await fetchToken();
-      return newTokenData?.access_token || null;
+    if (tokenPromiseRef.current) {
+      return tokenPromiseRef.current;
+    }
+
+    if (!tokenDataRef.current) {
+      tokenPromiseRef.current = fetchToken();
+      const token = await tokenPromiseRef.current;
+      tokenPromiseRef.current = null;
+      return token;
     }
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const expirationTime = tokenData.issued_at + tokenData.expires_in;
+    const expirationTime = tokenDataRef.current.issued_at + tokenDataRef.current.expires_in;
 
     if (currentTime >= expirationTime - REFRESH_THRESHOLD) {
-      const newTokenData = await fetchToken();
-      return newTokenData?.access_token || null;
+      tokenPromiseRef.current = fetchToken();
+      const token = await tokenPromiseRef.current;
+      tokenPromiseRef.current = null;
+      return token;
     }
 
-    return tokenData.access_token;
-  }, [tokenData, fetchToken]);
+    return tokenDataRef.current.access_token;
+  }, [fetchToken]);
 
   const transformRequest = useCallback(
     (url: string, resourceType?: maplibregl.ResourceType) => {
@@ -69,13 +79,13 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
         return {
           url: url,
           headers: {
-            Authorization: `Bearer ${tokenData?.access_token}`,
+            Authorization: `Bearer ${tokenDataRef.current?.access_token || ""}`,
             "Content-Type": "application/json",
           },
         };
       }
     },
-    [tokenData],
+    []
   );
 
   // Set up token refresh interval
@@ -96,15 +106,13 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     try {
       await getValidToken(); // Ensure we have a valid token before initializing the map
 
-      const styleUrl =
-        "https://api.os.uk/maps/vector/v1/vts/resources/styles?srs=3857";
+      const styleUrl = `${window.location.origin}/OS_VTS_3857_Light.json`
 
       map.current = new maplibregl.Map({
         container: mapContainer.current,
         style: styleUrl,
         center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
         zoom: INITIAL_VIEW_STATE.zoom,
-        maxZoom: 18,
         minZoom: 6,
         maxBounds: [
           [-10.7, 49.5], // Southwest coordinates
