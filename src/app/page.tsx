@@ -2,7 +2,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Menu } from "lucide-react";
-//import Sidebar from "../components/Sidebar/Sidebar";
 import FileUploadModal from "../components/Modals/FileUploadModal";
 import {
   getLocalStorageItem,

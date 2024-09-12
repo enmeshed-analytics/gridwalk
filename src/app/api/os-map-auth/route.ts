@@ -1,10 +1,9 @@
-// File: app/api/token/route.ts
-// TODO: Only handles OS auth endpoint for now
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
-export async function POST(request: NextRequest): Promise<NextResponse> {
+// TODO: Update when auth implemented
+export async function POST(): Promise<NextResponse> {
   const projectAPIKey = process.env.OS_PROJECT_API_KEY;
   const projectAPISecret = process.env.OS_PROJECT_API_SECRET;
 

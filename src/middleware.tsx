@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export function middleware(req: NextRequest) {
+export function middleware() {
   // Allow all requests to pass through
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/api/tiles/:path*", "/api/remote-file-s3-upload"],
+  matcher: ["/api/remote-file-s3-upload"],
 };

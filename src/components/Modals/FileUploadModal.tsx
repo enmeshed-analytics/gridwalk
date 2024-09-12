@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
+  // eslint-disable-next-line no-unused-vars
   onConfirm: (layerName: string, isRemote: boolean) => void;
   defaultLayerName: string;
 }

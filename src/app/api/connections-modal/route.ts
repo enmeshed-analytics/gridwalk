@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { DynamoDBStrategy, DatabaseContext, getDynamoDBClient } from '@/utils/data';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest): Promise<NextResponse> {
+export async function GET(): Promise<NextResponse> {
   const region: string = process.env.AWS_REGION || '';
   const tableName = process.env.DYNAMODB_TABLE || '';
   const client = getDynamoDBClient(region);

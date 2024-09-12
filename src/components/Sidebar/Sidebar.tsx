@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import ConnectionsModal from "../Modals/ConnectionsModal";
 
+/* eslint-disable no-unused-vars */
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +27,7 @@ interface SidebarProps {
   uploadedFiles: string[];
   activeFiles: string[];
 }
+/* eslint-enable no-unused-vars */
 
 const Sidebar: React.FC<SidebarProps> = ({
   isOpen,

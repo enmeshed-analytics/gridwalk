@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars
 import { useCallback } from "react";
 
 // Function to safely get items from localStorage
@@ -26,13 +27,16 @@ export const safeSetItem = (key: string, value: string) => {
 // File upload handling function
 export const handleFileUpload = (
   file: File,
+  // eslint-disable-next-line no-unused-vars
   setUploadError: (message: string | null) => void,
+  // eslint-disable-next-line no-unused-vars
   setCurrentUploadedFileName: (name: string) => void,
+  // eslint-disable-next-line no-unused-vars
   setCurrentUploadedFileContent: (content: string) => void,
+  // eslint-disable-next-line no-unused-vars
   setIsModalOpen: (isOpen: boolean) => void,
 ) => {
   setUploadError(null);
-
   if (
     !file.name.toLowerCase().endsWith(".json") &&
     !file.name.toLowerCase().endsWith(".geojson")
@@ -40,12 +44,10 @@ export const handleFileUpload = (
     setUploadError("Please upload a GeoJSON file.");
     return;
   }
-
   if (file.size > 5 * 1024 * 1024) {
     setUploadError("File size exceeds 5MB limit.");
     return;
   }
-
   const reader = new FileReader();
   reader.onload = (e) => {
     const content = e.target?.result as string;
@@ -64,7 +66,9 @@ export const handleFileUpload = (
 // File delete handling function
 export const handleFileDelete = (
   fileName: string,
+  // eslint-disable-next-line no-unused-vars
   setUploadedFiles: (callback: (prev: string[]) => string[]) => void,
+  // eslint-disable-next-line no-unused-vars
   setActiveFiles: (callback: (prev: string[]) => string[]) => void,
 ) => {
   try {
@@ -84,6 +88,7 @@ export const handleFileDelete = (
 export const handleFileToggle = (
   fileName: string,
   isActive: boolean,
+  // eslint-disable-next-line no-unused-vars
   setActiveFiles: (callback: (prev: string[]) => string[]) => void,
 ) => {
   setActiveFiles((prev) => {
