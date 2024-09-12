@@ -16,11 +16,11 @@ import ConnectionsModal from "../Modals/ConnectionsModal";
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  onLayerToggle: (layers: string[]) => void;
-  onFileUpload: (file: File) => void;
+  onLayerToggle: () => void;
+  onFileUpload: () => void;
   uploadError: string | null;
-  onFileDelete: (fileName: string) => void;
-  onFileToggle: (fileName: string, isActive: boolean) => void;
+  onFileDelete: () => void;
+  onFileToggle: () => void;
   activeLayers: string[];
   layerNames: string[];
   uploadedFiles: string[];

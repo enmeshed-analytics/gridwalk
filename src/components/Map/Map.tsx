@@ -26,7 +26,6 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
   const map = useRef<maplibregl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [tokenData, setTokenData] = useState<TokenData | null>(null);
   const tokenDataRef = useRef<TokenData | null>(null);
   const tokenPromiseRef = useRef<Promise<string | null> | null>(null);
 
@@ -74,7 +73,7 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
   }, [fetchToken]);
 
   const transformRequest = useCallback(
-    (url: string, resourceType?: maplibregl.ResourceType) => {
+    (url: string) => {
       if (url.startsWith("https://api.os.uk")) {
         return {
           url: url,

@@ -1,5 +1,3 @@
-import { useCallback } from "react";
-
 // Function to safely get items from localStorage
 export const getLocalStorageItem = (key: string, defaultValue: any) => {
   if (typeof window === "undefined") {
