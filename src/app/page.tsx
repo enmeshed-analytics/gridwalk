@@ -2,7 +2,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Menu } from "lucide-react";
-//import Sidebar from "../components/Sidebar/Sidebar";
 import FileUploadModal from "../components/Modals/FileUploadModal";
 import {
   getLocalStorageItem,
@@ -12,7 +11,9 @@ import {
   handleFileToggle as handleFileToggleUtil,
 } from "../utils/fileHandler";
 
-const Sidebar = dynamic(() => import("../components/Sidebar/Sidebar"), {ssr: false});
+const Sidebar = dynamic(() => import("../components/Sidebar/Sidebar"), {
+  ssr: false,
+});
 
 const LoadingSpinner = () => {
   const [rotation, setRotation] = useState(0);
@@ -44,12 +45,12 @@ const Map = dynamic(() => import("../components/Map/Map"), {
   ssr: false,
 });
 
-const LAYER_NAMES = ["roads", "buildings"];
+type BaseLayerKey = "Light" | "Dark"; // Define the BaseLayerKey type
 
-const Home: React.FC = () => {
+function Home() {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeLayers, setActiveLayers] = useState<string[]>(() =>
-    getLocalStorageItem("activeLayers", ["roads"]),
+    getLocalStorageItem("activeLayers", ["baseLayer1"]),
   );
   const [uploadedFiles, setUploadedFiles] = useState<string[]>(() =>
     getLocalStorageItem("uploadedFiles", []),
@@ -63,7 +64,19 @@ const Home: React.FC = () => {
   const [currentUploadedFileContent, setCurrentUploadedFileContent] =
     useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedBaseLayer, setSelectedBaseLayer] =
+    useState<BaseLayerKey>("Light"); // Use BaseLayerKey type
   const dragCounter = useRef(0);
+
+  // Define BASE_LAYERS inside the component
+  const BASE_LAYERS: Record<BaseLayerKey, string> = {
+    Light: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Light.json`,
+    Dark: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Dark.json`,
+  };
+
+  const handleBaseLayerChange = useCallback((newBaseLayer: BaseLayerKey) => {
+    setSelectedBaseLayer(newBaseLayer); // Update state with the key directly
+  }, []);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -201,10 +214,14 @@ const Home: React.FC = () => {
         onFileDelete={handleFileDelete}
         onFileToggle={handleFileToggle}
         activeLayers={activeLayers}
-        layerNames={LAYER_NAMES}
         uploadedFiles={uploadedFiles}
         activeFiles={activeFiles}
         uploadError={uploadError}
+        baseLayers={Object.keys(BASE_LAYERS) as BaseLayerKey[]} // Correct type without manual casting
+        coreLayers={["coreLayer1", "coreLayer2"]}
+        thematicLayers={["thematicLayer1", "thematicLayer2"]}
+        userDefinedLayers={["userLayer1", "userLayer2"]}
+        onBaseLayerChange={handleBaseLayerChange}
       />
       <main className="flex-1 relative">
         <button
@@ -213,7 +230,11 @@ const Home: React.FC = () => {
         >
           <Menu className="w-6 h-6" />
         </button>
-        <Map activeFiles={activeFiles} />
+        <Map
+          activeFiles={activeFiles}
+          baseLayer={BASE_LAYERS[selectedBaseLayer]}
+        />{" "}
+        {/* Pass the selected base layer URL */}
       </main>
       <FileUploadModal
         isOpen={isModalOpen}
@@ -230,6 +251,6 @@ const Home: React.FC = () => {
       )}
     </div>
   );
-};
+}
 
 export default Home;

@@ -5,6 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 interface MapProps {
   activeFiles: string[];
+  baseLayer: string;
 }
 
 interface TokenData {
@@ -21,7 +22,7 @@ const INITIAL_VIEW_STATE = {
 
 const REFRESH_THRESHOLD = 60; // Refresh token 60 seconds before expiry
 
-const Map: React.FC<MapProps> = ({ activeFiles }) => {
+const Map: React.FC<MapProps> = ({ activeFiles, baseLayer }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -60,7 +61,8 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     }
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const expirationTime = tokenDataRef.current.issued_at + tokenDataRef.current.expires_in;
+    const expirationTime =
+      tokenDataRef.current.issued_at + tokenDataRef.current.expires_in;
 
     if (currentTime >= expirationTime - REFRESH_THRESHOLD) {
       tokenPromiseRef.current = fetchToken();
@@ -73,7 +75,7 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
   }, [fetchToken]);
 
   const transformRequest = useCallback(
-    (url: string) => {
+    (url: string): maplibregl.RequestParameters | undefined => {
       if (url.startsWith("https://api.os.uk")) {
         return {
           url: url,
@@ -82,9 +84,14 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
             "Content-Type": "application/json",
           },
         };
+      } else if (url.startsWith(window.location.origin)) {
+        return {
+          url: url,
+          credentials: "same-origin" as const, // Correctly type 'credentials'
+        };
       }
     },
-    []
+    [],
   );
 
   // Set up token refresh interval
@@ -105,17 +112,15 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     try {
       await getValidToken(); // Ensure we have a valid token before initializing the map
 
-      const styleUrl = `${window.location.origin}/OS_VTS_3857_Light.json`
-
       map.current = new maplibregl.Map({
         container: mapContainer.current,
-        style: styleUrl,
+        style: baseLayer, // Use baseLayer prop for style
         center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
         zoom: INITIAL_VIEW_STATE.zoom,
         minZoom: 6,
         maxBounds: [
           [-10.7, 49.5], // Southwest coordinates
-          [1.9, 61.0] // Northeast coordinates
+          [1.9, 61.0], // Northeast coordinates
         ],
         transformRequest: transformRequest,
       });
@@ -124,8 +129,13 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
         setMapLoaded(true);
       });
 
+      map.current.on("styledata", () => {
+        console.log("New style loaded:", baseLayer);
+      });
+
       map.current.on("error", (e) => {
         console.error("Map error:", e);
+        setMapError(`Map error: ${e.error.message}`);
       });
     } catch (error) {
       console.error("Error initializing map:", error);
@@ -133,7 +143,7 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
         `Error initializing map: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-  }, [getValidToken, transformRequest]);
+  }, [getValidToken, transformRequest, baseLayer]); // Depend on baseLayer
 
   // Initialize map
   useEffect(() => {
@@ -147,17 +157,20 @@ const Map: React.FC<MapProps> = ({ activeFiles }) => {
     };
   }, [initMap]);
 
-  // Set up token refresh interval
+  // Update map style when baseLayer changes
   useEffect(() => {
-    const refreshInterval = setInterval(
-      async () => {
-        await getValidToken();
-      },
-      (REFRESH_THRESHOLD * 1000) / 2,
-    );
-
-    return () => clearInterval(refreshInterval);
-  }, [getValidToken]);
+    if (map.current && mapLoaded) {
+      console.log("Updating map style to:", baseLayer); // Debugging log
+      map.current.setStyle(baseLayer); // Update map style
+      map.current.once("styledata", () => {
+        console.log("Style updated successfully:", baseLayer); // Confirm style load
+      });
+      map.current.on("error", (e) => {
+        console.error("Error loading new style:", e);
+        setMapError(`Error loading new style: ${e.error.message}`);
+      });
+    }
+  }, [baseLayer, mapLoaded]);
 
   // Handle active files
   useEffect(() => {
