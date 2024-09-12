@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Menu } from "lucide-react";
-import Sidebar from "../components/Sidebar/Sidebar";
+//import Sidebar from "../components/Sidebar/Sidebar";
 import FileUploadModal from "../components/Modals/FileUploadModal";
 import {
   getLocalStorageItem,
@@ -11,6 +11,8 @@ import {
   handleFileDelete as handleFileDeleteUtil,
   handleFileToggle as handleFileToggleUtil,
 } from "../utils/fileHandler";
+
+const Sidebar = dynamic(() => import("../components/Sidebar/Sidebar"), {ssr: false});
 
 const LoadingSpinner = () => {
   const [rotation, setRotation] = useState(0);
