@@ -20,8 +20,8 @@ interface SidebarProps {
   onLayerToggle: (updatedLayers: string[]) => void;
   onFileUpload: (file: File) => void;
   uploadError: string | null;
-  onFileDelete: () => void;
-  onFileToggle: () => void;
+  onFileDelete: (fileName: string) => void;
+  onFileToggle: (fileName: string, isActive: boolean) => void;
   activeLayers: string[];
   uploadedFiles: string[];
   activeFiles: string[];
@@ -104,6 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     isVisible: boolean,
     setVisible: React.Dispatch<React.SetStateAction<boolean>>,
     layers: string[], // Accept layers as an argument
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     onLayerSelect?: (layerName: string) => void, // Optional callback for layer selection
   ) => (
     <div className="mb-6">
@@ -168,7 +169,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             isBaseLayerVisible,
             setIsBaseLayerVisible,
             baseLayers,
-            onBaseLayerChange, // Pass the base layer change handler here
+            (layerName: string) => onBaseLayerChange(layerName as "Light" | "Dark")
           )}
           {renderLayerDropdown(
             "Core",

@@ -54,6 +54,7 @@ export const handleFileUpload = (
       setCurrentUploadedFileContent(content);
       setIsModalOpen(true);
     } catch (error) {
+      console.error("File handling error: ", error)
       setUploadError("Invalid GeoJSON file.");
     }
   };

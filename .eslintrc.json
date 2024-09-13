@@ -6,6 +6,12 @@
     "prettier"
   ],
   "rules": {
-    "no-unused-vars": "error"
+    "@typescript-eslint/no-unused-vars": "error"
+  },
+  "plugins": [
+    "@typescript-eslint"
+  ],
+  "globals": {
+    "JSX": "readonly"
   }
 }
