@@ -45,7 +45,7 @@ const Map = dynamic(() => import("../components/Map/Map"), {
   ssr: false,
 });
 
-type BaseLayerKey = "Light" | "Dark"; // Define the BaseLayerKey type
+type BaseLayerKey = "Light" | "Dark";
 
 function Home() {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -65,7 +65,7 @@ function Home() {
     useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [selectedBaseLayer, setSelectedBaseLayer] =
-    useState<BaseLayerKey>("Light"); // Use BaseLayerKey type
+    useState<BaseLayerKey>("Light");
   const dragCounter = useRef(0);
 
   // Define BASE_LAYERS inside the component
@@ -217,7 +217,7 @@ function Home() {
         uploadedFiles={uploadedFiles}
         activeFiles={activeFiles}
         uploadError={uploadError}
-        baseLayers={Object.keys(BASE_LAYERS) as BaseLayerKey[]} // Correct type without manual casting
+        baseLayers={Object.keys(BASE_LAYERS) as BaseLayerKey[]}
         coreLayers={["coreLayer1", "coreLayer2"]}
         thematicLayers={["thematicLayer1", "thematicLayer2"]}
         userDefinedLayers={["userLayer1", "userLayer2"]}

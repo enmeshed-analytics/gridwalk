@@ -18,12 +18,15 @@
     "maplibre-gl": "^4.6.0",
     "next": "14.2.5",
     "next-auth": "^5.0.0-beta.20",
+    "proj4": "^2.12.1",
     "react": "^18",
     "react-dom": "^18",
     "react-map-gl": "^7.1.7"
   },
   "devDependencies": {
+    "@types/geojson": "^7946.0.14",
     "@types/node": "^20",
+    "@types/proj4": "^2.5.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@typescript-eslint/eslint-plugin": "^8.5.0",

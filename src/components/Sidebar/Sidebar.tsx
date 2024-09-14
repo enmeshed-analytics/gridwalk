@@ -169,7 +169,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             isBaseLayerVisible,
             setIsBaseLayerVisible,
             baseLayers,
-            (layerName: string) => onBaseLayerChange(layerName as "Light" | "Dark")
+            (layerName: string) =>
+              onBaseLayerChange(layerName as "Light" | "Dark"),
           )}
           {renderLayerDropdown(
             "Core",
@@ -232,7 +233,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="mt-8">
             <h2 className="flex items-center text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
               <FileText className="mr-2 h-5 w-5" />
-              Uploaded Layers
+              Local Layers
             </h2>
             {uploadedFiles.length > 0 ? (
               <ul className="space-y-2">
