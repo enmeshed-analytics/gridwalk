@@ -1,11 +1,15 @@
-import { NextResponse } from 'next/server';
-import { DynamoDBStrategy, DatabaseContext, getDynamoDBClient } from '@/utils/data';
+import { NextResponse } from "next/server";
+import {
+  DynamoDBStrategy,
+  DatabaseContext,
+  getDynamoDBClient,
+} from "@/utils/dynamoDB";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<NextResponse> {
-  const region: string = process.env.AWS_REGION || '';
-  const tableName = process.env.DYNAMODB_TABLE || '';
+  const region: string = process.env.AWS_REGION || "";
+  const tableName = process.env.DYNAMODB_TABLE || "";
   const client = getDynamoDBClient(region);
   const strategy = new DynamoDBStrategy(client, tableName);
   const database = new DatabaseContext(strategy);
@@ -21,16 +25,19 @@ export async function GET(): Promise<NextResponse> {
     return new NextResponse(jsonResponse, {
       status: 200,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
   } catch (error) {
-    console.error('Error fetching data sources:', error);
-    return new NextResponse(JSON.stringify({ error: 'Internal Server Error' }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
+    console.error("Error fetching data sources:", error);
+    return new NextResponse(
+      JSON.stringify({ error: "Internal Server Error" }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    });
+    );
   }
 }
