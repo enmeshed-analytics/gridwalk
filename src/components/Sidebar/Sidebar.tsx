@@ -156,7 +156,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="mt-4 ml-7">
             {layers.map((layerName) => {
               // Dynamically get the icon for each layer item
-              const LayerItemIcon = layerIcons[layerName] || Layers; // Default to Layers icon if not found
+              const LayerItemIcon = layerIcons[layerName] || Layers;
 
               // Get the color classes for the specific base layer
               const buttonColorClasses =

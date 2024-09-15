@@ -11,6 +11,7 @@ import {
   handleFileToggle as handleFileToggleUtil,
 } from "../utils/fileHandler";
 
+// Keys to change base layers
 type BaseLayerKey = "Light" | "Dark" | "Road";
 
 // Load Map
