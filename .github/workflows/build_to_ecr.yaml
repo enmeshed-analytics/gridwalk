@@ -1,5 +1,9 @@
 name: Build and Push to ECR
 
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read
+
 on:
   push:
     branches: [ "main" ]
