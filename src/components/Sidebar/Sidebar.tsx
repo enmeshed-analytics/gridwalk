@@ -66,6 +66,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   userDefinedLayers,
   onBaseLayerChange,
 }) => {
+  // States
+  const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
+  const [isBaseLayerVisible, setIsBaseLayerVisible] = useState(false);
+  const [isCoreLayerVisible, setIsCoreLayerVisible] = useState(false);
+  const [isThematicLayerVisible, setIsThematicLayerVisible] = useState(false);
+  const [isUserDefinedLayerVisible, setIsUserDefinedLayerVisible] =
+    useState(false);
+
+  // Callbacks for layers and files
   const isLayerActive = useCallback(
     (layer: string) => activeLayers.includes(layer),
     [activeLayers],
@@ -76,15 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     [activeFiles],
   );
 
-  const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
-
-  // Separate state for each layer options visibility
-  const [isBaseLayerVisible, setIsBaseLayerVisible] = useState(false);
-  const [isCoreLayerVisible, setIsCoreLayerVisible] = useState(false);
-  const [isThematicLayerVisible, setIsThematicLayerVisible] = useState(false);
-  const [isUserDefinedLayerVisible, setIsUserDefinedLayerVisible] =
-    useState(false);
-
+  // File handling
   const handleCheckboxChange = (layerName: string) => {
     const updatedLayers = isLayerActive(layerName)
       ? activeLayers.filter((layer) => layer !== layerName)
@@ -115,6 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onFileDelete(fileName);
   };
 
+  // Dropdown logic
   const renderLayerDropdown = (
     title: string,
     isVisible: boolean,
