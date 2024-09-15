@@ -1,4 +1,4 @@
-import { Connection } from "../../utils/data";
+import { Connection } from "../../utils/dynamoDB";
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 
