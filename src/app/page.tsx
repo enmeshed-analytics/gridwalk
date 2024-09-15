@@ -53,6 +53,14 @@ const LoadingSpinner = () => {
 
 // ENTRY POINT FOR APP
 function Home() {
+  // Define BASE_LAYERS inside the component
+  const BASE_LAYERS: Record<BaseLayerKey, string> = {
+    Light: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Light.json`,
+    Dark: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Dark.json`,
+    Road: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Road.json`,
+  };
+
+  // Set up the states
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeLayers, setActiveLayers] = useState<string[]>(() =>
     getLocalStorageItem("activeLayers", ["baseLayer1"]),
@@ -73,13 +81,7 @@ function Home() {
     useState<BaseLayerKey>("Light");
   const dragCounter = useRef(0);
 
-  // Define BASE_LAYERS inside the component
-  const BASE_LAYERS: Record<BaseLayerKey, string> = {
-    Light: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Light.json`,
-    Dark: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Dark.json`,
-    Road: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Road.json`,
-  };
-
+  // Call backs for interactive elements where props COULD change
   const handleBaseLayerChange = useCallback((newBaseLayer: BaseLayerKey) => {
     setSelectedBaseLayer(newBaseLayer);
   }, []);

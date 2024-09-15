@@ -54,7 +54,7 @@ interface SidebarProps {
   coreLayers: string[];
   thematicLayers: string[];
   userDefinedLayers: string[];
-  onBaseLayerChange: (newBaseLayer: "Light" | "Dark") => void;
+  onBaseLayerChange: (newBaseLayer: "Light" | "Dark" | "Road") => void;
 }
 
 /* eslint-enable no-unused-vars */
@@ -218,7 +218,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             setIsBaseLayerVisible,
             baseLayers,
             (layerName: string) =>
-              onBaseLayerChange(layerName as "Light" | "Dark"),
+              onBaseLayerChange(layerName as "Light" | "Dark" | "Road"),
           )}
           {renderLayerDropdown(
             "Core",
