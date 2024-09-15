@@ -15,6 +15,7 @@ import {
   Globe,
   MapPin,
   User,
+  Car,
 } from "lucide-react";
 import ConnectionsModal from "../Modals/ConnectionsModal";
 
@@ -26,7 +27,14 @@ const layerIcons: Record<string, React.ElementType> = {
   Core: Globe,
   Thematic: MapPin,
   UserDefined: User,
+  Road: Car,
   // Add more mappings as needed
+};
+
+const layerButtonColors: Record<string, string> = {
+  Light: "bg-yellow-400 hover:bg-yellow-500 focus:ring-yellow-300", // Brighter yellow with lighter hover and focus states
+  Dark: "bg-purple-700 hover:bg-purple-800 focus:ring-purple-600", // Deep purple for a more elegant dark theme
+  Road: "bg-green-600 hover:bg-green-700 focus:ring-green-500", // Earthy green for road layers to signify nature
 };
 
 /* eslint-disable no-unused-vars */
@@ -149,12 +157,18 @@ const Sidebar: React.FC<SidebarProps> = ({
               // Dynamically get the icon for each layer item
               const LayerItemIcon = layerIcons[layerName] || Layers; // Default to Layers icon if not found
 
+              // Get the color classes for the specific base layer
+              const buttonColorClasses =
+                title === "Base"
+                  ? layerButtonColors[layerName]
+                  : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
+
               return (
                 <div key={layerName} className="mb-4">
                   {onLayerSelect ? (
                     <button
                       onClick={() => onLayerSelect(layerName)}
-                      className="w-full mb-2 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      className={`w-full mb-2 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${buttonColorClasses} focus:outline-none focus:ring-2 focus:ring-offset-2`}
                     >
                       <LayerItemIcon className="mr-2 h-5 w-5" />{" "}
                       {/* Use the icon for the layer item */}

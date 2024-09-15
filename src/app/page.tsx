@@ -11,10 +11,24 @@ import {
   handleFileToggle as handleFileToggleUtil,
 } from "../utils/fileHandler";
 
+type BaseLayerKey = "Light" | "Dark" | "Road";
+
+// Load Map
+const Map = dynamic(() => import("../components/Map/Map"), {
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center">
+      <LoadingSpinner />
+    </div>
+  ),
+  ssr: false,
+});
+
+// Load Sidebar
 const Sidebar = dynamic(() => import("../components/Sidebar/Sidebar"), {
   ssr: false,
 });
 
+// Define Spinner
 const LoadingSpinner = () => {
   const [rotation, setRotation] = useState(0);
 
@@ -36,17 +50,7 @@ const LoadingSpinner = () => {
   );
 };
 
-const Map = dynamic(() => import("../components/Map/Map"), {
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center">
-      <LoadingSpinner />
-    </div>
-  ),
-  ssr: false,
-});
-
-type BaseLayerKey = "Light" | "Dark";
-
+// ENTRY POINT FOR APP
 function Home() {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeLayers, setActiveLayers] = useState<string[]>(() =>
@@ -72,10 +76,11 @@ function Home() {
   const BASE_LAYERS: Record<BaseLayerKey, string> = {
     Light: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Light.json`,
     Dark: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Dark.json`,
+    Road: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Road.json`,
   };
 
   const handleBaseLayerChange = useCallback((newBaseLayer: BaseLayerKey) => {
-    setSelectedBaseLayer(newBaseLayer); // Update state with the key directly
+    setSelectedBaseLayer(newBaseLayer);
   }, []);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
