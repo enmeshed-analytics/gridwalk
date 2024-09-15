@@ -10,8 +10,24 @@ import {
   Link,
   ChevronDown,
   ChevronRight,
+  Sun,
+  Moon,
+  Globe,
+  MapPin,
+  User,
 } from "lucide-react";
 import ConnectionsModal from "../Modals/ConnectionsModal";
+
+// Define a mapping for layer types or specific layer names
+const layerIcons: Record<string, React.ElementType> = {
+  Base: Layers,
+  Light: Sun,
+  Dark: Moon,
+  Core: Globe,
+  Thematic: MapPin,
+  UserDefined: User,
+  // Add more mappings as needed
+};
 
 /* eslint-disable no-unused-vars */
 interface SidebarProps {
@@ -25,14 +41,14 @@ interface SidebarProps {
   activeLayers: string[];
   uploadedFiles: string[];
   activeFiles: string[];
-  baseLayers: string[]; // New prop for base layers
-  coreLayers: string[]; // New prop for core layers
-  thematicLayers: string[]; // New prop for thematic layers
-  userDefinedLayers: string[]; // New prop for user-defined layers
-  onBaseLayerChange: (newBaseLayer: "Light" | "Dark") => void; // // New prop for base layer change handler
+  baseLayers: string[];
+  coreLayers: string[];
+  thematicLayers: string[];
+  userDefinedLayers: string[];
+  onBaseLayerChange: (newBaseLayer: "Light" | "Dark") => void;
 }
-/* eslint-enable no-unused-vars */
 
+/* eslint-enable no-unused-vars */
 const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
@@ -103,53 +119,68 @@ const Sidebar: React.FC<SidebarProps> = ({
     title: string,
     isVisible: boolean,
     setVisible: React.Dispatch<React.SetStateAction<boolean>>,
-    layers: string[], // Accept layers as an argument
+    layers: string[],
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    onLayerSelect?: (layerName: string) => void, // Optional callback for layer selection
-  ) => (
-    <div className="mb-6">
-      <button
-        onClick={() => setVisible(!isVisible)}
-        className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-200 focus:outline-none"
-      >
-        {isVisible ? (
-          <ChevronDown className="mr-2 h-5 w-5" />
-        ) : (
-          <ChevronRight className="mr-2 h-5 w-5" />
+    onLayerSelect?: (layerName: string) => void,
+  ) => {
+    // Get the icon for the layer type
+    const LayerIcon = layerIcons[title.replace(/\s+/g, "")] || Layers;
+
+    return (
+      <div className="mb-6">
+        <button
+          onClick={() => setVisible(!isVisible)}
+          className="flex items-center text-lg font-semibold text-gray-700 dark:text-gray-200 focus:outline-none"
+        >
+          {isVisible ? (
+            <ChevronDown className="mr-2 h-5 w-5" />
+          ) : (
+            <ChevronRight className="mr-2 h-5 w-5" />
+          )}
+          <LayerIcon className="mr-2 h-5 w-5" />{" "}
+          {/* Use the icon for the dropdown header */}
+          {title}
+        </button>
+        {isVisible && (
+          <div className="mt-4 ml-7">
+            {layers.map((layerName) => {
+              // Dynamically get the icon for each layer item
+              const LayerItemIcon = layerIcons[layerName] || Layers; // Default to Layers icon if not found
+
+              return (
+                <div key={layerName} className="mb-4">
+                  {onLayerSelect ? (
+                    <button
+                      onClick={() => onLayerSelect(layerName)}
+                      className="w-full mb-2 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <LayerItemIcon className="mr-2 h-5 w-5" />{" "}
+                      {/* Use the icon for the layer item */}
+                      {layerName}
+                    </button>
+                  ) : (
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isLayerActive(layerName)}
+                        onChange={() => handleCheckboxChange(layerName)}
+                        className="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out"
+                      />
+                      <LayerItemIcon className="mr-2 h-5 w-5" />{" "}
+                      {/* Use the icon for the layer item */}
+                      <span className="text-gray-700 dark:text-gray-300 capitalize">
+                        {layerName}
+                      </span>
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
-        <Layers className="mr-2 h-5 w-5" />
-        {title}
-      </button>
-      {isVisible && (
-        <div className="mt-4 ml-7">
-          {layers.map((layerName) => (
-            <div key={layerName} className="mb-4">
-              {onLayerSelect ? (
-                <button
-                  onClick={() => onLayerSelect(layerName)} // Handle base layer change
-                  className="w-full mb-2 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  {layerName}
-                </button>
-              ) : (
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isLayerActive(layerName)}
-                    onChange={() => handleCheckboxChange(layerName)}
-                    className="form-checkbox h-5 w-5 text-blue-600 rounded transition duration-150 ease-in-out"
-                  />
-                  <span className="text-gray-700 dark:text-gray-300 capitalize">
-                    {layerName}
-                  </span>
-                </label>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   const SidebarContent = (): JSX.Element => {
     return (
