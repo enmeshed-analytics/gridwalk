@@ -4,8 +4,4 @@ Geo me up Scotty!
 
 ## MVP Architecture Diagram
 
-- Orange = To be delivered for MVP
-
-- Blue = To be delivered later.
-
-![GridWalk MVP](https://github.com/user-attachments/assets/a29d8837-af0e-4c3d-ae98-90f1310fe231)
+![Untitled-2024-09-24-1622](https://github.com/user-attachments/assets/5c762e7e-e9fd-414f-9f86-d4d576717dc8)
