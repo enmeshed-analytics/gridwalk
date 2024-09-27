@@ -11,25 +11,22 @@ import {
   handleFileToggle as handleFileToggleUtil,
 } from "../utils/fileHandler";
 
-// Keys to change base layers
 type BaseLayerKey = "Light" | "Dark" | "Road";
+const layerButtonColors: Record<BaseLayerKey, string> = {
+  Light: "bg-yellow-400 hover:bg-yellow-500 focus:ring-yellow-300",
+  Dark: "bg-purple-700 hover:bg-purple-800 focus:ring-purple-600",
+  Road: "bg-green-600 hover:bg-green-700 focus:ring-green-500",
+};
 
-// Load Map
 const Map = dynamic(() => import("../components/Map/Map"), {
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center">
-      <LoadingSpinner />
-    </div>
-  ),
+  loading: () => <LoadingSpinner />,
   ssr: false,
 });
 
-// Load Sidebar
 const Sidebar = dynamic(() => import("../components/Sidebar/Sidebar"), {
   ssr: false,
 });
 
-// Define Spinner
 const LoadingSpinner = () => {
   const [rotation, setRotation] = useState(0);
 
@@ -51,39 +48,40 @@ const LoadingSpinner = () => {
   );
 };
 
-// ENTRY POINT FOR APP
 function Home() {
-  // Define BASE_LAYERS inside the component
   const BASE_LAYERS: Record<BaseLayerKey, string> = {
     Light: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Light.json`,
     Dark: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Dark.json`,
     Road: `${typeof window !== "undefined" ? window.location.origin : ""}/OS_VTS_3857_Road.json`,
   };
 
-  // Set up the states
+  const CORE_LAYERS = ["coreLayer1", "coreLayer2"];
+  const THEMATIC_LAYERS = ["thematicLayer1", "thematicLayer2"];
+  const USER_DEFINED_LAYERS = ["userLayer1", "userLayer2"];
+
+  // State
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [activeLayers, setActiveLayers] = useState<string[]>(() =>
-    getLocalStorageItem("activeLayers", ["baseLayer1"]),
+    getLocalStorageItem("activeLayers", ["baseLayer1"])
   );
   const [uploadedFiles, setUploadedFiles] = useState<string[]>(() =>
-    getLocalStorageItem("uploadedFiles", []),
+    getLocalStorageItem("uploadedFiles", [])
   );
   const [activeFiles, setActiveFiles] = useState<string[]>(() =>
-    getLocalStorageItem("activeFiles", []),
+    getLocalStorageItem("activeFiles", [])
   );
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUploadedFileName, setCurrentUploadedFileName] = useState("");
-  const [currentUploadedFileContent, setCurrentUploadedFileContent] =
-    useState("");
+  const [currentUploadedFileContent, setCurrentUploadedFileContent] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [selectedBaseLayer, setSelectedBaseLayer] =
-    useState<BaseLayerKey>("Light");
+  const [selectedBaseLayer, setSelectedBaseLayer] = useState<BaseLayerKey>("Light");
+
   const dragCounter = useRef(0);
 
-  // Call backs for interactive elements where props COULD change
-  const handleBaseLayerChange = useCallback((newBaseLayer: BaseLayerKey) => {
-    setSelectedBaseLayer(newBaseLayer);
+  // Callbacks
+  const handleBaseLayerChange = useCallback((newBaseLayer: string) => {
+    setSelectedBaseLayer(newBaseLayer as BaseLayerKey);
   }, []);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -131,19 +129,16 @@ function Home() {
         handleFileUpload(files[0]);
       }
     },
-    [handleFileUpload],
+    [handleFileUpload]
   );
 
   const handleFileDelete = useCallback((fileName: string) => {
     handleFileDeleteUtil(fileName, setUploadedFiles, setActiveFiles);
   }, []);
 
-  const handleFileToggle = useCallback(
-    (fileName: string, isActive: boolean) => {
-      handleFileToggleUtil(fileName, isActive, setActiveFiles);
-    },
-    [],
-  );
+  const handleFileToggle = useCallback((fileName: string, isActive: boolean) => {
+    handleFileToggleUtil(fileName, isActive, setActiveFiles);
+  }, []);
 
   const handleLayerToggle = useCallback((updatedLayers: string[]) => {
     setActiveLayers(updatedLayers);
@@ -152,9 +147,7 @@ function Home() {
 
   const handleLayerNameConfirm = useCallback(
     async (layerName: string, isRemote: boolean) => {
-      console.log(
-        `handleLayerNameConfirm called with: ${layerName}, isRemote: ${isRemote}`,
-      );
+      console.log(`handleLayerNameConfirm called with: ${layerName}, isRemote: ${isRemote}`);
       try {
         const jsonData = JSON.parse(currentUploadedFileContent);
         if (isRemote) {
@@ -203,7 +196,7 @@ function Home() {
       setCurrentUploadedFileName("");
       setCurrentUploadedFileContent("");
     },
-    [currentUploadedFileContent],
+    [currentUploadedFileContent]
   );
 
   return (
@@ -216,7 +209,7 @@ function Home() {
     >
       <Sidebar
         isOpen={sidebarOpen}
-        onClose={useCallback(() => setSidebarOpen(false), [])}
+        onClose={() => setSidebarOpen(false)}
         onLayerToggle={handleLayerToggle}
         onFileUpload={handleFileUpload}
         onFileDelete={handleFileDelete}
@@ -225,28 +218,34 @@ function Home() {
         uploadedFiles={uploadedFiles}
         activeFiles={activeFiles}
         uploadError={uploadError}
-        baseLayers={Object.keys(BASE_LAYERS) as BaseLayerKey[]}
-        coreLayers={["coreLayer1", "coreLayer2"]}
-        thematicLayers={["thematicLayer1", "thematicLayer2"]}
-        userDefinedLayers={["userLayer1", "userLayer2"]}
-        onBaseLayerChange={handleBaseLayerChange}
+        selectedBaseLayer={selectedBaseLayer}
+        layerGroups={[
+          { 
+            title: "Base", 
+            layers: Object.keys(BASE_LAYERS) as BaseLayerKey[], 
+            onLayerSelect: handleBaseLayerChange,
+            buttonColors: layerButtonColors
+          },
+          { title: "Core", layers: CORE_LAYERS },
+          { title: "Thematic", layers: THEMATIC_LAYERS },
+          { title: "User Defined", layers: USER_DEFINED_LAYERS },
+        ]}
       />
       <main className="flex-1 relative">
         <button
           className="absolute top-4 left-4 z-10 md:hidden text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded-md shadow-md"
-          onClick={useCallback(() => setSidebarOpen(true), [])}
+          onClick={() => setSidebarOpen(true)}
         >
           <Menu className="w-6 h-6" />
         </button>
         <Map
           activeFiles={activeFiles}
           baseLayer={BASE_LAYERS[selectedBaseLayer]}
-        />{" "}
-        {/* Pass the selected base layer URL */}
+        />
       </main>
       <FileUploadModal
         isOpen={isModalOpen}
-        onClose={useCallback(() => setIsModalOpen(false), [])}
+        onClose={() => setIsModalOpen(false)}
         onConfirm={handleLayerNameConfirm}
         defaultLayerName={currentUploadedFileName || ""}
       />
