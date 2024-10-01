@@ -11,12 +11,7 @@ import {
   handleFileToggle as handleFileToggleUtil,
 } from "../utils/fileHandler";
 
-type BaseLayerKey = "Light" | "Dark" | "Road";
-const layerButtonColors: Record<BaseLayerKey, string> = {
-  Light: "bg-yellow-400 hover:bg-yellow-500 focus:ring-yellow-300",
-  Dark: "bg-purple-700 hover:bg-purple-800 focus:ring-purple-600",
-  Road: "bg-green-600 hover:bg-green-700 focus:ring-green-500",
-};
+export type BaseLayerKey = "Light" | "Dark" | "Road";
 
 const Map = dynamic(() => import("../components/Map/Map"), {
   loading: () => <LoadingSpinner />,
@@ -80,8 +75,8 @@ function Home() {
   const dragCounter = useRef(0);
 
   // Callbacks
-  const handleBaseLayerChange = useCallback((newBaseLayer: string) => {
-    setSelectedBaseLayer(newBaseLayer as BaseLayerKey);
+  const handleBaseLayerChange = useCallback((newBaseLayer: BaseLayerKey) => {
+    setSelectedBaseLayer(newBaseLayer);
   }, []);
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -220,11 +215,10 @@ function Home() {
         uploadError={uploadError}
         selectedBaseLayer={selectedBaseLayer}
         layerGroups={[
-          { 
-            title: "Base", 
-            layers: Object.keys(BASE_LAYERS) as BaseLayerKey[], 
-            onLayerSelect: handleBaseLayerChange,
-            buttonColors: layerButtonColors
+          {
+            title: "Base",
+            layers: Object.keys(BASE_LAYERS) as BaseLayerKey[],
+            onLayerSelect: (layerName: string) => handleBaseLayerChange(layerName as BaseLayerKey)
           },
           { title: "Core", layers: CORE_LAYERS },
           { title: "Thematic", layers: THEMATIC_LAYERS },

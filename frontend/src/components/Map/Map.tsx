@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useCallback, useRef, useEffect, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
@@ -6,6 +6,7 @@ import {
   TokenData,
   FeatureCollectionWithCRS,
   INITIAL_VIEW_STATE,
+  handleError,
   fetchToken,
   getValidToken,
   transformGeoJsonData,
@@ -76,46 +77,6 @@ const LayerStyleForm: React.FC<{
   );
 };
 
-const addMvtLayer = (map: React.RefObject<maplibregl.Map>) => {
-  console.log("Adding MVT Layer");
-  console.log("Backend URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
-  if (!map.current) {
-    console.log("Map not initialized, cannot add MVT layer");
-    return;
-  }
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-
-  // Remove existing layer and source if they exist
-  if (map.current.getLayer('my-mvt-layer')) {
-    map.current.removeLayer('my-mvt-layer');
-  }
-  if (map.current.getSource('my-mvt-source')) {
-    map.current.removeSource('my-mvt-source');
-  }
-
-  // Add the vector tile source and layer
-  map.current.addSource('my-mvt-source', {
-    type: 'vector',
-    tiles: [`${backendUrl}/tiles/{z}/{y}/{x}`],
-    minzoom: 0,
-    maxzoom: 14,
-  });
-
-  map.current.addLayer({
-    id: 'my-mvt-layer',
-    type: 'circle',
-    source: 'my-mvt-source',
-    'source-layer': 'pois', // Replace with your actual source layer
-    paint: {
-      'circle-color': '#FF0000',
-      'circle-radius': 3,
-    },
-  });
-
-  console.log('MVT layer added');
-};
-
-
 // Initialize the map
 const initMap = async (
   mapContainer: React.RefObject<HTMLDivElement>,
@@ -160,16 +121,10 @@ const initMap = async (
       },
     });
 
-    map.current.on("load", () => {
-      console.log("Running on load event")
-      setMapLoaded(true);
-      console.log("Calling addMvtLayer")
-      addMvtLayer(map);
-    });
-
-    map.current.on("error", (e) => {
-      console.error(setMapError, e.error, "Map error")
-    });
+    map.current.on("load", () => setMapLoaded(true));
+    map.current.on("error", (e) =>
+      handleError(setMapError, e.error, "Map error"),
+    );
 
     // Add click listener for layers to open the style form
     map.current.on("click", (e) => {
@@ -183,7 +138,7 @@ const initMap = async (
     });
 
   } catch (error) {
-    console.error('Error adding MVT layer:', error);
+    handleError(setMapError, error as Error, "Error initializing map");
   }
 };
 
@@ -213,7 +168,7 @@ const Map: React.FC<MapProps> = ({ activeFiles, baseLayer }) => {
         setSelectedLayer,
       );
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -225,18 +180,68 @@ const Map: React.FC<MapProps> = ({ activeFiles, baseLayer }) => {
     };
   }, []);
 
+  const addMvtLayer = () => {
+    console.log("Adding MVT Layer");
+    if (!map.current) return;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+    // Remove existing layer and source if they exist
+    if (map.current.getLayer('my-mvt-layer')) {
+      map.current.removeLayer('my-mvt-layer');
+    }
+    if (map.current.getSource('my-mvt-source')) {
+      map.current.removeSource('my-mvt-source');
+    }
+
+    // Add the vector tile source and layer
+    map.current.addSource('my-mvt-source', {
+      type: 'vector',
+      tiles: [`${backendUrl}/tiles/{z}/{y}/{x}`],
+      minzoom: 0,
+      maxzoom: 14,
+    });
+
+    map.current.addLayer({
+      id: 'my-mvt-layer',
+      type: 'circle',
+      source: 'my-mvt-source',
+      'source-layer': 'pois', // Replace with your actual source layer
+      paint: {
+        'circle-color': '#FF0000',
+        'circle-radius': 3,
+      },
+    });
+
+    console.log('MVT layer added');
+  };
+
+  const addCustomLayers = useCallback(() => {
+    console.log("Adding custom layers");
+    if (!map.current) return;
+
+    // Add MVT Layer
+    addMvtLayer();
+  }, [map]);
+
   useEffect(() => {
     if (map.current) {
       console.log("Changing map style");
       map.current.setStyle(baseLayer);
   
-      // Listen for the 'style.load' event and then add the MVT layer
-      map.current.once("styledata", () => {
-        console.log("Style loaded, adding MVT layer");
-        addMvtLayer(map);
-      });
+      const onStyleLoad = () => {
+        console.log("Style loaded");
+        addCustomLayers(); // Re-add your custom layers here
+      };
+
+      map.current.on('style.load', onStyleLoad);
+
+      return () => {
+        if (map.current) {
+          map.current.off('style.load', onStyleLoad);
+        }
+      };
     }
-  }, [baseLayer]);
+  }, [baseLayer, addCustomLayers]);
 
   // Adds locally uploaded Geojsons to the map
   useEffect(() => {

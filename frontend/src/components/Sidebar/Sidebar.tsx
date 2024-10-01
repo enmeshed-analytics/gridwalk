@@ -17,7 +17,6 @@ type LayerGroup = {
   title: string;
   layers: string[];
   onLayerSelect?: (layerName: string) => void;
-  buttonColors?: Record<string, string>;
 };
 
 type SidebarProps = {
@@ -77,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const renderLayerGroup = ({ title, layers, onLayerSelect, buttonColors }: LayerGroup) => {
+  const renderLayerGroup = ({ title, layers, onLayerSelect }: LayerGroup) => {
     const LayerIcon = layerIcons[title.replace(/\s+/g, "")] || Layers;
     const isVisible = visibleGroups[title];
 
@@ -99,14 +98,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="mt-4 ml-7">
             {layers.map((layerName) => {
               const LayerItemIcon = layerIcons[layerName] || Layers;
-              const buttonColorClasses = buttonColors ? buttonColors[layerName] : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
-
               return (
                 <div key={layerName} className="mb-4">
                   {onLayerSelect ? (
                     <button
                       onClick={() => onLayerSelect(layerName)}
-                      className={`w-full mb-2 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${buttonColorClasses} focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      className={`w-full mb-2 flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                         layerName === selectedBaseLayer ? 'ring-2 ring-offset-2 ring-blue-500' : ''
                       }`}
                     >
