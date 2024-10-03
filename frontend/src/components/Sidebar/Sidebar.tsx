@@ -48,7 +48,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   selectedBaseLayer,
   layerGroups,
 }) => {
-  const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
   const [visibleGroups, setVisibleGroups] = useState<Record<string, boolean>>({});
 
   const toggleGroupVisibility = (title: string) => {
@@ -146,16 +145,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 px-6 py-4">
         {layerGroups.map(renderLayerGroup)}
         
-        <div className="mt-4">
-          <button
-            onClick={() => setIsConnectionsModalOpen(true)}
-            className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Link className="mr-2 h-5 w-5" />
-            Connections
-          </button>
-        </div>
-
         <div className="mt-8">
           <h2 className="flex items-center text-lg font-semibold mb-4 text-gray-700 dark:text-gray-200">
             <Upload className="mr-2 h-5 w-5" />
@@ -235,10 +224,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
         <SidebarContent />
       </aside>
-      <ConnectionsModal
-        isOpen={isConnectionsModalOpen}
-        onClose={() => setIsConnectionsModalOpen(false)}
-      />
     </>
   );
 };
