@@ -1,14 +1,19 @@
 use crate::app_state::AppState;
+use crate::data::Database;
 use crate::routes::{health_check, tiles};
 use axum::{routing::get, Router};
+use std::sync::Arc;
 use tower_http::trace::{self, TraceLayer};
 use tracing::Level;
 
-pub fn create_app(app_state: AppState) -> Router {
+pub fn create_app<D: Database>(app_state: AppState<D>) -> Router {
+    let shared_state = Arc::new(app_state);
+
     Router::new()
         .route("/health", get(health_check))
-        .route("/tiles/:z/:x/:y", get(tiles))
-        .with_state(app_state)
+        //.route("/register", post(register))
+        .route("/tiles/:z/:x/:y", get(tiles::<D>))
+        .with_state(shared_state)
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))

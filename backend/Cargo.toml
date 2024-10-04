@@ -5,13 +5,22 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+argon2 = "0.5"
+async-trait = "0.1.83"
+aws-config = "1.5.7"
+aws-sdk-dynamodb = "1.48"
 axum = { version = "0.7.5", features = ["macros"] }
 martin = { git = "https://github.com/enmeshed-analytics/martin.git", features = ["postgres"] }
 martin-tile-utils = { git = "https://github.com/enmeshed-analytics/martin.git" }
+rand = "0.8.5"
+rand_core = { version = "0.6", features = ["std"] }
 rustls = { version = "0.23.13", features = ["std"] }
 serde = "1.0"
 serde_json = "1.0"
+strum = "0.26"
+strum_macros = "0.26"
 tokio = { version = "1.40.0", features = ["full"] }
 tower-http = { version = "0.5", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
+uuid = "1.10.0"

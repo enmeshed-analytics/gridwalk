@@ -1,4 +1,10 @@
 use crate::app_state::AppState;
+use crate::data::Database;
+use anyhow::{anyhow, Result};
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
+    Argon2,
+};
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
@@ -6,14 +12,32 @@ use axum::{
     Json,
 };
 use martin_tile_utils::TileCoord;
+use serde::Deserialize;
+use std::sync::Arc;
 
 pub async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "healthy" }))
 }
 
-pub async fn tiles(
+fn hash_password(password: &str) -> Result<String> {
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let password_hash = argon2
+        .hash_password(password.as_bytes(), &salt)
+        .map_err(|e| anyhow!("Failed to hash password: {}", e))?
+        .to_string();
+    Ok(password_hash)
+}
+
+#[derive(Deserialize)]
+pub struct RegisterRequest {
+    username: String,
+    password: String,
+}
+
+pub async fn tiles<D: Database>(
     Path((z, y, x)): Path<(u32, u32, u32)>,
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState<D>>>,
 ) -> Response {
     if let Some(tile_info_source) = state.sources.get("pois") {
         let xyz = TileCoord {
