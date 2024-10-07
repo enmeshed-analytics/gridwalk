@@ -1,10 +1,6 @@
-use crate::core::create_id;
+use crate::core::{create_id, get_unix_timestamp, hash_password};
 use crate::data::Database;
 use anyhow::{anyhow, Result};
-use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-    Argon2,
-};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
@@ -85,6 +81,7 @@ pub struct User {
     pub last_name: String,
     pub roles: Roles,
     pub active: bool,
+    pub created_at: u64,
     pub hash: String,
 }
 
@@ -132,13 +129,9 @@ impl User {
     }
 
     fn from_create_user(create_user: &CreateUser, id: &str, active: bool) -> User {
+        let now = get_unix_timestamp();
         // Generate password hash
-        let salt = SaltString::generate(&mut OsRng);
-        let argon2 = Argon2::default();
-        let password_hash = argon2
-            .hash_password(create_user.password.as_bytes(), &salt)
-            .unwrap()
-            .to_string();
+        let password_hash = hash_password(&create_user.password).unwrap();
 
         User {
             id: id.to_string(),
@@ -147,6 +140,7 @@ impl User {
             last_name: create_user.last_name.to_string(),
             roles: create_user.roles.clone(),
             active,
+            created_at: now,
             hash: password_hash,
         }
     }

@@ -1,11 +1,6 @@
 use crate::app_state::AppState;
-use crate::core::{Role, Roles, User};
+use crate::core::{CreateUser, Role, Roles, User};
 use crate::data::Database;
-use anyhow::{anyhow, Result};
-use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-    Argon2,
-};
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
@@ -15,20 +10,9 @@ use axum::{
 use martin_tile_utils::TileCoord;
 use serde::Deserialize;
 use std::sync::Arc;
-use uuid::Uuid;
 
 pub async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "healthy" }))
-}
-
-fn hash_password(password: &str) -> Result<String> {
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-    let password_hash = argon2
-        .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| anyhow!("Failed to hash password: {}", e))?
-        .to_string();
-    Ok(password_hash)
 }
 
 pub async fn tiles<D: Database>(
@@ -74,32 +58,15 @@ pub async fn register<D: Database>(
     State(state): State<Arc<AppState<D>>>,
     Json(req): Json<RegisterRequest>,
 ) -> Response {
-    // Generate a unique ID for the new user
-    let user_id = Uuid::new_v4().to_string();
-
-    // Hash the password
-    let password_hash = match hash_password(&req.password) {
-        Ok(hash) => hash,
-        Err(e) => {
-            eprintln!("Failed to hash password: {}", e);
-            return (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to process registration",
-            )
-                .into_response();
-        }
-    };
-
-    // Create the user object
-    let user = User {
-        id: user_id,
+    let user = CreateUser {
         email: req.email,
         first_name: req.first_name,
         last_name: req.last_name,
         roles: Roles(vec![Role::TeamRead]), // TODO: Important! role for which org/team?
-        active: true,
-        hash: password_hash,
+        password: req.password,
     };
-
-    "".into_response()
+    match User::create(state.app_data.clone(), &user).await {
+        Ok(_) => "registration succeeded".into_response(),
+        Err(_) => "registration failed".into_response(),
+    }
 }

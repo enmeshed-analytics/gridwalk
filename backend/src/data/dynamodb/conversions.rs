@@ -15,6 +15,13 @@ impl From<HashMap<String, AV>> for User {
             last_name: value.get("last_name").unwrap().as_s().unwrap().to_string(),
             active: *value.get("active").unwrap().as_bool().unwrap(),
             roles: value.get("user_roles").unwrap().as_s().unwrap().into(),
+            created_at: value
+                .get("created_at")
+                .unwrap()
+                .as_n()
+                .unwrap()
+                .parse()
+                .unwrap(),
             hash: value.get("hash").unwrap().as_s().unwrap().to_string(),
         };
         user
