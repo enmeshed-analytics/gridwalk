@@ -4,10 +4,13 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use aws_config::meta::region::RegionProviderChain;
 use aws_config::BehaviorVersion;
-use aws_sdk_dynamodb::types::AttributeValue as AV;
+use aws_sdk_dynamodb::types::{
+    AttributeDefinition, AttributeValue as AV, GlobalSecondaryIndex, KeySchemaElement, KeyType,
+    Projection, ProjectionType, ProvisionedThroughput, ScalarAttributeType,
+};
 use aws_sdk_dynamodb::Client;
 use std::io::ErrorKind;
-use tracing::{error, info};
+use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct Dynamodb {
@@ -29,7 +32,7 @@ impl Dynamodb {
                     .load()
                     .await;
                 aws_sdk_dynamodb::config::Builder::from(&defaults)
-                    .endpoint_url("http://localhost:8099")
+                    .endpoint_url("http://localhost:8000")
                     .build()
             }
             false => {
@@ -42,23 +45,94 @@ impl Dynamodb {
         };
 
         let client = Client::from_conf(config);
-
-        // Check if table exists
-        let resp = &client.list_tables().send().await.unwrap();
-        let tables = resp.table_names();
-
-        if !tables.contains(&table_name.to_string()) {
-            error!("table does not exist");
-            return Err(anyhow!(""));
-        }
-
+        // Check if table exists, create if it doesn't
+        Self::ensure_table_exists(&client, table_name).await?;
         let dynamodb = Dynamodb {
             client: client.clone(),
             table_name: table_name.into(),
         };
+        Self::ensure_admin_user_exists(&dynamodb).await?;
 
+        Ok(dynamodb)
+    }
+
+    async fn ensure_table_exists(client: &Client, table_name: &str) -> Result<()> {
+        let resp = client.list_tables().send().await?;
+        let tables = resp.table_names();
+        if !tables.contains(&table_name.to_string()) {
+            info!("Table does not exist. Creating table: {}", table_name);
+
+            client
+                .create_table()
+                .table_name(table_name)
+                .key_schema(
+                    KeySchemaElement::builder()
+                        .attribute_name("PK")
+                        .key_type(KeyType::Hash)
+                        .build()?,
+                )
+                .key_schema(
+                    KeySchemaElement::builder()
+                        .attribute_name("SK")
+                        .key_type(KeyType::Range)
+                        .build()?,
+                )
+                .attribute_definitions(
+                    AttributeDefinition::builder()
+                        .attribute_name("PK")
+                        .attribute_type(ScalarAttributeType::S)
+                        .build()?,
+                )
+                .attribute_definitions(
+                    AttributeDefinition::builder()
+                        .attribute_name("SK")
+                        .attribute_type(ScalarAttributeType::S)
+                        .build()?,
+                )
+                .attribute_definitions(
+                    AttributeDefinition::builder()
+                        .attribute_name("org_name")
+                        .attribute_type(ScalarAttributeType::S)
+                        .build()?,
+                )
+                .global_secondary_indexes(
+                    GlobalSecondaryIndex::builder()
+                        .index_name("OrgNameIndex")
+                        .key_schema(
+                            KeySchemaElement::builder()
+                                .attribute_name("org_name")
+                                .key_type(KeyType::Hash)
+                                .build()?,
+                        )
+                        .projection(
+                            Projection::builder()
+                                .projection_type(ProjectionType::All)
+                                .build(),
+                        )
+                        .provisioned_throughput(
+                            ProvisionedThroughput::builder()
+                                .read_capacity_units(5)
+                                .write_capacity_units(5)
+                                .build()?,
+                        )
+                        .build()?,
+                )
+                .provisioned_throughput(
+                    ProvisionedThroughput::builder()
+                        .read_capacity_units(5)
+                        .write_capacity_units(5)
+                        .build()?,
+                )
+                .send()
+                .await?;
+
+            info!("Table created successfully.");
+        }
+        Ok(())
+    }
+
+    async fn ensure_admin_user_exists(dynamodb: &Dynamodb) -> Result<()> {
         let admin_user = User::from_email(dynamodb.clone(), "test@example.com").await;
-
         match admin_user {
             Ok(_) => {
                 info!("db init: admin user exists.");
@@ -72,13 +146,11 @@ impl Dynamodb {
                     roles: Roles(vec![Role::Superuser]),
                     password: String::from("admin"),
                 };
-
-                let _admin_user = User::create(dynamodb.clone(), &admin_user).await;
+                let _adminuser = User::create(dynamodb.clone(), &admin_user).await?;
                 info!("db init: admin user created.");
             }
         }
-
-        Ok(dynamodb)
+        Ok(())
     }
 }
 
@@ -89,16 +161,9 @@ impl UserStore for Dynamodb {
         let mut item = std::collections::HashMap::new();
         let key = format!("{}{}", "USER#", user.id);
         let email = format!("{}{}", "EMAIL#", user.email);
-        // GSI2 set to Superuser if user has Superuser User Role
-        if user.roles.contains(&Role::Superuser) {
-            item.insert(String::from("GSI2PK"), AV::S(format!("USERROLE#SUPERUSER")));
-            item.insert(String::from("GSI2SK"), AV::S(format!("USERROLE#SUPERUSER")));
-        }
 
         item.insert(String::from("PK"), AV::S(key.clone()));
         item.insert(String::from("SK"), AV::S(key.clone()));
-        item.insert(String::from("GSI1PK"), AV::S(email.clone()));
-        item.insert(String::from("GSI1SK"), AV::S(email.clone()));
         item.insert(String::from("first_name"), AV::S(user.first_name.clone()));
         item.insert(String::from("last_name"), AV::S(user.last_name.clone()));
         item.insert(String::from("user_roles"), AV::S(user.roles.to_string()));
@@ -116,8 +181,7 @@ impl UserStore for Dynamodb {
         let mut email_item = std::collections::HashMap::new();
         email_item.insert(String::from("PK"), AV::S(email.clone()));
         email_item.insert(String::from("SK"), AV::S(email));
-        email_item.insert(String::from("GSI1PK"), AV::S(key.clone()));
-        email_item.insert(String::from("GSI1SK"), AV::S(key.clone()));
+        email_item.insert(String::from("user_id"), AV::S(user.id.clone()));
 
         self.client
             .put_item()

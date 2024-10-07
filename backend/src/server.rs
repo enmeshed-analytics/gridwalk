@@ -1,7 +1,10 @@
 use crate::app_state::AppState;
 use crate::data::Database;
-use crate::routes::{health_check, tiles};
-use axum::{routing::get, Router};
+use crate::routes::{health_check, register, tiles};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use std::sync::Arc;
 use tower_http::trace::{self, TraceLayer};
 use tracing::Level;
@@ -11,7 +14,7 @@ pub fn create_app<D: Database>(app_state: AppState<D>) -> Router {
 
     Router::new()
         .route("/health", get(health_check))
-        //.route("/register", post(register))
+        .route("/register", post(register))
         .route("/tiles/:z/:x/:y", get(tiles::<D>))
         .with_state(shared_state)
         .layer(

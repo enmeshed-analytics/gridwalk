@@ -1,4 +1,5 @@
 use crate::app_state::AppState;
+use crate::core::{Role, Roles, User};
 use crate::data::Database;
 use anyhow::{anyhow, Result};
 use argon2::{
@@ -14,6 +15,7 @@ use axum::{
 use martin_tile_utils::TileCoord;
 use serde::Deserialize;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "healthy" }))
@@ -27,12 +29,6 @@ fn hash_password(password: &str) -> Result<String> {
         .map_err(|e| anyhow!("Failed to hash password: {}", e))?
         .to_string();
     Ok(password_hash)
-}
-
-#[derive(Deserialize)]
-pub struct RegisterRequest {
-    username: String,
-    password: String,
 }
 
 pub async fn tiles<D: Database>(
@@ -64,4 +60,46 @@ pub async fn tiles<D: Database>(
         )
             .into_response()
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RegisterRequest {
+    email: String,
+    password: String,
+    first_name: String,
+    last_name: String,
+}
+
+pub async fn register<D: Database>(
+    State(state): State<Arc<AppState<D>>>,
+    Json(req): Json<RegisterRequest>,
+) -> Response {
+    // Generate a unique ID for the new user
+    let user_id = Uuid::new_v4().to_string();
+
+    // Hash the password
+    let password_hash = match hash_password(&req.password) {
+        Ok(hash) => hash,
+        Err(e) => {
+            eprintln!("Failed to hash password: {}", e);
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to process registration",
+            )
+                .into_response();
+        }
+    };
+
+    // Create the user object
+    let user = User {
+        id: user_id,
+        email: req.email,
+        first_name: req.first_name,
+        last_name: req.last_name,
+        roles: Roles(vec![Role::TeamRead]), // TODO: Important! role for which org/team?
+        active: true,
+        hash: password_hash,
+    };
+
+    "".into_response()
 }
