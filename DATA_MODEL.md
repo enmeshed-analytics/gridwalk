@@ -10,4 +10,5 @@ This is the data model used for the Gridwalk application. Currently, only Dynamo
 | USER#<user_id> | USER#<user_id> | user_name<br>created_at | |
 | EMAIL#<email_address> | EMAIL#<email_address> | user_id | |
 | ORG#<org_id> | USER#<user_id> | user_role<br>joined_at | |
-| USER#<user_id> | ORG#<org_id> |  | |
+| USER#<user_id> | ORG#<org_id> | | |
+| SESSION#<session_id> | SESSION#<session_id> | user_id<br>created_at | |
