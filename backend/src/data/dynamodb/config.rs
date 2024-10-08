@@ -164,10 +164,15 @@ impl UserStore for Dynamodb {
 
         item.insert(String::from("PK"), AV::S(key.clone()));
         item.insert(String::from("SK"), AV::S(key.clone()));
+        item.insert(String::from("primary_email"), AV::S(user.email.clone()));
         item.insert(String::from("first_name"), AV::S(user.first_name.clone()));
         item.insert(String::from("last_name"), AV::S(user.last_name.clone()));
         item.insert(String::from("user_roles"), AV::S(user.roles.to_string()));
         item.insert(String::from("active"), AV::Bool(user.active));
+        item.insert(
+            String::from("created_at"),
+            AV::N(user.created_at.to_string()),
+        );
         item.insert(String::from("hash"), AV::S(user.hash.clone()));
 
         self.client

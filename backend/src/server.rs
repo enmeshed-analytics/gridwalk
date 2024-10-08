@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::data::Database;
-use crate::routes::{health_check, register, tiles};
+use crate::routes::{health_check, login, profile, register, tiles};
 use axum::{
     routing::{get, post},
     Router,
@@ -15,6 +15,8 @@ pub fn create_app<D: Database>(app_state: AppState<D>) -> Router {
     Router::new()
         .route("/health", get(health_check))
         .route("/register", post(register))
+        .route("/login", post(login))
+        .route("/profile", get(profile))
         .route("/tiles/:z/:x/:y", get(tiles::<D>))
         .with_state(shared_state)
         .layer(

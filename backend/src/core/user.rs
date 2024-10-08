@@ -110,6 +110,19 @@ pub struct Profile {
     pub active: bool,
 }
 
+impl From<User> for Profile {
+    fn from(user: User) -> Self {
+        Profile {
+            id: user.id,
+            email: user.email,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            roles: user.roles,
+            active: user.active,
+        }
+    }
+}
+
 impl User {
     pub async fn create<T: Database>(database: T, user: &CreateUser) -> Result<()> {
         let user_id = create_id(10).await;

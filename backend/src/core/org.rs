@@ -3,10 +3,14 @@ use crate::data::Database;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
+use super::get_unix_timestamp;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Org {
     pub id: String,
     pub name: String,
+    pub leader: String,
+    pub created_at: u64,
     pub active: bool,
 }
 
@@ -26,6 +30,7 @@ pub struct RemoveOrgMember {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreateOrg {
     pub name: String,
+    pub leader: String,
 }
 
 impl Org {
@@ -40,10 +45,13 @@ impl Org {
     pub async fn create<T: Database>(database: T, org: &CreateOrg) -> Result<()> {
         // Check for existing org with same name
         let org_id = create_id(30).await;
+        let now = get_unix_timestamp();
         let db_resp = database
             .create_org(&Org {
                 id: org_id,
                 name: org.name.clone(),
+                leader: org.leader.clone(),
+                created_at: now,
                 active: true,
             })
             .await;

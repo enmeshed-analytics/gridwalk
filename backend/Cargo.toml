@@ -9,7 +9,8 @@ argon2 = "0.5"
 async-trait = "0.1.83"
 aws-config = "1.5.7"
 aws-sdk-dynamodb = "1.48"
-axum = { version = "0.7.5", features = ["macros"] }
+axum = { version = "0.7", features = ["macros"] }
+axum-extra = { version = "0.9.4", features = ["typed-header"] }
 martin = { git = "https://github.com/enmeshed-analytics/martin.git", features = ["postgres"] }
 martin-tile-utils = { git = "https://github.com/enmeshed-analytics/martin.git" }
 rand = "0.8.5"

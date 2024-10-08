@@ -1,9 +1,9 @@
-use crate::core::{Org, Team, User};
+use crate::core::{Org, Session, Team, User};
 use anyhow::Result;
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait Database: Send + Sync + Clone + UserStore + 'static {}
+pub trait Database: Send + Sync + Clone + UserStore + SessionStore + 'static {}
 
 #[async_trait]
 pub trait UserStore: Send + Sync + Clone + 'static {
@@ -22,4 +22,11 @@ pub trait UserStore: Send + Sync + Clone + 'static {
     async fn add_team_member(&self, team: &Team, user: &User) -> Result<()>;
     async fn remove_team_member(&self, team: &Team, user: &User) -> Result<()>;
     async fn delete_team(&self, id: &str) -> Result<()>;
+}
+
+#[async_trait]
+pub trait SessionStore: Send + Sync + Clone + 'static {
+    async fn get_session_by_id(&self, id: &str) -> Result<Session>;
+    async fn create_session(&self, user: Option<&'life1 User>, session_id: &str) -> Result<()>;
+    async fn delete_session(&self, session_id: &str) -> Result<()>;
 }

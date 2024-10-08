@@ -4,10 +4,14 @@ use crate::data::Database;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
+use super::get_unix_timestamp;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Team {
     pub id: String,
     pub name: String,
+    pub leader: String,
+    pub created_at: u64,
     pub active: bool,
 }
 
@@ -27,15 +31,19 @@ pub struct RemoveTeamMember {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreateTeam {
     pub name: String,
+    pub leader: String,
 }
 
 impl Team {
     pub async fn create<T: Database>(database: T, team: &CreateTeam) -> Result<()> {
         let id = create_id(30).await;
+        let now = get_unix_timestamp();
         let db_resp = database
             .create_team(&Team {
                 id,
                 name: team.name.clone(),
+                leader: team.leader.clone(),
+                created_at: now,
                 active: true,
             })
             .await;
