@@ -101,6 +101,20 @@ pub async fn login<D: Database>(
     }
 }
 
+pub async fn logout<D: Database>(
+    State(state): State<Arc<AppState<D>>>,
+    TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
+) -> impl IntoResponse {
+    let token = authorization.token();
+    match Session::from_id(state.app_data.clone(), token).await {
+        Ok(session) => {
+            let _ = session.delete(state.app_data.clone()).await;
+            return "logged out".into_response();
+        }
+        Err(_) => "logged out".into_response(),
+    }
+}
+
 pub async fn profile<D: Database>(
     State(state): State<Arc<AppState<D>>>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,

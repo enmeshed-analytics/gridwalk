@@ -74,8 +74,8 @@ impl Session {
         }
     }
 
-    pub async fn delete<T: Database>(database: T, id: &str) -> Result<()> {
-        database.delete_session(id).await?;
+    pub async fn delete<T: Database>(&self, database: T) -> Result<()> {
+        database.delete_session(&self.id).await?;
         Ok(())
     }
 }
