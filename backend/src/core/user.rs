@@ -10,10 +10,8 @@ use strum_macros::Display;
 #[derive(Debug, Display, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Role {
     Superuser,
-    OrgAdmin,
-    TeamAdmin,
-    OrgRead,
-    TeamRead,
+    Admin,
+    Read,
 }
 
 impl FromStr for Role {
@@ -22,10 +20,8 @@ impl FromStr for Role {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_lowercase().as_str() {
             "superuser" => Ok(Role::Superuser),
-            "orgadmin" => Ok(Role::OrgAdmin),
-            "teamadmin" => Ok(Role::TeamAdmin),
-            "orgread" => Ok(Role::OrgRead),
-            "teamread" => Ok(Role::TeamRead),
+            "admin" => Ok(Role::Admin),
+            "read" => Ok(Role::Read),
             _ => Err(format!("Unknown role: {}", s)),
         }
     }

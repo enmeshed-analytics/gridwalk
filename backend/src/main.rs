@@ -1,4 +1,5 @@
 mod app_state;
+mod auth;
 mod core;
 mod data;
 mod routes;

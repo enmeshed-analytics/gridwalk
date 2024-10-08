@@ -1,8 +1,9 @@
 use crate::app_state::AppState;
+use crate::auth::AuthUser;
 use crate::core::{create_id, verify_password, CreateUser, Profile, Role, Roles, Session, User};
 use crate::data::Database;
 use axum::{
-    extract::State,
+    extract::{Extension, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -35,7 +36,7 @@ pub async fn register<D: Database>(
         email: req.email,
         first_name: req.first_name,
         last_name: req.last_name,
-        roles: Roles(vec![Role::TeamRead]), // TODO: Important! role for which org/team?
+        roles: Roles(vec![Role::Read]), // TODO: Important! role for which org/team?
         password: req.password,
     };
     match User::create(state.app_data.clone(), &user).await {
@@ -116,28 +117,10 @@ pub async fn logout<D: Database>(
 }
 
 pub async fn profile<D: Database>(
-    State(state): State<Arc<AppState<D>>>,
-    TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
+    Extension(auth_user): Extension<AuthUser>,
 ) -> Result<Json<Profile>, (StatusCode, String)> {
-    // Extract the token from the Authorization header
-    let token = authorization.token();
-
-    // Retrieve the session using the token
-    let session = Session::from_id(state.app_data.clone(), token)
-        .await
-        .map_err(|e| (StatusCode::UNAUTHORIZED, format!("Invalid session: {}", e)))?;
-
-    // Get the user_id from the session
-    let user_id = session.user_id.ok_or((
-        StatusCode::UNAUTHORIZED,
-        "Session does not have a user_id".to_string(),
-    ))?;
-
-    // Retrieve the user using the user_id
-    let user = User::from_id(state.app_data.clone(), &user_id)
-        .await
-        .map_err(|e| (StatusCode::NOT_FOUND, format!("User not found: {}", e)))?;
-
-    // Return the user as JSON
-    Ok(Json(Profile::from(user)))
+    match auth_user.user {
+        Some(user) => Ok(Json(Profile::from(user))),
+        None => Err((StatusCode::FORBIDDEN, "unauthorized".to_string())),
+    }
 }

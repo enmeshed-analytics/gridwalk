@@ -1,4 +1,4 @@
-use crate::core::{CreateUser, Email, Org, Role, Roles, Team, User};
+use crate::core::{CreateUser, Email, Role, Roles, User, Workspace};
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -9,7 +9,6 @@ use aws_sdk_dynamodb::types::{
     Projection, ProjectionType, ProvisionedThroughput, ScalarAttributeType,
 };
 use aws_sdk_dynamodb::Client;
-use std::io::ErrorKind;
 use tracing::info;
 
 #[derive(Debug, Clone)]
@@ -239,17 +238,20 @@ impl UserStore for Dynamodb {
         }
     }
 
-    async fn create_org(&self, org: &Org) -> Result<()> {
-        // Create the ORG item to insert
+    async fn create_workspace(&self, wsp: &Workspace) -> Result<()> {
+        // Create the WSP item to insert
         let mut item = std::collections::HashMap::new();
-        let key = format!("{}{}", "ORG#", org.id);
-        let name = format!("{}{}", "ORGNAME#", org.name);
+        let key = format!("{}{}", "WSP#", wsp.id);
 
         item.insert(String::from("PK"), AV::S(key.clone()));
         item.insert(String::from("SK"), AV::S(key.clone()));
-        item.insert(String::from("GSI1PK"), AV::S(name.clone()));
-        item.insert(String::from("GSI1SK"), AV::S(name.clone()));
-        item.insert(String::from("active"), AV::Bool(org.active));
+        item.insert(String::from("workspace_name"), AV::S(wsp.name.clone()));
+        item.insert(String::from("workspace_owner"), AV::S(wsp.owner.clone()));
+        item.insert(
+            String::from("created_at"),
+            AV::N(wsp.created_at.clone().to_string()),
+        );
+        item.insert(String::from("active"), AV::Bool(wsp.active));
 
         self.client
             .put_item()
@@ -261,8 +263,8 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
-    async fn get_org_by_id(&self, id: &str) -> Result<Org> {
-        let key = format!("ORG#{id}");
+    async fn get_workspace_by_id(&self, id: &str) -> Result<Workspace> {
+        let key = format!("WSP#{id}");
         match self
             .client
             .get_item()
@@ -277,41 +279,20 @@ impl UserStore for Dynamodb {
         }
     }
 
-    async fn get_org_by_name(&self, name: &str) -> Result<Org> {
-        let query_output = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .index_name("GSI1")
-            .key_condition_expression("GSI1PK = :O")
-            .expression_attribute_values(":O", AV::S(format!("ORGNAME#{}", name)))
-            .send()
-            .await?;
-
-        if query_output.count == 0 {
-            return Err(anyhow!(std::io::Error::new(
-                ErrorKind::NotFound,
-                "NOT_FOUND"
-            )));
-        } else if query_output.count > 1 {
-            return Err(anyhow!(std::io::Error::new(ErrorKind::Other, "ERROR")));
-        }
-
-        let item_hashmap = query_output.items.unwrap().into_iter().nth(0).unwrap();
-
-        Ok(Org::from(item_hashmap))
-    }
-
-    async fn add_org_member(&self, org: &Org, user: &User) -> Result<()> {
-        // Create the org member item to insert
+    async fn add_workspace_member(
+        &self,
+        org: &Workspace,
+        user: &User,
+        role: Role,
+        joined_at: u64,
+    ) -> Result<()> {
+        // Create the workspace member item to insert
         let mut item = std::collections::HashMap::new();
-        let org = format!("ORG#{}", org.id);
-        let user = format!("USER#{}", user.id);
 
-        item.insert(String::from("PK"), AV::S(org.clone()));
-        item.insert(String::from("SK"), AV::S(user.clone()));
-        item.insert(String::from("GSI1PK"), AV::S(user));
-        item.insert(String::from("GSI1SK"), AV::S(org));
+        item.insert(String::from("PK"), AV::S(format!("WORKSPACE#{}", org.id)));
+        item.insert(String::from("SK"), AV::S(format!("USER#{}", user.id)));
+        item.insert(String::from("user_role"), AV::S(role.to_string()));
+        item.insert(String::from("joined_at"), AV::N(joined_at.to_string()));
 
         self.client
             .put_item()
@@ -323,131 +304,15 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
-    async fn remove_org_member(&self, org: &Org, user: &User) -> Result<()> {
+    async fn remove_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<()> {
         self.client
             .delete_item()
             .table_name(&self.table_name)
-            .key("PK", AV::S(format!("MEMBERORG#{}", org.id)))
+            .key("PK", AV::S(format!("WSP#{}", wsp.id)))
             .key("SK", AV::S(format!("USER#{}", user.id)))
             .send()
             .await?;
 
-        Ok(())
-    }
-
-    async fn delete_org(&self, id: &str) -> Result<()> {
-        let key = format!("ORG#{id}");
-        self.client
-            .delete_item()
-            .table_name(&self.table_name)
-            .key("PK", AV::S(key.clone()))
-            .key("SK", AV::S(key))
-            .send()
-            .await?;
-        Ok(())
-    }
-
-    async fn create_team(&self, org: &Team) -> Result<()> {
-        // Create the ORG item to insert
-        let mut item = std::collections::HashMap::new();
-        let key = format!("TEAM#{}", org.id);
-        let name = format!("TEAMNAME#{}", org.name);
-
-        item.insert(String::from("PK"), AV::S(key.clone()));
-        item.insert(String::from("SK"), AV::S(key));
-        item.insert(String::from("GSI1PK"), AV::S(name.clone()));
-        item.insert(String::from("GSI1SK"), AV::S(name.clone()));
-        item.insert(String::from("GSI2PK"), AV::S("TYPE#TEAM".into()));
-        item.insert(String::from("active"), AV::Bool(org.active));
-
-        self.client
-            .put_item()
-            .table_name(&self.table_name)
-            .set_item(Some(item))
-            .send()
-            .await?;
-
-        Ok(())
-    }
-
-    async fn get_teams(&self) -> Result<Vec<Team>> {
-        let query_output = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .index_name("GSI2")
-            .key_condition_expression("GSI2PK = :T")
-            .expression_attribute_values(":T", AV::S("TYPE#TEAM".into()))
-            .send()
-            .await?;
-
-        match query_output.items {
-            Some(query_items) => Ok(query_items
-                .iter()
-                .map(|element| element.clone().into())
-                .collect::<Vec<Team>>()),
-            None => Ok(Vec::new()),
-        }
-    }
-
-    async fn get_team_by_id(&self, id: &str) -> Result<Team> {
-        let key = format!("TEAM#{id}");
-        match self
-            .client
-            .get_item()
-            .table_name(&self.table_name)
-            .key("PK", AV::S(key.clone()))
-            .key("SK", AV::S(key.into()))
-            .send()
-            .await
-        {
-            Ok(response) => Ok(response.item.unwrap().into()),
-            Err(_e) => Err(anyhow!("team not found")),
-        }
-    }
-
-    async fn add_team_member(&self, team: &Team, user: &User) -> Result<()> {
-        // Create the team member item to insert
-        let mut item = std::collections::HashMap::new();
-        let team = format!("TEAM#{}", team.id);
-        let user = format!("USER#{}", user.id);
-
-        item.insert(String::from("PK"), AV::S(team.clone()));
-        item.insert(String::from("SK"), AV::S(user.clone()));
-        item.insert(String::from("GSI1PK"), AV::S(user));
-        item.insert(String::from("GSI1SK"), AV::S(team));
-
-        self.client
-            .put_item()
-            .table_name(&self.table_name)
-            .set_item(Some(item))
-            .send()
-            .await?;
-
-        Ok(())
-    }
-
-    async fn remove_team_member(&self, team: &Team, user: &User) -> Result<()> {
-        self.client
-            .delete_item()
-            .table_name(&self.table_name)
-            .key("PK", AV::S(format!("TEAM#{}", team.id)))
-            .key("SK", AV::S(format!("USER#{}", user.id)))
-            .send()
-            .await?;
-
-        Ok(())
-    }
-
-    async fn delete_team(&self, id: &str) -> Result<()> {
-        let key = format!("TEAM#{id}");
-        self.client
-            .delete_item()
-            .table_name(&self.table_name)
-            .key("PK", AV::S(key.clone()))
-            .key("SK", AV::S(key))
-            .send()
-            .await?;
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use crate::core::{Email, Org, Session, Team, User};
+use crate::core::{Email, Session, User, Workspace};
 use aws_sdk_dynamodb::types::AttributeValue as AV;
 use std::collections::HashMap;
 
@@ -45,28 +45,13 @@ impl From<HashMap<String, AV>> for Email {
     }
 }
 
-// Convert DynamoDB response into Team struct
-impl From<HashMap<String, AV>> for Team {
+// Convert DynamoDB response into Workspace struct
+impl From<HashMap<String, AV>> for Workspace {
     fn from(value: HashMap<String, AV>) -> Self {
-        Team {
-            id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
-            name: split_at_hash(value.get("team_name").unwrap().as_s().unwrap()).to_string(),
-            leader: split_at_hash(value.get("team_leader").unwrap().as_s().unwrap()).to_string(),
-            created_at: split_at_hash(value.get("created_at").unwrap().as_n().unwrap())
-                .parse()
-                .unwrap(),
-            active: *value.get("active").unwrap().as_bool().unwrap(),
-        }
-    }
-}
-
-// Convert DynamoDB response into Org struct
-impl From<HashMap<String, AV>> for Org {
-    fn from(value: HashMap<String, AV>) -> Self {
-        Org {
+        Workspace {
             id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
             name: split_at_hash(value.get("org_name").unwrap().as_s().unwrap()).to_string(),
-            leader: split_at_hash(value.get("org_leader").unwrap().as_s().unwrap()).to_string(),
+            owner: split_at_hash(value.get("org_leader").unwrap().as_s().unwrap()).to_string(),
             created_at: split_at_hash(value.get("created_at").unwrap().as_n().unwrap())
                 .parse()
                 .unwrap(),

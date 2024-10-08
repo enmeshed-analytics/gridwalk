@@ -1,7 +1,9 @@
 use crate::app_state::AppState;
+use crate::auth::auth_middleware;
 use crate::data::Database;
 use crate::routes::{health_check, login, logout, profile, register, tiles};
 use axum::{
+    middleware,
     routing::{get, post},
     Router,
 };
@@ -14,11 +16,15 @@ pub fn create_app<D: Database>(app_state: AppState<D>) -> Router {
 
     Router::new()
         .route("/health", get(health_check))
+        .route("/logout", post(logout))
+        .route("/profile", get(profile::<D>))
+        .route("/tiles/:z/:x/:y", get(tiles::<D>))
+        .layer(middleware::from_fn_with_state(
+            shared_state.clone(),
+            auth_middleware,
+        ))
         .route("/register", post(register))
         .route("/login", post(login))
-        .route("/logout", post(logout))
-        .route("/profile", get(profile))
-        .route("/tiles/:z/:x/:y", get(tiles::<D>))
         .with_state(shared_state)
         .layer(
             TraceLayer::new_for_http()
