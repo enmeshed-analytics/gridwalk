@@ -145,7 +145,7 @@ impl Dynamodb {
                     roles: Roles(vec![Role::Superuser]),
                     password: String::from("admin"),
                 };
-                let _adminuser = User::create(dynamodb.clone(), &admin_user).await?;
+                User::create(dynamodb.clone(), &admin_user).await?;
                 info!("db init: admin user created.");
             }
         }
@@ -229,7 +229,7 @@ impl UserStore for Dynamodb {
             .get_item()
             .table_name(&self.table_name)
             .key("PK", AV::S(key.clone()))
-            .key("SK", AV::S(key.into()))
+            .key("SK", AV::S(key))
             .send()
             .await
         {
@@ -270,7 +270,7 @@ impl UserStore for Dynamodb {
             .get_item()
             .table_name(&self.table_name)
             .key("PK", AV::S(key.clone()))
-            .key("SK", AV::S(key.into()))
+            .key("SK", AV::S(key))
             .send()
             .await
         {

@@ -63,11 +63,9 @@ impl From<HashMap<String, AV>> for Workspace {
 // Convert DynamoDB response into Session struct
 impl From<HashMap<String, AV>> for Session {
     fn from(value: HashMap<String, AV>) -> Self {
-        // user_id is None if unauthenticated
-        let user_id = match value.get("user_id") {
-            Some(user_id_value) => Some(user_id_value.as_s().unwrap().to_string()),
-            None => None,
-        };
+        let user_id = value
+            .get("user_id")
+            .map(|user_id_value| user_id_value.as_s().unwrap().to_string());
         Session {
             id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
             user_id,

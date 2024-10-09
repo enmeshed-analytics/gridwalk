@@ -80,7 +80,7 @@ pub async fn login<D: Database>(
                     let response = json!({
                         "apiKey": session_id,
                     });
-                    return (StatusCode::OK, Json(response));
+                    (StatusCode::OK, Json(response))
                 }
                 Err(_) => {
                     // Session creation failed
@@ -110,7 +110,7 @@ pub async fn logout<D: Database>(
     match Session::from_id(state.app_data.clone(), token).await {
         Ok(session) => {
             let _ = session.delete(state.app_data.clone()).await;
-            return "logged out".into_response();
+            "logged out".into_response()
         }
         Err(_) => "logged out".into_response(),
     }

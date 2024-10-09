@@ -9,7 +9,6 @@ use crate::data::Dynamodb;
 
 use anyhow::Result;
 use martin::{pg::PgConfig, IdResolver, OptBoolObj, Source};
-use rustls;
 use std::collections::HashMap;
 use tracing::info;
 
@@ -40,7 +39,7 @@ async fn main() -> Result<()> {
     }
 
     // Create DynamoDB client
-    let app_db = Dynamodb::new(true, &"gridwalk").await.unwrap();
+    let app_db = Dynamodb::new(true, "gridwalk").await.unwrap();
 
     // Create AppState with DynamoDB client as app_data
     let app_state = AppState {
