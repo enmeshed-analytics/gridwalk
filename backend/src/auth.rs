@@ -12,7 +12,7 @@ use axum_extra::headers::{authorization::Bearer, Authorization};
 use axum_extra::TypedHeader;
 use std::sync::Arc;
 
-#[derive(Clone, FromRef)]
+#[derive(Debug, Clone, FromRef)]
 pub struct AuthUser {
     pub user: Option<User>,
 }

@@ -1,9 +1,6 @@
-use crate::core::{create_id, User};
 use crate::data::Database;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-
-use super::get_unix_timestamp;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
@@ -27,34 +24,18 @@ pub struct RemoveOrgMember {
     pub user_id: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateWorkspace {
-    pub name: String,
-    pub owner: String,
-}
-
 impl Workspace {
     pub async fn from_id<T: Database>(database: T, id: &str) -> Result<Self> {
         Ok(database.get_workspace_by_id(id).await.unwrap())
     }
 
-    pub async fn create<T: Database>(database: T, wsp: &CreateWorkspace) -> Result<()> {
+    pub async fn create<T: Database>(database: T, wsp: &Workspace) -> Result<()> {
         // Check for existing org with same name
-        let id = create_id(30).await;
-        let now = get_unix_timestamp();
-        let db_resp = database
-            .create_workspace(&Workspace {
-                id,
-                name: wsp.name.clone(),
-                owner: wsp.owner.clone(),
-                created_at: now,
-                active: true,
-            })
-            .await;
+        let db_resp = database.create_workspace(wsp).await;
 
         match db_resp {
             Ok(_) => Ok(()),
-            Err(_) => Err(anyhow!("failed to create org")),
+            Err(_) => Err(anyhow!("failed to create workspace")),
         }
     }
 
