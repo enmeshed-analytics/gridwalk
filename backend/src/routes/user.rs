@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::core::{create_id, verify_password, CreateUser, Profile, Role, Roles, Session, User};
+use crate::core::{create_id, verify_password, CreateUser, Profile, Session, User};
 use crate::data::Database;
 use axum::{
     extract::{Extension, State},
@@ -36,7 +36,6 @@ pub async fn register<D: Database>(
         email: req.email,
         first_name: req.first_name,
         last_name: req.last_name,
-        roles: Roles(vec![Role::Read]), // TODO: Important! role for which org/team?
         password: req.password,
     };
     match User::create(state.app_data.clone(), &user).await {

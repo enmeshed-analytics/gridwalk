@@ -1,4 +1,4 @@
-use crate::core::{Role, Session, User, Workspace};
+use crate::core::{Session, User, Workspace, WorkspaceMember, WorkspaceRole};
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -11,15 +11,16 @@ pub trait UserStore: Send + Sync + Clone + 'static {
     async fn get_user_by_email(&self, email: &str) -> Result<User>;
     async fn get_user_by_id(&self, id: &str) -> Result<User>;
     async fn create_workspace(&self, wsp: &Workspace) -> Result<()>;
-    //
     async fn get_workspace_by_id(&self, id: &str) -> Result<Workspace>;
+    //
     async fn add_workspace_member(
         &self,
-        org: &Workspace,
+        wsp: &Workspace,
         user: &User,
-        role: Role,
+        role: WorkspaceRole,
         joined_at: u64,
     ) -> Result<()>;
+    async fn get_workspace_member(&self, wsp: Workspace, user: User) -> Result<WorkspaceMember>;
     async fn remove_workspace_member(&self, org: &Workspace, user: &User) -> Result<()>;
 }
 

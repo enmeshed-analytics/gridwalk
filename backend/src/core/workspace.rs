@@ -1,6 +1,9 @@
+use crate::core::{get_unix_timestamp, User};
 use crate::data::Database;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
@@ -13,9 +16,45 @@ pub struct Workspace {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WorkspaceMember {
-    pub org_id: String,
+    pub workspace_id: String,
     pub user_id: String,
-    pub member_type: String,
+    pub role: WorkspaceRole,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum WorkspaceRole {
+    Superuser,
+    Admin,
+    Read,
+}
+
+impl fmt::Display for WorkspaceRole {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            WorkspaceRole::Superuser => write!(f, "superuser"),
+            WorkspaceRole::Admin => write!(f, "admin"),
+            WorkspaceRole::Read => write!(f, "read"),
+        }
+    }
+}
+
+impl FromStr for WorkspaceRole {
+    type Err = String; // Using String as error type for simplicity
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_lowercase().as_str() {
+            "superuser" => Ok(WorkspaceRole::Superuser),
+            "admin" => Ok(WorkspaceRole::Admin),
+            "read" => Ok(WorkspaceRole::Read),
+            _ => Err(format!("Unknown role: {}", s)),
+        }
+    }
+}
+
+impl From<&String> for WorkspaceRole {
+    fn from(s: &String) -> Self {
+        WorkspaceRole::from_str(s).unwrap_or(WorkspaceRole::Read)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -39,16 +78,38 @@ impl Workspace {
         }
     }
 
-    //    pub async fn add_member<T: Database>(
-    //        self,
-    //        database: T,
-    //        req_user: &User,
-    //        user: &User,
-    //    ) -> Result<()> {
-    //        // Check that requesting user has admin role in workspace
-    //        database.add_workspace_member(&self, user).await?;
-    //        Ok(())
-    //    }
+    pub async fn add_member<T: Database>(
+        self,
+        database: T,
+        req_user: &User,
+        user: &User,
+        role: WorkspaceRole,
+    ) -> Result<()> {
+        let requesting_member = self
+            .clone()
+            .get_member(database.clone(), req_user.clone())
+            .await?;
+
+        println!(
+            "{} is {} of the {} workspace",
+            req_user.first_name, requesting_member.role, self.name
+        );
+
+        if requesting_member.role != WorkspaceRole::Admin {
+            Err(anyhow!("Only Admin can add members"))?
+        }
+
+        let now = get_unix_timestamp();
+        database
+            .add_workspace_member(&self, user, role, now)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_member<D: Database>(self, database: D, user: User) -> Result<WorkspaceMember> {
+        Ok(database.get_workspace_member(self, user).await?)
+    }
+
     //
     //    pub async fn remove_member<T: Database>(self, database: T, user: &User) -> Result<()> {
     //        database.remove_workspace_member(&self, user).await?;

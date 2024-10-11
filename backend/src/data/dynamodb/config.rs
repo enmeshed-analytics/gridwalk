@@ -1,4 +1,4 @@
-use crate::core::{CreateUser, Email, Role, Roles, User, Workspace};
+use crate::core::{CreateUser, Email, User, Workspace, WorkspaceMember, WorkspaceRole};
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -142,7 +142,6 @@ impl Dynamodb {
                     email: String::from("test@example.com"),
                     first_name: String::from("Admin"),
                     last_name: String::from("Istrator"),
-                    roles: Roles(vec![Role::Superuser]),
                     password: String::from("admin"),
                 };
                 User::create(dynamodb.clone(), &admin_user).await?;
@@ -166,7 +165,6 @@ impl UserStore for Dynamodb {
         item.insert(String::from("primary_email"), AV::S(user.email.clone()));
         item.insert(String::from("first_name"), AV::S(user.first_name.clone()));
         item.insert(String::from("last_name"), AV::S(user.last_name.clone()));
-        item.insert(String::from("user_roles"), AV::S(user.roles.to_string()));
         item.insert(String::from("active"), AV::Bool(user.active));
         item.insert(
             String::from("created_at"),
@@ -283,16 +281,17 @@ impl UserStore for Dynamodb {
         &self,
         org: &Workspace,
         user: &User,
-        role: Role,
+        role: WorkspaceRole,
         joined_at: u64,
     ) -> Result<()> {
         // Create the workspace member item to insert
         let mut item = std::collections::HashMap::new();
 
-        item.insert(String::from("PK"), AV::S(format!("WORKSPACE#{}", org.id)));
+        item.insert(String::from("PK"), AV::S(format!("WSP#{}", org.id)));
         item.insert(String::from("SK"), AV::S(format!("USER#{}", user.id)));
-        item.insert(String::from("user_role"), AV::S(role.to_string()));
+        item.insert(String::from("role"), AV::S(role.to_string()));
         item.insert(String::from("joined_at"), AV::N(joined_at.to_string()));
+        item.insert(String::from("user_id"), AV::S(user.id.clone()));
 
         self.client
             .put_item()
@@ -302,6 +301,24 @@ impl UserStore for Dynamodb {
             .await?;
 
         Ok(())
+    }
+
+    async fn get_workspace_member(&self, wsp: Workspace, user: User) -> Result<WorkspaceMember> {
+        println!("{wsp:?}");
+        let pk = format!("WSP#{0}", wsp.id);
+        let sk = format!("USER#{0}", user.id);
+        match self
+            .client
+            .get_item()
+            .table_name(&self.table_name)
+            .key("PK", AV::S(pk))
+            .key("SK", AV::S(sk))
+            .send()
+            .await
+        {
+            Ok(response) => Ok(response.item.unwrap().into()),
+            Err(_e) => Err(anyhow!("workspace not found")),
+        }
     }
 
     async fn remove_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<()> {

@@ -1,4 +1,4 @@
-use crate::core::{Email, Session, User, Workspace};
+use crate::core::{Email, Session, User, Workspace, WorkspaceMember};
 use aws_sdk_dynamodb::types::AttributeValue as AV;
 use std::collections::HashMap;
 
@@ -21,7 +21,6 @@ impl From<HashMap<String, AV>> for User {
             first_name: value.get("first_name").unwrap().as_s().unwrap().to_string(),
             last_name: value.get("last_name").unwrap().as_s().unwrap().to_string(),
             active: *value.get("active").unwrap().as_bool().unwrap(),
-            roles: value.get("user_roles").unwrap().as_s().unwrap().into(),
             created_at: value
                 .get("created_at")
                 .unwrap()
@@ -50,12 +49,37 @@ impl From<HashMap<String, AV>> for Workspace {
     fn from(value: HashMap<String, AV>) -> Self {
         Workspace {
             id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
-            name: split_at_hash(value.get("org_name").unwrap().as_s().unwrap()).to_string(),
-            owner: split_at_hash(value.get("org_leader").unwrap().as_s().unwrap()).to_string(),
-            created_at: split_at_hash(value.get("created_at").unwrap().as_n().unwrap())
+            name: value
+                .get("workspace_name")
+                .unwrap()
+                .as_s()
+                .unwrap()
+                .to_string(),
+            owner: value
+                .get("workspace_owner")
+                .unwrap()
+                .as_s()
+                .unwrap()
+                .to_string(),
+            created_at: value
+                .get("created_at")
+                .unwrap()
+                .as_n()
+                .unwrap()
                 .parse()
                 .unwrap(),
             active: *value.get("active").unwrap().as_bool().unwrap(),
+        }
+    }
+}
+
+// Convert DynamoDB response into Workspace struct
+impl From<HashMap<String, AV>> for WorkspaceMember {
+    fn from(value: HashMap<String, AV>) -> Self {
+        WorkspaceMember {
+            workspace_id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
+            user_id: split_at_hash(value.get("SK").unwrap().as_s().unwrap()).to_string(),
+            role: value.get("role").unwrap().as_s().unwrap().into(),
         }
     }
 }
