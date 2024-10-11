@@ -107,12 +107,31 @@ impl Workspace {
     }
 
     pub async fn get_member<D: Database>(self, database: D, user: User) -> Result<WorkspaceMember> {
-        Ok(database.get_workspace_member(self, user).await?)
+        // TODO: Fix unwrap
+        Ok(database.get_workspace_member(self, user).await.unwrap())
     }
 
-    //
-    //    pub async fn remove_member<T: Database>(self, database: T, user: &User) -> Result<()> {
-    //        database.remove_workspace_member(&self, user).await?;
-    //        Ok(())
-    //    }
+    pub async fn remove_member<T: Database>(
+        self,
+        database: T,
+        req_user: &User,
+        user: &User,
+    ) -> Result<()> {
+        let requesting_member = self
+            .clone()
+            .get_member(database.clone(), req_user.clone())
+            .await?;
+
+        println!(
+            "{} is {} of the {} workspace",
+            req_user.first_name, requesting_member.role, self.name
+        );
+
+        if requesting_member.role != WorkspaceRole::Admin {
+            Err(anyhow!("Only Admin can remove members"))?
+        }
+
+        database.remove_workspace_member(&self, user).await?;
+        Ok(())
+    }
 }

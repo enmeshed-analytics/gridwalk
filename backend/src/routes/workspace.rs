@@ -77,5 +77,25 @@ pub async fn add_workspace_member<D: Database>(
             .add_member(state.app_data.clone(), &req_user, &user, req.role)
             .await;
     };
-    "workspace created".into_response()
+    "added workspace member".into_response()
+}
+
+pub async fn remove_workspace_member<D: Database>(
+    State(state): State<Arc<AppState<D>>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Json(req): Json<ReqAddWorkspaceMember>,
+) -> Response {
+    if let Some(req_user) = auth_user.user {
+        // TODO: sort out unwraps and response
+        let wsp = Workspace::from_id(state.app_data.clone(), &req.workspace_id)
+            .await
+            .unwrap();
+        let user = User::from_id(state.app_data.clone(), &req.user_id)
+            .await
+            .unwrap();
+        let _ = wsp
+            .remove_member(state.app_data.clone(), &req_user, &user)
+            .await;
+    };
+    "removed workspace member".into_response()
 }
