@@ -1,4 +1,4 @@
-use crate::core::{CreateUser, Email, User, Workspace, WorkspaceMember, WorkspaceRole};
+use crate::core::{CreateUser, Email, Layer, User, Workspace, WorkspaceMember, WorkspaceRole};
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -327,6 +327,35 @@ impl UserStore for Dynamodb {
             .table_name(&self.table_name)
             .key("PK", AV::S(format!("WSP#{}", wsp.id)))
             .key("SK", AV::S(format!("USER#{}", user.id)))
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    async fn create_layer(&self, layer: &Layer) -> Result<()> {
+        // Create the workspace member item to insert
+        let mut item = std::collections::HashMap::new();
+
+        item.insert(
+            String::from("PK"),
+            AV::S(format!("WSP#{}", layer.workspace_id)),
+        );
+        item.insert(String::from("SK"), AV::S(format!("LAYER#{}", layer.id)));
+        item.insert(String::from("name"), AV::S(layer.clone().name));
+        item.insert(
+            String::from("uploaded_by"),
+            AV::S(layer.clone().uploaded_by),
+        );
+        item.insert(
+            String::from("created_at"),
+            AV::N(layer.created_at.to_string()),
+        );
+
+        self.client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item))
             .send()
             .await?;
 
