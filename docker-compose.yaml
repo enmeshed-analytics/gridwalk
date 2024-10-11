@@ -14,28 +14,11 @@ services:
     ports:
       - "5432:5432"
 
-  martin:
-    image: ghcr.io/maplibre/martin
-    container_name: gridwalk-martin
-    depends_on:
-      - geodatabase
-    environment:
-      - PGPASSWORD=password
-      - DATABASE_URL=postgresql://admin:password@geodatabase:5432/gridwalk
-    volumes:
-      - ./martin.yaml:/config/martin.yaml
-    command: --config /config/martin.yaml
-
-  gridwalk:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: gridwalk-app
-    depends_on:
-      - geodatabase
-      - martin
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    container_name: gridwalk-dynamodb
     ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=postgresql://admin:password@geodatabase:5432/gridwalk
-      - TILE_SERVER_URL=http://martin:8080
+      - "8000:8000"
+    volumes:
+      - ./local/dynamodb:/home/dynamodblocal/data
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data"
