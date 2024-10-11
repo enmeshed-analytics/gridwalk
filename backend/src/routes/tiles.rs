@@ -1,19 +1,16 @@
 use crate::app_state::AppState;
+use crate::data::Database;
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
-    Json,
 };
 use martin_tile_utils::TileCoord;
+use std::sync::Arc;
 
-pub async fn health_check() -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "status": "healthy" }))
-}
-
-pub async fn tiles(
+pub async fn tiles<D: Database>(
     Path((z, y, x)): Path<(u32, u32, u32)>,
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState<D>>>,
 ) -> Response {
     if let Some(tile_info_source) = state.sources.get("pois") {
         let xyz = TileCoord {
