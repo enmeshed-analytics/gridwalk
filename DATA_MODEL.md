@@ -5,10 +5,8 @@ This is the data model used for the Gridwalk application. Currently, only Dynamo
 ## DynamoDB (Single Table)
 | PK | SK | Attributes | GSIs |
 |---|---|---|---|
-| ORG#<org_id> | ORG#<org_id> | org_name<br>org_leader<br>created_at | GSI_ORG_BY_NAME<br>org_name: <org_name> |
-| ORG#<org_id> | TEAM#<team_id> | team_name<br>team_leader<br>created_at | |
-| USER#<user_id> | USER#<user_id> | user_name<br>created_at | |
+| USER#<user_id> | USER#<user_id> | user_name<br>created_at<br>primary_email | |
 | EMAIL#<email_address> | EMAIL#<email_address> | user_id | |
-| ORG#<org_id> | USER#<user_id> | user_role<br>joined_at | |
-| USER#<user_id> | ORG#<org_id> | | |
-| SESSION#<session_id> | SESSION#<session_id> | user_id<br>created_at | |
+| WSP#<workspace_id> | WSP#<workspace_id> | workspace_name<br>workspace_owner<br>created_at | GSI_WORKSPACE_BY_NAME<br>workspace_name: <workspace_name> |
+| WSP#<workspace_id> | USER#<user_id> | user_role<br>joined_at<br>user_id | GSI_USER_ID<br>user_id: <user_id> |
+| SESSION#<session_id> | SESSION#<session_id> | user_id<br>created_at | GSI_USER<br>user_id: <user_id> |
