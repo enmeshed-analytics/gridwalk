@@ -12,7 +12,7 @@ aws-sdk-dynamodb = "1.48"
 axum = { version = "0.7", features = ["macros", "multipart"] }
 axum-extra = { version = "0.9.4", features = ["typed-header"] }
 base64 = "0.22.1"
-duckdb-postgis = "0.1.2"
+duckdb-postgis = "0.1.4"
 martin = { git = "https://github.com/enmeshed-analytics/martin.git", features = ["postgres"] }
 martin-tile-utils = { git = "https://github.com/enmeshed-analytics/martin.git" }
 rand = "0.8.5"
