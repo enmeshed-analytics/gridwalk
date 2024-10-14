@@ -1,7 +1,8 @@
 use crate::core::User;
 use crate::data::Database;
 use anyhow::{anyhow, Result};
-use serde::Serialize;
+use duckdb_postgis;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::{get_unix_timestamp, Workspace, WorkspaceRole};
@@ -15,9 +16,22 @@ pub struct Layer {
     pub created_at: u64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreateLayer {
     pub name: String,
+    pub workspace_id: String,
+}
+
+impl Layer {
+    pub fn from_req(req: CreateLayer, user: User) -> Self {
+        Layer {
+            id: Uuid::new_v4().to_string(),
+            workspace_id: req.workspace_id,
+            name: req.name,
+            uploaded_by: user.id,
+            created_at: get_unix_timestamp(),
+        }
+    }
 }
 
 impl Layer {
@@ -26,7 +40,7 @@ impl Layer {
         database: D,
         user: &User,
         wsp: &Workspace,
-        create_layer: &CreateLayer,
+        layer: &Layer,
     ) -> Result<()> {
         // Get workspace member record
         let requesting_member = wsp
@@ -37,18 +51,22 @@ impl Layer {
         if requesting_member.role == WorkspaceRole::Read {
             Err(anyhow!("User does not have permissions to create layers."))?
         }
+        database.create_layer(layer).await?;
 
-        // TODO: Load layer into geodatabase
+        Ok(())
+    }
 
-        let layer = Layer {
-            id: Uuid::new_v4().to_string(),
-            workspace_id: wsp.clone().id,
-            name: create_layer.clone().name,
-            uploaded_by: user.clone().id,
-            created_at: get_unix_timestamp(),
-        };
-        database.create_layer(&layer).await?;
+    pub async fn send_to_postgis(self, file_path: &str) -> Result<()> {
+        let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk";
+        let schema =
+            duckdb_postgis::duckdb_load::launch_process_file(file_path, &self.id, postgis_uri)?;
 
+        println!("{schema:?}");
+        Ok(())
+    }
+
+    pub async fn write_record<D: Database>(self, database: D) -> Result<()> {
+        database.create_layer(&self).await?;
         Ok(())
     }
 }

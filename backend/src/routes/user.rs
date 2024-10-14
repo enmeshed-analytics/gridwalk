@@ -115,7 +115,7 @@ pub async fn logout<D: Database>(
     }
 }
 
-pub async fn profile<D: Database>(
+pub async fn profile(
     Extension(auth_user): Extension<AuthUser>,
 ) -> Result<Json<Profile>, (StatusCode, String)> {
     match auth_user.user {
