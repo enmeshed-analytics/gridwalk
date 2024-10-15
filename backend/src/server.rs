@@ -2,8 +2,8 @@ use crate::app_state::AppState;
 use crate::auth::auth_middleware;
 use crate::data::Database;
 use crate::routes::{
-    add_workspace_member, create_workspace, health_check, login, logout, profile, register,
-    remove_workspace_member, tiles, upload_layer,
+    add_workspace_member, create_connection, create_workspace, health_check, login, logout,
+    profile, register, remove_workspace_member,
 };
 use axum::{
     middleware,
@@ -27,8 +27,8 @@ pub fn create_app<D: Database>(app_state: AppState<D>) -> Router {
             "/workspace/:workspace_id/members/:user_id",
             delete(remove_workspace_member::<D>),
         )
-        .route("/upload_layer", post(upload_layer::<D>))
-        .route("/tiles/:z/:x/:y", get(tiles::<D>))
+        .route("/connection", post(create_connection::<D>))
+        //.route("/tiles/:z/:x/:y", get(tiles::<D>))
         .layer(middleware::from_fn_with_state(
             shared_state.clone(),
             auth_middleware,

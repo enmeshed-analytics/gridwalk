@@ -1,4 +1,6 @@
-use crate::core::{CreateUser, Email, Layer, User, Workspace, WorkspaceMember, WorkspaceRole};
+use crate::core::{
+    ConnectionInfo, CreateUser, Email, User, Workspace, WorkspaceMember, WorkspaceRole,
+};
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -333,24 +335,18 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
-    async fn create_layer(&self, layer: &Layer) -> Result<()> {
+    async fn create_connection(&self, con: &ConnectionInfo) -> Result<()> {
         // Create the workspace member item to insert
         let mut item = std::collections::HashMap::new();
 
         item.insert(
             String::from("PK"),
-            AV::S(format!("WSP#{}", layer.workspace_id)),
+            AV::S(format!("WSP#{}", con.clone().workspace_id)),
         );
-        item.insert(String::from("SK"), AV::S(format!("LAYER#{}", layer.id)));
-        item.insert(String::from("name"), AV::S(layer.clone().name));
-        item.insert(
-            String::from("uploaded_by"),
-            AV::S(layer.clone().uploaded_by),
-        );
-        item.insert(
-            String::from("created_at"),
-            AV::N(layer.created_at.to_string()),
-        );
+        item.insert(String::from("SK"), AV::S(format!("CON#{}", con.clone().id)));
+        item.insert(String::from("name"), AV::S(con.clone().name));
+        item.insert(String::from("created_by"), AV::S(con.clone().created_by));
+        item.insert(String::from("postgis_uri"), AV::N(con.clone().postgis_uri));
 
         self.client
             .put_item()
