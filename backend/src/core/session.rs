@@ -18,11 +18,10 @@ pub struct Session {
 }
 
 #[async_trait]
-impl<S, D> FromRequestParts<S> for Session
+impl<S> FromRequestParts<S> for Session
 where
     S: Send + Sync,
-    D: Database + Send + Sync + 'static,
-    S: std::ops::Deref<Target = Arc<AppState<D>>>,
+    S: std::ops::Deref<Target = Arc<AppState>>,
 {
     type Rejection = (StatusCode, String);
 
@@ -38,7 +37,7 @@ where
             ))?;
 
         // Use the existing from_id method to validate and retrieve the session
-        match Session::from_id(state.app_data.clone(), auth_header).await {
+        match Session::from_id(&state.app_data, auth_header).await {
             Ok(session) => Ok(session),
             Err(_) => Err((
                 StatusCode::UNAUTHORIZED,
@@ -50,7 +49,7 @@ where
 
 impl Session {
     // TODO: dead code
-    pub async fn from_id<T: Database>(database: T, id: &str) -> Result<Self> {
+    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<Self> {
         database.get_session_by_id(id).await
     }
 
@@ -74,7 +73,7 @@ impl Session {
         }
     }
 
-    pub async fn delete<T: Database>(&self, database: T) -> Result<()> {
+    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
         database.delete_session(&self.id).await?;
         Ok(())
     }

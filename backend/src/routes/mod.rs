@@ -1,9 +1,8 @@
-mod layer;
+mod connector;
 mod tiles;
 mod user;
 mod workspace;
 
-pub use layer::*;
-pub use tiles::*;
+pub use connector::*;
 pub use user::*;
 pub use workspace::*;

@@ -1,4 +1,4 @@
-use crate::core::{CreateUser, Email, Layer, User, Workspace, WorkspaceMember, WorkspaceRole};
+use crate::core::{Connection, CreateUser, Email, User, Workspace, WorkspaceMember, WorkspaceRole};
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -9,6 +9,7 @@ use aws_sdk_dynamodb::types::{
     Projection, ProjectionType, ProvisionedThroughput, ScalarAttributeType,
 };
 use aws_sdk_dynamodb::Client;
+use std::sync::Arc;
 use tracing::info;
 
 #[derive(Debug, Clone)]
@@ -20,7 +21,7 @@ pub struct Dynamodb {
 impl Database for Dynamodb {}
 
 impl Dynamodb {
-    pub async fn new(local: bool, table_name: &str) -> Result<Self> {
+    pub async fn new(local: bool, table_name: &str) -> Result<Arc<dyn Database>> {
         let region_provider = RegionProviderChain::default_provider().or_else("eu-west-2");
 
         // Set endpoint url to localhost to run locally
@@ -46,10 +47,10 @@ impl Dynamodb {
         let client = Client::from_conf(config);
         // Check if table exists, create if it doesn't
         Self::ensure_table_exists(&client, table_name).await?;
-        let dynamodb = Dynamodb {
+        let dynamodb = Arc::new(Dynamodb {
             client: client.clone(),
             table_name: table_name.into(),
-        };
+        }) as Arc<dyn Database>;
         Self::ensure_admin_user_exists(&dynamodb).await?;
 
         Ok(dynamodb)
@@ -130,8 +131,8 @@ impl Dynamodb {
         Ok(())
     }
 
-    async fn ensure_admin_user_exists(dynamodb: &Dynamodb) -> Result<()> {
-        let admin_user = User::from_email(dynamodb.clone(), "test@example.com").await;
+    async fn ensure_admin_user_exists(dynamodb: &Arc<dyn Database>) -> Result<()> {
+        let admin_user = User::from_email(&dynamodb, "test@example.com").await;
         match admin_user {
             Ok(_) => {
                 info!("db init: admin user exists.");
@@ -144,7 +145,7 @@ impl Dynamodb {
                     last_name: String::from("Istrator"),
                     password: String::from("admin"),
                 };
-                User::create(dynamodb.clone(), &admin_user).await?;
+                User::create(&dynamodb, &admin_user).await?;
                 info!("db init: admin user created.");
             }
         }
@@ -333,23 +334,34 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
-    async fn create_layer(&self, layer: &Layer) -> Result<()> {
-        // Create the workspace member item to insert
+    async fn create_connection(&self, con: &Connection) -> Result<()> {
+        // Create the connection item to insert
         let mut item = std::collections::HashMap::new();
 
         item.insert(
             String::from("PK"),
-            AV::S(format!("WSP#{}", layer.workspace_id)),
+            AV::S(format!("WSP#{}", con.clone().workspace_id)),
         );
-        item.insert(String::from("SK"), AV::S(format!("LAYER#{}", layer.id)));
-        item.insert(String::from("name"), AV::S(layer.clone().name));
+        item.insert(String::from("SK"), AV::S(format!("CON#{}", con.clone().id)));
+        item.insert(String::from("name"), AV::S(con.clone().name));
+        item.insert(String::from("created_by"), AV::S(con.clone().created_by));
         item.insert(
-            String::from("uploaded_by"),
-            AV::S(layer.clone().uploaded_by),
+            String::from("connector_type"),
+            AV::S(con.clone().connector_type),
+        );
+        item.insert(String::from("pg_host"), AV::S(con.clone().config.host));
+        item.insert(
+            String::from("pg_port"),
+            AV::S(con.clone().config.port.to_string()),
+        );
+        item.insert(String::from("pg_db"), AV::S(con.clone().config.database));
+        item.insert(
+            String::from("pg_username"),
+            AV::S(con.clone().config.username),
         );
         item.insert(
-            String::from("created_at"),
-            AV::N(layer.created_at.to_string()),
+            String::from("pg_password"),
+            AV::S(con.clone().config.password),
         );
 
         self.client
@@ -360,5 +372,49 @@ impl UserStore for Dynamodb {
             .await?;
 
         Ok(())
+    }
+
+    async fn get_workspace_connection(
+        &self,
+        workspace_id: &str,
+        connection_id: &str,
+    ) -> Result<Connection> {
+        let pk = format!("WSP#{workspace_id}");
+        let sk = format!("CON#{connection_id}");
+        match self
+            .client
+            .get_item()
+            .table_name(&self.table_name)
+            .key("PK", AV::S(pk))
+            .key("SK", AV::S(sk))
+            .send()
+            .await
+        {
+            Ok(response) => Ok(response.item.unwrap().into()),
+            Err(_e) => Err(anyhow!("workspace not found")),
+        }
+    }
+
+    async fn get_workspace_connections(&self, workspace_id: &str) -> Result<Vec<Connection>> {
+        let pk = format!("WSP#{}", workspace_id);
+
+        let query_output = self
+            .client
+            .query()
+            .table_name(&self.table_name)
+            .key_condition_expression("PK = :pk AND begins_with(SK, :sk_prefix)")
+            .expression_attribute_values(":pk", AV::S(pk))
+            .expression_attribute_values(":sk_prefix", AV::S("CON#".to_string()))
+            .send()
+            .await?;
+
+        match query_output.items {
+            Some(items) => {
+                let connections: Vec<Connection> =
+                    items.into_iter().map(|item| item.into()).collect();
+                Ok(connections)
+            }
+            None => Ok(vec![]),
+        }
     }
 }
