@@ -1,4 +1,5 @@
 pub mod config;
+
 mod dynamodb;
 
 pub use config::*;

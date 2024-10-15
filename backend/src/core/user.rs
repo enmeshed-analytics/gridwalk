@@ -2,6 +2,7 @@ use crate::core::{create_id, get_unix_timestamp, hash_password};
 use crate::data::Database;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct User {
@@ -50,7 +51,7 @@ impl From<User> for Profile {
 }
 
 impl User {
-    pub async fn create<T: Database>(database: T, user: &CreateUser) -> Result<()> {
+    pub async fn create(database: &Arc<dyn Database>, user: &CreateUser) -> Result<()> {
         let user_id = create_id(10).await;
         let new_user = User::from_create_user(user, &user_id, true);
         match database.get_user_by_email(&new_user.email).await {
@@ -59,11 +60,11 @@ impl User {
         }
     }
 
-    pub async fn from_id<T: Database>(database: T, id: &str) -> Result<User> {
+    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<User> {
         database.get_user_by_id(id).await
     }
 
-    pub async fn from_email<T: Database>(database: T, email: &str) -> Result<User> {
+    pub async fn from_email(database: &Arc<dyn Database>, email: &str) -> Result<User> {
         database.get_user_by_email(email).await
     }
 

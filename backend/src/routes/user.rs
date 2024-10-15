@@ -1,7 +1,6 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::core::{create_id, verify_password, CreateUser, Profile, Session, User};
-use crate::data::Database;
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -28,8 +27,8 @@ pub struct RegisterRequest {
     last_name: String,
 }
 
-pub async fn register<D: Database>(
-    State(state): State<Arc<AppState<D>>>,
+pub async fn register(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterRequest>,
 ) -> Response {
     let user = CreateUser {
@@ -38,7 +37,7 @@ pub async fn register<D: Database>(
         last_name: req.last_name,
         password: req.password,
     };
-    match User::create(state.app_data.clone(), &user).await {
+    match User::create(&state.app_data, &user).await {
         Ok(_) => "registration succeeded".into_response(),
         Err(_) => "registration failed".into_response(),
     }
@@ -50,12 +49,12 @@ pub struct LoginRequest {
     password: String,
 }
 
-pub async fn login<D: Database>(
-    State(state): State<Arc<AppState<D>>>,
+pub async fn login(
+    State(state): State<Arc<AppState>>,
     Json(req): Json<LoginRequest>,
 ) -> impl IntoResponse {
     // Get user from app db
-    let user_response = User::from_email(state.app_data.clone(), &req.email).await;
+    let user_response = User::from_email(&state.app_data, &req.email).await;
     // Check creds
     match user_response {
         Ok(user) => {
@@ -101,14 +100,14 @@ pub async fn login<D: Database>(
     }
 }
 
-pub async fn logout<D: Database>(
-    State(state): State<Arc<AppState<D>>>,
+pub async fn logout(
+    State(state): State<Arc<AppState>>,
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> impl IntoResponse {
     let token = authorization.token();
-    match Session::from_id(state.app_data.clone(), token).await {
+    match Session::from_id(&state.app_data, token).await {
         Ok(session) => {
-            let _ = session.delete(state.app_data.clone()).await;
+            let _ = session.delete(&state.app_data).await;
             "logged out".into_response()
         }
         Err(_) => "logged out".into_response(),

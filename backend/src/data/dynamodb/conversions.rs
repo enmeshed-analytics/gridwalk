@@ -1,4 +1,4 @@
-use crate::core::{Email, Session, User, Workspace, WorkspaceMember};
+use crate::core::{Connection, Email, Session, User, Workspace, WorkspaceMember};
 use aws_sdk_dynamodb::types::AttributeValue as AV;
 use std::collections::HashMap;
 
@@ -93,6 +93,20 @@ impl From<HashMap<String, AV>> for Session {
         Session {
             id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
             user_id,
+        }
+    }
+}
+
+// Convert DynamoDB response into ConnectionInfo struct
+impl From<HashMap<String, AV>> for Connection {
+    fn from(value: HashMap<String, AV>) -> Self {
+        Connection {
+            id: split_at_hash(value.get("SK").unwrap().as_s().unwrap()).to_string(),
+            workspace_id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
+            name: value.get("name").unwrap().as_s().unwrap().into(),
+            created_by: value.get("created_by").unwrap().as_s().unwrap().into(),
+            connector_type: value.get("connector_type").unwrap().as_s().unwrap().into(),
+            postgis_uri: value.get("postgis_uri").unwrap().as_s().unwrap().into(),
         }
     }
 }

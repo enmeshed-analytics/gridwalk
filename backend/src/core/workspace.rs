@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
@@ -64,11 +65,11 @@ pub struct RemoveOrgMember {
 }
 
 impl Workspace {
-    pub async fn from_id<T: Database>(database: T, id: &str) -> Result<Self> {
+    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<Self> {
         Ok(database.get_workspace_by_id(id).await.unwrap())
     }
 
-    pub async fn create<T: Database>(database: T, wsp: &Workspace) -> Result<()> {
+    pub async fn create(database: &Arc<dyn Database>, wsp: &Workspace) -> Result<()> {
         // Check for existing org with same name
         let db_resp = database.create_workspace(wsp).await;
 
@@ -78,17 +79,14 @@ impl Workspace {
         }
     }
 
-    pub async fn add_member<T: Database>(
+    pub async fn add_member(
         self,
-        database: T,
+        database: &Arc<dyn Database>,
         req_user: &User,
         user: &User,
         role: WorkspaceRole,
     ) -> Result<()> {
-        let requesting_member = self
-            .clone()
-            .get_member(database.clone(), req_user.clone())
-            .await?;
+        let requesting_member = self.clone().get_member(&database, req_user.clone()).await?;
 
         println!(
             "{} is {} of the {} workspace",
@@ -106,21 +104,22 @@ impl Workspace {
         Ok(())
     }
 
-    pub async fn get_member<D: Database>(self, database: D, user: User) -> Result<WorkspaceMember> {
+    pub async fn get_member(
+        self,
+        database: &Arc<dyn Database>,
+        user: User,
+    ) -> Result<WorkspaceMember> {
         // TODO: Fix unwrap
         Ok(database.get_workspace_member(self, user).await.unwrap())
     }
 
-    pub async fn remove_member<T: Database>(
+    pub async fn remove_member(
         self,
-        database: T,
+        database: &Arc<dyn Database>,
         req_user: &User,
         user: &User,
     ) -> Result<()> {
-        let requesting_member = self
-            .clone()
-            .get_member(database.clone(), req_user.clone())
-            .await?;
+        let requesting_member = self.clone().get_member(&database, req_user.clone()).await?;
 
         println!(
             "{} is {} of the {} workspace",

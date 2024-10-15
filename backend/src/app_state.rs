@@ -1,9 +1,9 @@
+use crate::core::GeospatialConfig;
 use crate::data::Database;
-use martin::Source;
-use std::collections::HashMap;
+use std::sync::Arc;
 
-#[derive(Debug, Clone)]
-pub struct AppState<D: Database> {
-    pub app_data: D,
-    pub sources: HashMap<String, Box<dyn Source>>,
+#[derive(Clone)]
+pub struct AppState {
+    pub app_data: Arc<dyn Database>,
+    pub geospatial_config: GeospatialConfig,
 }
