@@ -1,8 +1,11 @@
 # GridWalk
 
-Geo me up Scotty!
+GridWalk is our innovative mapping product designed to empower businesses and organisations with spatial data insights.
 
-## MVP Architecture Diagram
+>[!NOTE]
+> GridWalk is currently under active development.
+>
+> MVP Q4 2024.  
 
-
-![GridWalk - Frame 1](https://github.com/user-attachments/assets/55e73ff7-2100-4f4c-8b71-e8fe28b9472b)
+## GridWalk Product RoadMap
+![Roadmap Planning - RoadMap](https://github.com/user-attachments/assets/a81f52e2-303b-4adb-acdf-4b5446b16101)
