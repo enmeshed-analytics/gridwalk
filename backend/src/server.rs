@@ -1,8 +1,8 @@
 use crate::app_state::AppState;
 use crate::auth::auth_middleware;
 use crate::routes::{
-    add_workspace_member, create_connection, create_workspace, health_check, list_sources, login,
-    logout, profile, register, remove_workspace_member,
+    add_workspace_member, create_connection, create_workspace, generate_os_token, health_check,
+    list_sources, login, logout, profile, register, remove_workspace_member,
 };
 use axum::{
     middleware,
@@ -38,6 +38,7 @@ pub fn create_app(app_state: AppState) -> Router {
         ))
         .route("/register", post(register))
         .route("/login", post(login))
+        .route("/os-token", get(generate_os_token))
         .with_state(shared_state)
         .layer(
             TraceLayer::new_for_http()
