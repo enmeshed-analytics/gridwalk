@@ -1,5 +1,4 @@
 use crate::core::User;
-use crate::data::Database;
 use crate::{app_state::AppState, core::Session};
 use axum::{
     body::Body,
@@ -17,17 +16,17 @@ pub struct AuthUser {
     pub user: Option<User>,
 }
 
-pub async fn auth_middleware<D: Database>(
-    State(state): State<Arc<AppState<D>>>,
+pub async fn auth_middleware(
+    State(state): State<Arc<AppState>>,
     TypedHeader(auth): TypedHeader<Authorization<Bearer>>,
     mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
     let token = auth.token();
-    match Session::from_id(state.app_data.clone(), token).await {
+    match Session::from_id(&state.app_data, token).await {
         Ok(session) => {
             if let Some(user_id) = session.user_id {
-                match User::from_id(state.app_data.clone(), &user_id).await {
+                match User::from_id(&state.app_data, &user_id).await {
                     Ok(user) => {
                         request
                             .extensions_mut()

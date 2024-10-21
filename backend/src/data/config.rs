@@ -1,12 +1,12 @@
-use crate::core::{Layer, Session, User, Workspace, WorkspaceMember, WorkspaceRole};
+use crate::core::{Connection, Session, User, Workspace, WorkspaceMember, WorkspaceRole};
 use anyhow::Result;
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait Database: Send + Sync + Clone + UserStore + SessionStore + 'static {}
+pub trait Database: Send + Sync + UserStore + SessionStore + 'static {}
 
 #[async_trait]
-pub trait UserStore: Send + Sync + Clone + 'static {
+pub trait UserStore: Send + Sync + 'static {
     async fn create_user(&self, user: &User) -> Result<()>;
     async fn get_user_by_email(&self, email: &str) -> Result<User>;
     async fn get_user_by_id(&self, id: &str) -> Result<User>;
@@ -22,11 +22,17 @@ pub trait UserStore: Send + Sync + Clone + 'static {
     ) -> Result<()>;
     async fn get_workspace_member(&self, wsp: Workspace, user: User) -> Result<WorkspaceMember>;
     async fn remove_workspace_member(&self, org: &Workspace, user: &User) -> Result<()>;
-    async fn create_layer(&self, layer: &Layer) -> Result<()>;
+    async fn create_connection(&self, connection: &Connection) -> Result<()>;
+    async fn get_workspace_connection(
+        &self,
+        workspace_id: &str,
+        connection_id: &str,
+    ) -> Result<Connection>;
+    async fn get_workspace_connections(&self, workspace_id: &str) -> Result<Vec<Connection>>;
 }
 
 #[async_trait]
-pub trait SessionStore: Send + Sync + Clone + 'static {
+pub trait SessionStore: Send + Sync + 'static {
     async fn get_session_by_id(&self, id: &str) -> Result<Session>;
     async fn create_session(&self, user: Option<&'life1 User>, session_id: &str) -> Result<()>;
     async fn delete_session(&self, session_id: &str) -> Result<()>;
