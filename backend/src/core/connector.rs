@@ -44,6 +44,7 @@ pub trait GeoConnector: Send + Sync {
     async fn connect(&mut self) -> Result<()>;
     async fn disconnect(&mut self) -> Result<()>;
     async fn list_sources(&self) -> Result<Vec<String>>;
+    async fn get_tile(&self) -> Result<Vec<u8>>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -112,11 +113,11 @@ impl GeoConnector for PostgisConfig {
 
         let rows = client
             .query(
-                "SELECT DISTINCT f.table_name 
-                 FROM information_schema.columns f 
-                 JOIN pg_type t ON f.udt_name = t.typname 
-                 WHERE t.typtype = 'b' 
-                 AND t.typname IN ('geometry', 'geography') 
+                "SELECT DISTINCT f.table_name
+                 FROM information_schema.columns f
+                 JOIN pg_type t ON f.udt_name = t.typname
+                 WHERE t.typtype = 'b'
+                 AND t.typname IN ('geometry', 'geography')
                  AND f.table_schema = 'public'",
                 &[],
             )
@@ -126,6 +127,36 @@ impl GeoConnector for PostgisConfig {
         let sources: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
         println!("Found {} sources", sources.len());
         Ok(sources)
+    }
+
+    async fn get_tile(&self) -> Result<Vec<u8>> {
+        println!("Fetching all data as MVT...");
+        let pool = self.pool.as_ref();
+        let client = pool.get().await?;
+
+        // Replace these with your actual table and geometry column names
+        let table_name = "your_table_name";
+        let geom_column = "geom";
+
+        let query = format!(
+            "SELECT ST_AsMVT(q, 'layer', 4096, 'geom')
+             FROM (
+                 SELECT ST_AsMVTGeom(
+                     {geom},
+                     ST_TileEnvelope(0, 0, 0),  -- World bounds
+                     4096, 256, true
+                 ) AS geom,
+                 *
+                 FROM {table}
+             ) AS q",
+            geom = geom_column,
+            table = table_name
+        );
+
+        let row = client.query_one(&query, &[]).await?;
+        let mvt_data: Vec<u8> = row.get(0);
+
+        Ok(mvt_data)
     }
 }
 

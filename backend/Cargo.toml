@@ -14,7 +14,14 @@ axum-extra = { version = "0.9.4", features = ["typed-header"] }
 base64 = "0.22.1"
 deadpool-postgres = "0.14.0"
 duckdb-postgis = "0.1.4"
-martin = { git = "https://github.com/enmeshed-analytics/martin.git", features = ["postgres"] }
+geozero = { version = "0.14.0", features = [
+    "with-postgis-postgres",
+    "with-postgis-sqlx",
+    "with-mvt",
+] }
+martin = { git = "https://github.com/enmeshed-analytics/martin.git", features = [
+    "postgres",
+] }
 martin-tile-utils = { git = "https://github.com/enmeshed-analytics/martin.git" }
 rand = "0.8.5"
 rand_core = { version = "0.6", features = ["std"] }
