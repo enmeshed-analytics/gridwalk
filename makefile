@@ -27,11 +27,20 @@ git-commit:
 	@read -p "Enter commit type: " type; \
 	if echo "$$COMMIT_TYPES" | grep -q "^$$type:"; then \
 		read -p "Enter commit scope (optional, press enter to skip): " scope; \
+		read -p "Is this a breaking change? (y/N): " breaking; \
 		read -p "Enter commit message: " msg; \
-		if [ -n "$$scope" ]; then \
-			git commit -m "$$type($$scope): $$msg [$(DATE)]"; \
+		if [ "$$breaking" = "y" ] || [ "$$breaking" = "Y" ]; then \
+			if [ -n "$$scope" ]; then \
+				git commit -m "$$type!($scope): $$msg [$(DATE)]" -m "BREAKING CHANGE: $$msg"; \
+			else \
+				git commit -m "$$type!: $$msg [$(DATE)]" -m "BREAKING CHANGE: $$msg"; \
+			fi; \
 		else \
-			git commit -m "$$type: $$msg [$(DATE)]"; \
+			if [ -n "$$scope" ]; then \
+				git commit -m "$$type($$scope): $$msg [$(DATE)]"; \
+			else \
+				git commit -m "$$type: $$msg [$(DATE)]"; \
+			fi; \
 		fi; \
 	else \
 		echo "Invalid commit type. Please use one of the available types."; \
