@@ -31,7 +31,7 @@ git-commit:
 		read -p "Enter commit message: " msg; \
 		if [ "$$breaking" = "y" ] || [ "$$breaking" = "Y" ]; then \
 			if [ -n "$$scope" ]; then \
-				git commit -m "$$type!($scope): $$msg [$(DATE)]" -m "BREAKING CHANGE: $$msg"; \
+				git commit -m "$$type!($$scope): $$msg [$(DATE)]" -m "BREAKING CHANGE: $$msg"; \
 			else \
 				git commit -m "$$type!: $$msg [$(DATE)]" -m "BREAKING CHANGE: $$msg"; \
 			fi; \
