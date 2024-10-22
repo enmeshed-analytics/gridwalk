@@ -6,11 +6,9 @@ import {
   Upload,
   FileText,
   Trash2,
-  Link,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import ConnectionsModal from "../Modals/ConnectionsModal";
 import { layerIcons } from "./sidebarHandler";
 
 type LayerGroup = {

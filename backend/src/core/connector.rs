@@ -44,7 +44,7 @@ pub trait GeoConnector: Send + Sync {
     async fn connect(&mut self) -> Result<()>;
     async fn disconnect(&mut self) -> Result<()>;
     async fn list_sources(&self) -> Result<Vec<String>>;
-    async fn get_tile(&self) -> Result<Vec<u8>>;
+    async fn get_tile(&self, z: u32, x: u32, y: u32) -> Result<Vec<u8>>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -129,33 +129,47 @@ impl GeoConnector for PostgisConfig {
         Ok(sources)
     }
 
-    async fn get_tile(&self) -> Result<Vec<u8>> {
-        println!("Fetching all data as MVT...");
+    async fn get_tile(&self, z: u32, x: u32, y: u32) -> Result<Vec<u8>> {
+        println!("Fetching MVT for tile z:{} x:{} y:{}", z, x, y);
         let pool = self.pool.as_ref();
         let client = pool.get().await?;
-
-        // Replace these with your actual table and geometry column names
-        let table_name = "your_table_name";
+        let table_name = "test";
         let geom_column = "geom";
-
         let query = format!(
-            "SELECT ST_AsMVT(q, 'layer', 4096, 'geom')
-             FROM (
-                 SELECT ST_AsMVTGeom(
-                     {geom},
-                     ST_TileEnvelope(0, 0, 0),  -- World bounds
-                     4096, 256, true
-                 ) AS geom,
-                 *
-                 FROM {table}
-             ) AS q",
-            geom = geom_column,
-            table = table_name
+            "
+WITH
+bounds AS (
+  -- Get tile envelope in EPSG:4326
+  SELECT ST_Transform(ST_TileEnvelope({z}, {x}, {y}), 4326) AS geom
+),
+mvt_data AS (
+  SELECT
+    -- Use the geometry directly in 4326 and prepare for MVT
+    ST_AsMVTGeom(
+      t.geom,
+      bounds.geom,
+      4096,
+      256,
+      true
+    ) AS geom,
+    t.name
+  FROM
+    test t,
+    bounds
+  WHERE
+    ST_Intersects(t.geom, bounds.geom)
+)
+SELECT ST_AsMVT(mvt_data.*, 'blah', 4096, 'geom') AS mvt
+FROM mvt_data;
+",
+            z = z,
+            x = x,
+            y = y,
         );
-
         let row = client.query_one(&query, &[]).await?;
+        println!("{row:?}");
         let mvt_data: Vec<u8> = row.get(0);
-
+        println!("{mvt_data:?}");
         Ok(mvt_data)
     }
 }

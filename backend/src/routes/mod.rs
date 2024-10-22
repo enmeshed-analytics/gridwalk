@@ -6,5 +6,6 @@ mod workspace;
 
 pub use connector::*;
 pub use os_token::*;
+pub use tiles::*;
 pub use user::*;
 pub use workspace::*;

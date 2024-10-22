@@ -12,6 +12,83 @@ import {
   transformGeoJsonData,
 } from "../../utils/mapHandler";
 
+const addNewVectorLayer = (map: maplibregl.Map | null) => {
+  console.log("Adding New Vector Layer");
+  if (!map) return;
+
+  // 1. First, check if source already exists and remove it
+  if (map.getSource('new-vector-source')) {
+    if (map.getLayer('new-vector-layer')) {
+      map.removeLayer('new-vector-layer');
+    }
+    map.removeSource('new-vector-source');
+  }
+
+  // 2. Add the vector tile source
+  map.addSource('new-vector-source', {
+    type: 'vector',
+    tiles: ['http://localhost:3001/tiles/3793c7d4-60b5-44ec-a4c3-42a91515b11a/4cf82baf-31d2-4428-b0b3-a3ca9583a5a2/{z}/{x}/{y}'],
+    minzoom: 0,
+    maxzoom: 14
+  });
+
+  // 3. Add debug listeners for source loading
+  map.on('sourcedataloading', (e) => {
+    if (e.sourceId === 'new-vector-source') {
+      console.log('Vector source loading...');
+    }
+  });
+
+  // 4. Add layer with more explicit options
+  map.addLayer({
+    id: 'new-vector-layer',
+    type: 'fill',
+    source: 'new-vector-source',
+    'source-layer': 'blah',
+    layout: {
+      visibility: 'visible'
+    },
+    paint: {
+      'fill-color': '#FF0000',
+      'fill-opacity': 0.5,
+      'fill-outline-color': '#000000'
+    }
+  });
+
+  // 5. Add error handling for tile loading
+  map.on('error', (e) => {
+    console.error('Map error:', e.error);
+    if (e.error.status === 404) {
+      console.error('Tile not found. Check the tile URL and source-layer name');
+    }
+  });
+
+  // 6. Debug source loading
+  map.on('sourcedata', (e) => {
+    if (e.sourceId === 'new-vector-source') {
+      if (e.isSourceLoaded) {
+        console.log('Vector source loaded successfully');
+        // Query features to verify data
+        const features = map.querySourceFeatures('new-vector-source', {
+          sourceLayer: 'default'
+        });
+        console.log('Features found:', features.length);
+        
+        // Log the viewport bounds
+        const bounds = map.getBounds();
+        console.log('Current viewport bounds:', bounds.toString());
+      } else {
+        console.log('Source still loading...');
+      }
+    }
+  });
+
+
+  console.log('New vector layer added');
+};
+
+
+
 // Form Component to change paint properties
 const LayerStyleForm: React.FC<{
   layerId: string;
@@ -98,11 +175,11 @@ const initMap = async (
       style: baseLayer,
       center: [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude],
       zoom: INITIAL_VIEW_STATE.zoom,
-      minZoom: 6,
-      maxBounds: [
-        [-10.7, 49.5], // Southwest coordinates
-        [1.9, 61.0], // Northeast coordinates
-      ],
+      minZoom: 0,
+      //maxBounds: [
+      //  [-10.7, 49.5], // Southwest coordinates
+      //  [1.9, 61.0], // Northeast coordinates
+      //],
       transformRequest: (url) => {
         if (url.startsWith("https://api.os.uk")) {
           return {
@@ -121,7 +198,16 @@ const initMap = async (
       },
     });
 
-    map.current.on("load", () => setMapLoaded(true));
+    map.current.on("load", () => {
+      setMapLoaded(true);
+      addNewVectorLayer(map.current);
+      // Add debug controls
+      map.current?.addControl(new maplibregl.NavigationControl());
+      map.current?.addControl(
+        new maplibregl.ScaleControl({ maxWidth: 80, unit: 'metric' })
+      );
+    });
+
     map.current.on("error", (e) =>
       handleError(setMapError, e.error, "Map error"),
     );
@@ -137,6 +223,7 @@ const initMap = async (
       }
     });
 
+    
   } catch (error) {
     handleError(setMapError, error as Error, "Error initializing map");
   }
@@ -167,7 +254,10 @@ const Map: React.FC<MapProps> = ({ activeFiles, baseLayer }) => {
         tokenDataRef,
         setSelectedLayer,
       );
+
     }
+
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
