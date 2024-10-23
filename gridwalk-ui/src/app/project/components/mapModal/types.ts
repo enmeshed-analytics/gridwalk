@@ -1,3 +1,6 @@
+{
+  /* Navigation Bar Items */
+}
 export interface NavItem {
   id: string;
   title: string;
@@ -5,6 +8,9 @@ export interface NavItem {
   description?: string;
 }
 
+{
+  /* Simple Modal Elements */
+}
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;

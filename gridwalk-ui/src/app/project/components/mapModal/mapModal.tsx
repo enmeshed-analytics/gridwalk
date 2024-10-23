@@ -1,8 +1,10 @@
-// app/components/mapModal/mapModal.tsx
 import React from "react";
-import { Map, Layers, Settings, Info, X } from "lucide-react";
+import { Map, Layers, Settings, Info, File, X } from "lucide-react";
 import { ModalProps, NavItem } from "./types";
 
+{
+  /* Create NavBar map Modal */
+}
 const MapModal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -24,6 +26,12 @@ const MapModal: React.FC<ModalProps> = ({
       description: "Manage map layers",
     },
     {
+      id: "upload",
+      title: "File Upload",
+      icon: "file",
+      description: "Upload files and add a layer to the map",
+    },
+    {
       id: "settings",
       title: "Settings",
       icon: "settings",
@@ -43,6 +51,8 @@ const MapModal: React.FC<ModalProps> = ({
         return <Map className="w-5 h-5" />;
       case "layers":
         return <Layers className="w-5 h-5" />;
+      case "file":
+        return <File className="w-5 h-5" />;
       case "settings":
         return <Settings className="w-5 h-5" />;
       case "info":
@@ -54,24 +64,25 @@ const MapModal: React.FC<ModalProps> = ({
 
   return (
     <>
-      {/* Navigation Bar - Now on the left */}
-      <div className="fixed left-0 top-0 h-full w-12 bg-gray-800 shadow-lg z-10 flex flex-col items-center py-6 rounded-r-lg">
+      {/* Navigation Bar */}
+      <div className="fixed left-0 top-0 h-full w-10 bg-gray-800 shadow-lg z-10 flex flex-col items-center py-6 rounded-r-lg">
         {/* GW Text at top */}
         <div className="py-4 text-gray-300 font-bold">GW</div>
 
         {/* Separator line */}
         <div className="w-8 h-px bg-gray-600 mb-4"></div>
 
+        {/* Modal Content */}
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onNavItemClick(item)}
             className={`
-              w-12 h-12 mb-4 flex items-center justify-center rounded-lg
+              w-10 h-8 mb-4 flex items-center justify-center rounded-lg
               transition-colors group relative
               ${
                 selectedItem?.id === item.id
-                  ? "bg-gray-100 text-blue-600"
+                  ? "bg-blue-400 text-white"
                   : "text-gray-300 hover:bg-blue-400 hover:text-white"
               }
             `}

@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
@@ -56,10 +55,9 @@ export default function Project() {
 
   return (
     <div className="w-full h-screen relative">
-      {/* Map Container - Now has left padding for nav */}
-      <div className="absolute inset-0 pl-12">
+      {/* Map Container */}
+      <div className="absolute inset-0 pl-10">
         {" "}
-        {/* Changed from pr-16 to pl-16 */}
         <div ref={mapContainer} className="h-full w-full" />
       </div>
 
