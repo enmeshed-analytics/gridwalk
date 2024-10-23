@@ -106,7 +106,6 @@ const MapModal: React.FC<ModalProps> = ({
         >
           <div className="bg-white rounded-lg shadow-xl p-4 max-w-sm">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-lg font-semibold">{selectedItem.title}</div>
               <button
                 onClick={onClose}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors"
