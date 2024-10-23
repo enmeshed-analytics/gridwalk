@@ -97,13 +97,16 @@ const MapModal: React.FC<ModalProps> = ({
       </div>
 
       {/* Modal Content */}
-      {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl p-6 m-4 max-w-xl w-full">
+      {isOpen && selectedItem && (
+        <div
+          className="fixed left-12 z-50"
+          style={{
+            top: `${navItems.findIndex((item) => item.id === selectedItem.id) * 32 + 96}px`,
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-xl p-4 max-w-sm">
             <div className="flex items-center justify-between mb-4">
-              <div className="text-lg font-semibold">
-                {selectedItem?.title || "Map Settings"}
-              </div>
+              <div className="text-lg font-semibold">{selectedItem.title}</div>
               <button
                 onClick={onClose}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors"
@@ -112,7 +115,7 @@ const MapModal: React.FC<ModalProps> = ({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="max-h-[70vh] overflow-y-auto">{children}</div>
+            <div className="max-h-[50vh] overflow-y-auto">{children}</div>
             <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
               <button
                 onClick={onClose}
