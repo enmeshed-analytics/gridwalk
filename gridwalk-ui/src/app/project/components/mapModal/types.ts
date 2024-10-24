@@ -15,7 +15,7 @@ export interface ModalProps {
   children: React.ReactNode;
 }
 
-/* Base Layer Bar */
+/* Map Edit Items */
 export interface MapEditItem {
   id: string;
   title: string;
@@ -23,7 +23,7 @@ export interface MapEditItem {
   description: string;
 }
 
-/* Base Layer Bar */
+/* Base Layer Items */
 export interface BaseEditItem {
   id: string;
   title: string;
