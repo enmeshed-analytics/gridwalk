@@ -4,11 +4,21 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import MapModal from "./components/mapModal/mapModal";
 import { NavItem } from "./components/mapModal/types";
+import MapEditNav from "./components/mapModal/mapEditModal";
+import { MapEditItem } from "./components/mapModal/types";
+import BaseLayerNav from "./components/mapModal/baseLayerModal";
+import { BaseEditItem } from "./components/mapModal/types";
 
 export default function Project() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [selectedItem, setSelectedItem] = useState<NavItem | null>(null);
+  const [selectedEditItem, setSelectedEditItem] = useState<MapEditItem | null>(
+    null,
+  );
+  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditItem | null>(
+    null,
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -53,6 +63,28 @@ export default function Project() {
     setIsModalOpen(true);
   };
 
+  // Add this new handler
+  const handleEditItemClick = (item: MapEditItem) => {
+    setSelectedEditItem(item === selectedEditItem ? null : item);
+    // Here you can add your map editing logic based on the selected item
+  };
+
+  const handleBaseItemClick = (item: BaseEditItem) => {
+    setSelectedBaseItem(item);
+    // Here you can add your map style switching logic based on the selected item
+    switch (item.id) {
+      case "light":
+        // Set light blue style
+        break;
+      case "dark":
+        // Set dark blue style
+        break;
+      case "car":
+        // Set purple style
+        break;
+    }
+  };
+
   return (
     <div className="w-full h-screen relative">
       {/* Map Container */}
@@ -60,6 +92,12 @@ export default function Project() {
         {" "}
         <div ref={mapContainer} className="h-full w-full" />
       </div>
+
+      {/* Add the MapEditNav component */}
+      <MapEditNav
+        onEditItemClick={handleEditItemClick}
+        selectedEditItem={selectedEditItem}
+      />
 
       {/* Modal Component (includes both nav bar and modal content) */}
       <MapModal
@@ -79,6 +117,10 @@ export default function Project() {
           </div>
         )}
       </MapModal>
+      <BaseLayerNav
+        onBaseItemClick={handleBaseItemClick}
+        selectedBaseItem={selectedBaseItem}
+      />
     </div>
   );
 }
