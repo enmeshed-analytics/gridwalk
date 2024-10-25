@@ -74,7 +74,7 @@ const BaseLayerNav: React.FC<BaseLayerNavProps> = ({
 const getSelectedStyle = (id: string) => {
   switch (id) {
     case "light":
-      return "bg-blue-300 text-white"; // Light blue
+      return "bg-blue-400 text-white"; // Light blue
     case "dark":
       return "bg-blue-800 text-white"; // Dark blue
     case "car":

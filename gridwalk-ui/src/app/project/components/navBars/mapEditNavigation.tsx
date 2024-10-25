@@ -87,7 +87,7 @@ const MapEdits: React.FC<MapEditsProps> = ({
               p-2 rounded-md transition-colors
               ${
                 selectedEditItem?.id === item.id
-                  ? "bg-blue-500 text-white"
+                  ? "bg-blue-400 text-white"
                   : "text-white-600 hover:bg-blue-400"
               }
             `}
