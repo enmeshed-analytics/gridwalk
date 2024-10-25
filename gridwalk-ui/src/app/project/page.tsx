@@ -2,12 +2,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import MapModal from "./components/mapModal/mapModal";
-import { NavItem } from "./components/mapModal/types";
-import MapEditNav from "./components/mapModal/mapEditModal";
-import { MapEditItem } from "./components/mapModal/types";
-import BaseLayerNav from "./components/mapModal/baseLayerModal";
-import { BaseEditItem } from "./components/mapModal/types";
+import MainMapNavigation from "./components/navBars/mainMapNavigation";
+import { MainMapNav } from "./components/navBars/types";
+import MapEditNavigation from "./components/navBars/mapEditNavigation";
+import { MapEditNav } from "./components/navBars/types";
+import BaseLayerNavigation from "./components/navBars/baseLayerNavigation";
+import { BaseEditNav } from "./components/navBars/types";
 
 export interface TokenData {
   access_token: string;
@@ -23,31 +23,35 @@ const getToken = (): TokenData => {
   xhr.open("GET", "http://localhost:3001/os-token", false); // false makes the request synchronous
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.send();
-  
+
   if (xhr.status !== 200) {
     throw new Error(`HTTP error! status: ${xhr.status}`);
   }
-  
+
   return JSON.parse(xhr.responseText);
 };
 
 const isTokenValid = (tokenData: TokenData | null): boolean => {
   if (!tokenData) return false;
-  
+
   const currentTime = Date.now();
   const issuedAt = Number(tokenData.issued_at);
   const expiresIn = Number(tokenData.expires_in) * 1000;
-  const expirationTime = issuedAt + expiresIn - (REFRESH_THRESHOLD * 1000);
-  
+  const expirationTime = issuedAt + expiresIn - REFRESH_THRESHOLD * 1000;
+
   return currentTime < expirationTime;
 };
 
 export default function Project() {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
-  const [selectedItem, setSelectedItem] = useState<NavItem | null>(null);
-  const [selectedEditItem, setSelectedEditItem] = useState<MapEditItem | null>(null);
-  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
+  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
+    null,
+  );
+  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditNav | null>(
+    null,
+  );
   const [mapError, setMapError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const tokenRef = useRef<TokenData | null>(null);
@@ -77,10 +81,10 @@ export default function Project() {
                 try {
                   tokenRef.current = getToken();
                 } catch (error) {
-                  console.error('Failed to fetch token:', error);
+                  console.error("Failed to fetch token:", error);
                   return {
                     url: url,
-                    headers: {} // Return empty headers if token fetch fails
+                    headers: {}, // Return empty headers if token fetch fails
                   };
                 }
               }
@@ -98,19 +102,22 @@ export default function Project() {
                 credentials: "same-origin" as const,
               };
             }
-          }
+          },
         });
 
         mapInstance.addControl(new maplibregl.NavigationControl(), "top-right");
         map.current = mapInstance;
 
-        mapInstance.on('load', () => {
-          console.log('Map loaded successfully');
+        mapInstance.on("load", () => {
+          console.log("Map loaded successfully");
         });
-
       } catch (error) {
-        console.error('Error initializing map:', error);
-        setMapError(error instanceof Error ? error.message : 'Unknown error initializing map');
+        console.error("Error initializing map:", error);
+        setMapError(
+          error instanceof Error
+            ? error.message
+            : "Unknown error initializing map",
+        );
       }
     };
 
@@ -121,16 +128,16 @@ export default function Project() {
     };
   }, []);
 
-  const handleNavItemClick = (item: NavItem) => {
+  const handleNavItemClick = (item: MainMapNav) => {
     setSelectedItem(item);
     setIsModalOpen(true);
   };
 
-  const handleEditItemClick = (item: MapEditItem) => {
+  const handleEditItemClick = (item: MapEditNav) => {
     setSelectedEditItem(item === selectedEditItem ? null : item);
   };
 
-  const handleBaseItemClick = (item: BaseEditItem) => {
+  const handleBaseItemClick = (item: BaseEditNav) => {
     setSelectedBaseItem(item);
     switch (item.id) {
       case "light":
@@ -156,12 +163,12 @@ export default function Project() {
         <div ref={mapContainer} className="h-full w-full" />
       </div>
 
-      <MapEditNav
+      <MapEditNavigation
         onEditItemClick={handleEditItemClick}
         selectedEditItem={selectedEditItem}
       />
 
-      <MapModal
+      <MainMapNavigation
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
@@ -176,9 +183,9 @@ export default function Project() {
             <p className="text-gray-600">{selectedItem.description}</p>
           </div>
         )}
-      </MapModal>
-      
-      <BaseLayerNav
+      </MainMapNavigation>
+
+      <BaseLayerNavigation
         onBaseItemClick={handleBaseItemClick}
         selectedBaseItem={selectedBaseItem}
       />

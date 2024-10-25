@@ -1,6 +1,6 @@
 import React from "react";
 import { Map, Layers, Settings, Info, File, X } from "lucide-react";
-import { ModalProps, NavItem } from "./types";
+import { ModalProps, MainMapNav } from "./types";
 
 {
   /* Create NavBar map Modal */
@@ -12,7 +12,7 @@ const MapModal: React.FC<ModalProps> = ({
   selectedItem,
   children,
 }) => {
-  const navItems: NavItem[] = [
+  const MainMapNavs: MainMapNav[] = [
     {
       id: "map",
       title: "Map Settings",
@@ -71,7 +71,7 @@ const MapModal: React.FC<ModalProps> = ({
         {/* Separator line */}
         <div className="w-8 h-px bg-gray-600 mb-4"></div>
         {/* Navigation Items */}
-        {navItems.map((item) => (
+        {MainMapNavs.map((item) => (
           <button
             key={item.id}
             onClick={() => onNavItemClick(item)}
@@ -98,7 +98,7 @@ const MapModal: React.FC<ModalProps> = ({
         <div
           className="fixed left-12 z-50"
           style={{
-            top: `${navItems.findIndex((item) => item.id === selectedItem.id) * 32 + 96}px`,
+            top: `${MainMapNavs.findIndex((item) => item.id === selectedItem.id) * 32 + 96}px`,
           }}
         >
           <div className="bg-white rounded-lg shadow-xl max-w-sm relative">

@@ -7,18 +7,18 @@ import {
   Trash,
   MousePointer2,
 } from "lucide-react";
-import { MapEditItem } from "./types";
+import { MapEditNav } from "./types";
 
-interface MapEditNavProps {
-  onEditItemClick: (item: MapEditItem) => void;
-  selectedEditItem: MapEditItem | null;
+interface MapEditsProps {
+  onEditItemClick: (item: MapEditNav) => void;
+  selectedEditItem: MapEditNav | null;
 }
 
-const MapEditNav: React.FC<MapEditNavProps> = ({
+const MapEdits: React.FC<MapEditsProps> = ({
   onEditItemClick,
   selectedEditItem,
 }) => {
-  const editItems: MapEditItem[] = [
+  const editItems: MapEditNav[] = [
     {
       id: "select",
       title: "Select",
@@ -101,4 +101,4 @@ const MapEditNav: React.FC<MapEditNavProps> = ({
   );
 };
 
-export default MapEditNav;
+export default MapEdits;

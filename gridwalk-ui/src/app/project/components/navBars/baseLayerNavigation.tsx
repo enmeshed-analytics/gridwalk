@@ -1,17 +1,17 @@
 import React from "react";
 import { Sun, Moon, Car } from "lucide-react";
-import { BaseEditItem } from "./types";
+import { BaseEditNav } from "./types";
 
 interface BaseLayerNavProps {
-  onBaseItemClick: (item: BaseEditItem) => void;
-  selectedBaseItem: BaseEditItem | null;
+  onBaseItemClick: (item: BaseEditNav) => void;
+  selectedBaseItem: BaseEditNav | null;
 }
 
 const BaseLayerNav: React.FC<BaseLayerNavProps> = ({
   onBaseItemClick,
   selectedBaseItem,
 }) => {
-  const baseItems: BaseEditItem[] = [
+  const baseItems: BaseEditNav[] = [
     {
       id: "light",
       title: "Light Mode",

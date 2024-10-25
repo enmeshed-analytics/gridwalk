@@ -1,5 +1,5 @@
 /* Navigation Bar Items */
-export interface NavItem {
+export interface MainMapNav {
   id: string;
   title: string;
   icon?: string;
@@ -10,13 +10,13 @@ export interface NavItem {
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onNavItemClick: (item: NavItem) => void;
-  selectedItem: NavItem | null;
+  onNavItemClick: (item: MainMapNav) => void;
+  selectedItem: MainMapNav | null;
   children: React.ReactNode;
 }
 
 /* Map Edit Items */
-export interface MapEditItem {
+export interface MapEditNav {
   id: string;
   title: string;
   icon?: string;
@@ -24,7 +24,7 @@ export interface MapEditItem {
 }
 
 /* Base Layer Items */
-export interface BaseEditItem {
+export interface BaseEditNav {
   id: string;
   title: string;
   icon?: string;
