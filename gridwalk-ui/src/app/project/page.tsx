@@ -106,37 +106,21 @@ export default function Project() {
         const styleUrl = "http://localhost:3000/OS_VTS_3857_Light.json";
         const response = await fetch(styleUrl);
         const styleJson = await response.json();
+        const currentToken = await getValidToken();
 
         const mapInstance = new maplibregl.Map({
           container: mapContainer.current!,
           style: styleJson,
           center: [-0.1278, 51.5074],
           zoom: 11,
-          transformRequest: async (url, resourceType) => {
-            const requestId = Math.random().toString(36).substring(7);
-            console.log(`[${requestId}] Transform request started:`, { url, resourceType });
-
-            // Add specific logging for image requests
-            console.log('Transform request:', { url, resourceType, 
-              headers: resourceType === 'Image' ? 'image/*' : 'application/json' 
-            });
-
-            // Guard against undefined URL
-            if (!url || url === 'undefined') {
-              console.error(`[${requestId}] Received undefined URL in transformRequest`);
-              return null;
-            }
-
+          transformRequest: (url) => {
             if (url.startsWith("https://api.os.uk")) {
-              console.log(`[${requestId}] Transformed OS API request:`, { url });
               try {
                 // Get a fresh token for each request if needed
-                const currentToken = await getValidToken();
                 return {
                   url: url,
                   headers: {
                     Authorization: `Bearer ${currentToken.access_token}`,
-                    "Content-Type": "application/json",
                   },
                 };
               } catch (error) {
