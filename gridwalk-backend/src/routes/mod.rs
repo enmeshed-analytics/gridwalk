@@ -1,10 +1,12 @@
 mod connector;
+mod layer;
 mod os_token;
 mod tiles;
 mod user;
 mod workspace;
 
 pub use connector::*;
+pub use layer::*;
 pub use os_token::*;
 pub use tiles::*;
 pub use user::*;

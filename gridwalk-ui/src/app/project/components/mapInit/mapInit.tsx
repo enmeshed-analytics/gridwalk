@@ -3,12 +3,13 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // Constants
-const REFRESH_THRESHOLD = 30; // Refresh 30 seconds before expiry
+const REFRESH_THRESHOLD = 30;
 const DEFAULT_CENTER: [number, number] = [-0.1278, 51.5074];
 const DEFAULT_ZOOM = 11;
 const MIN_ZOOM = 6;
 const defaultStyleUrl = "/OS_VTS_3857_Light.json";
 
+// Interfaces
 export interface TokenData {
   access_token: string;
   issued_at: number;
