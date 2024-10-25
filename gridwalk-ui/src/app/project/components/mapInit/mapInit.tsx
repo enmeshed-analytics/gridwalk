@@ -29,6 +29,7 @@ export interface UseMapInitResult {
 }
 
 // Helper functions
+// Get token
 const getToken = (): TokenData => {
   const xhr = new XMLHttpRequest();
   xhr.open("GET", "http://localhost:3001/os-token", false);
@@ -61,7 +62,6 @@ export const useMapInit = (config?: MapConfig): UseMapInitResult => {
 
     const initializeMap = async () => {
       try {
-        // Explicitly define the style URL as a string
         const styleUrl =
           typeof config?.styleUrl === "string"
             ? config.styleUrl
@@ -136,7 +136,7 @@ export const useMapInit = (config?: MapConfig): UseMapInitResult => {
     };
   }, [config?.center, config?.zoom]);
 
-  // Handle style changes
+  // Handle style changes - changing between different basemaps
   useEffect(() => {
     if (!map.current || typeof config?.styleUrl !== "string") return;
 

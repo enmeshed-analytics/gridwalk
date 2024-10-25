@@ -21,6 +21,7 @@ const INITIAL_MAP_CONFIG = {
   zoom: 11,
 };
 
+// Set up page
 export default function Project() {
   // State management
   const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
@@ -33,7 +34,7 @@ export default function Project() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
 
-  // Map initialization
+  // Map initialisation
   const { mapContainer, mapError } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
