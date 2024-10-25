@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import MapModal from "./components/mapModal/mapModal";
@@ -17,18 +17,34 @@ export interface TokenData {
 
 const REFRESH_THRESHOLD = 30; // Refresh 30 seconds before expiry
 
-// Token fetching and validation functions
-const fetchToken = async () => {
-  const response = await fetch("http://localhost:3001/os-token", { method: "GET" });
-  if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-  const data: TokenData = await response.json();
-  return data;
+// Synchronous token fetching
+const getToken = (): TokenData => {
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "http://localhost:3001/os-token", false); // false makes the request synchronous
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.send();
+  
+  if (xhr.status !== 200) {
+    throw new Error(`HTTP error! status: ${xhr.status}`);
+  }
+  
+  return JSON.parse(xhr.responseText);
 };
 
-const isTokenExpired = (tokenData: TokenData) => {
-  const currentTime = Math.floor(Date.now() / 1000);
-  const expirationTime = tokenData.issued_at + tokenData.expires_in - REFRESH_THRESHOLD;
-  return currentTime >= expirationTime;
+const isTokenValid = (tokenData: TokenData | null): boolean => {
+  if (!tokenData) return false;
+  
+  const currentTime = Date.now();
+  const issuedAt = Number(tokenData.issued_at);
+  const expiresIn = Number(tokenData.expires_in) * 1000;
+  const expirationTime = issuedAt + expiresIn - (REFRESH_THRESHOLD * 1000);
+  
+  console.log(`issued_at: ${issuedAt}`);
+  console.log(`Current time (ms): ${currentTime}`);
+  console.log(`Expiration time (ms): ${expirationTime}`);
+  console.log(`valid?: ${currentTime < expirationTime}`);
+  
+  return currentTime < expirationTime;
 };
 
 export default function Project() {
@@ -37,76 +53,22 @@ export default function Project() {
   const [selectedItem, setSelectedItem] = useState<NavItem | null>(null);
   const [selectedEditItem, setSelectedEditItem] = useState<MapEditItem | null>(null);
   const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditItem | null>(null);
-  const [tokenData, setTokenData] = useState<TokenData | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Keep track of pending requests to prevent race conditions
-  const pendingTokenRequest = useRef<Promise<TokenData> | null>(null);
+  const tokenRef = useRef<TokenData | null>(null);
 
-  // Function to get a valid token, with built-in refresh if needed
-  const getValidToken = useCallback(async (): Promise<TokenData> => {
-    // If there's already a token request in progress, wait for it
-    if (pendingTokenRequest.current) {
-      return pendingTokenRequest.current;
-    }
-
-    // If we have a valid token, return it
-    if (tokenData && !isTokenExpired(tokenData)) {
-      return tokenData;
-    }
-
-    // Otherwise, fetch a new token
-    try {
-      pendingTokenRequest.current = fetchToken();
-      const newTokenData = await pendingTokenRequest.current;
-      setTokenData(newTokenData);
-      return newTokenData;
-    } finally {
-      pendingTokenRequest.current = null;
-    }
-  }, [tokenData]);
-
-  // Initial token fetch
+  // Initialize map
   useEffect(() => {
-    let isMounted = true;
-
-    const initializeToken = async () => {
-      try {
-        setIsLoading(true);
-        const data = await getValidToken();
-        if (isMounted) {
-          setTokenData(data);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setMapError(error instanceof Error ? error.message : 'Failed to fetch token');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initializeToken();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [getValidToken]);
-
-  // Initialize map after token is available
-  useEffect(() => {
-    if (map.current || !mapContainer.current || !tokenData || isLoading) return;
+    if (map.current || !mapContainer.current) return;
 
     const initializeMap = async () => {
       try {
         const styleUrl = "http://localhost:3000/OS_VTS_3857_Light.json";
         const response = await fetch(styleUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to load style: ${response.status}`);
+        }
         const styleJson = await response.json();
-        const currentToken = await getValidToken();
 
         const mapInstance = new maplibregl.Map({
           container: mapContainer.current!,
@@ -114,29 +76,30 @@ export default function Project() {
           center: [-0.1278, 51.5074],
           zoom: 11,
           transformRequest: (url) => {
+            console.log("transform")
             if (url.startsWith("https://api.os.uk")) {
-              try {
-                // Get a fresh token for each request if needed
-                return {
-                  url: url,
-                  headers: {
-                    Authorization: `Bearer ${currentToken.access_token}`,
-                  },
-                };
-              } catch (error) {
-                console.error('Failed to refresh token during map request:', error);
-                // Still return the request object to avoid breaking the map
-                // The request will fail if the token is invalid
-                return {
-                  url: url,
-                  headers: {
-                    Authorization: `Bearer ${tokenData.access_token}`,
-                    "Content-Type": "application/json",
-                  },
-                };
+              // Check if we need a new token
+              if (!isTokenValid(tokenRef.current)) {
+                try {
+                  console.log("getting token");
+                  tokenRef.current = getToken();
+                } catch (error) {
+                  console.error('Failed to fetch token:', error);
+                  return {
+                    url: url,
+                    headers: {} // Return empty headers if token fetch fails
+                  };
+                }
               }
+
+              return {
+                url: url,
+                headers: {
+                  Authorization: `Bearer ${tokenRef.current?.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              };
             } else if (url.startsWith(window.location.origin)) {
-              console.log("same-origin");
               return {
                 url: url,
                 credentials: "same-origin" as const,
@@ -163,7 +126,7 @@ export default function Project() {
     return () => {
       map.current?.remove();
     };
-  }, [tokenData, isLoading, getValidToken]);
+  }, []);
 
   const handleNavItemClick = (item: NavItem) => {
     setSelectedItem(item);
@@ -188,14 +151,6 @@ export default function Project() {
         break;
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center">
-        <div className="text-lg">Loading map...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full h-screen relative">
