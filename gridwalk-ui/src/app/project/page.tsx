@@ -39,11 +39,6 @@ const isTokenValid = (tokenData: TokenData | null): boolean => {
   const expiresIn = Number(tokenData.expires_in) * 1000;
   const expirationTime = issuedAt + expiresIn - (REFRESH_THRESHOLD * 1000);
   
-  console.log(`issued_at: ${issuedAt}`);
-  console.log(`Current time (ms): ${currentTime}`);
-  console.log(`Expiration time (ms): ${expirationTime}`);
-  console.log(`valid?: ${currentTime < expirationTime}`);
-  
   return currentTime < expirationTime;
 };
 
@@ -76,12 +71,10 @@ export default function Project() {
           center: [-0.1278, 51.5074],
           zoom: 11,
           transformRequest: (url) => {
-            console.log("transform")
             if (url.startsWith("https://api.os.uk")) {
               // Check if we need a new token
               if (!isTokenValid(tokenRef.current)) {
                 try {
-                  console.log("getting token");
                   tokenRef.current = getToken();
                 } catch (error) {
                   console.error('Failed to fetch token:', error);
