@@ -1,101 +1,194 @@
-import Image from "next/image";
+"use client";
+import React, { useEffect, useRef, useState } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import MainMapNavigation from "./components/navBars/mainMapNavigation";
+import { MainMapNav } from "./components/navBars/types";
+import MapEditNavigation from "./components/navBars/mapEditNavigation";
+import { MapEditNav } from "./components/navBars/types";
+import BaseLayerNavigation from "./components/navBars/baseLayerNavigation";
+import { BaseEditNav } from "./components/navBars/types";
 
-export default function Home() {
+export interface TokenData {
+  access_token: string;
+  issued_at: number;
+  expires_in: number;
+}
+
+const REFRESH_THRESHOLD = 30; // Refresh 30 seconds before expiry
+
+// Synchronous token fetching
+const getToken = (): TokenData => {
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", "http://localhost:3001/os-token", false); // false makes the request synchronous
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.send();
+
+  if (xhr.status !== 200) {
+    throw new Error(`HTTP error! status: ${xhr.status}`);
+  }
+
+  return JSON.parse(xhr.responseText);
+};
+
+const isTokenValid = (tokenData: TokenData | null): boolean => {
+  if (!tokenData) return false;
+
+  const currentTime = Date.now();
+  const issuedAt = Number(tokenData.issued_at);
+  const expiresIn = Number(tokenData.expires_in) * 1000;
+  const expirationTime = issuedAt + expiresIn - REFRESH_THRESHOLD * 1000;
+
+  return currentTime < expirationTime;
+};
+
+export default function Project() {
+  const mapContainer = useRef<HTMLDivElement | null>(null);
+  const map = useRef<maplibregl.Map | null>(null);
+  const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
+  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
+    null,
+  );
+  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditNav | null>(
+    null,
+  );
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const tokenRef = useRef<TokenData | null>(null);
+
+  // Initialize map
+  useEffect(() => {
+    if (map.current || !mapContainer.current) return;
+
+    const initializeMap = async () => {
+      try {
+        const styleUrl = "http://localhost:3000/OS_VTS_3857_Light.json";
+        const response = await fetch(styleUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to load style: ${response.status}`);
+        }
+        const styleJson = await response.json();
+
+        const mapInstance = new maplibregl.Map({
+          container: mapContainer.current!,
+          style: styleJson,
+          center: [-0.1278, 51.5074],
+          zoom: 11,
+          transformRequest: (url) => {
+            if (url.startsWith("https://api.os.uk")) {
+              // Check if we need a new token
+              if (!isTokenValid(tokenRef.current)) {
+                try {
+                  tokenRef.current = getToken();
+                } catch (error) {
+                  console.error("Failed to fetch token:", error);
+                  return {
+                    url: url,
+                    headers: {}, // Return empty headers if token fetch fails
+                  };
+                }
+              }
+
+              return {
+                url: url,
+                headers: {
+                  Authorization: `Bearer ${tokenRef.current?.access_token}`,
+                  "Content-Type": "application/json",
+                },
+              };
+            } else if (url.startsWith(window.location.origin)) {
+              return {
+                url: url,
+                credentials: "same-origin" as const,
+              };
+            }
+          },
+        });
+
+        mapInstance.addControl(new maplibregl.NavigationControl(), "top-right");
+        map.current = mapInstance;
+
+        mapInstance.on("load", () => {
+          console.log("Map loaded successfully");
+        });
+      } catch (error) {
+        console.error("Error initializing map:", error);
+        setMapError(
+          error instanceof Error
+            ? error.message
+            : "Unknown error initializing map",
+        );
+      }
+    };
+
+    initializeMap();
+
+    return () => {
+      map.current?.remove();
+    };
+  }, []);
+
+  const handleNavItemClick = (item: MainMapNav) => {
+    setSelectedItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleEditItemClick = (item: MapEditNav) => {
+    setSelectedEditItem(item === selectedEditItem ? null : item);
+  };
+
+  const handleBaseItemClick = (item: BaseEditNav) => {
+    setSelectedBaseItem(item);
+    switch (item.id) {
+      case "light":
+        // Set light blue style
+        break;
+      case "dark":
+        // Set dark blue style
+        break;
+      case "car":
+        // Set purple style
+        break;
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="w-full h-screen relative">
+      {mapError && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg">
+          {mapError}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+      <div className="absolute inset-0 pl-10">
+        <div ref={mapContainer} className="h-full w-full" />
+      </div>
+
+      <MapEditNavigation
+        onEditItemClick={handleEditItemClick}
+        selectedEditItem={selectedEditItem}
+      />
+
+      <MainMapNavigation
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedItem(null);
+        }}
+        onNavItemClick={handleNavItemClick}
+        selectedItem={selectedItem}
+      >
+        {selectedItem && (
+          <div>
+            <h2 className="text-xl font-bold mb-4">{selectedItem.title}</h2>
+            <p className="text-gray-600">{selectedItem.description}</p>
+          </div>
+        )}
+      </MainMapNavigation>
+
+      <BaseLayerNavigation
+        onBaseItemClick={handleBaseItemClick}
+        selectedBaseItem={selectedBaseItem}
+      />
     </div>
   );
 }
