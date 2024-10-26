@@ -4,9 +4,10 @@ use crate::data::Database;
 use anyhow::{anyhow, Result};
 use duckdb_postgis;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Layer {
     pub id: String,
     pub workspace_id: String,
@@ -15,14 +16,8 @@ pub struct Layer {
     pub created_at: u64,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreateLayer {
-    pub name: String,
-    pub workspace_id: String,
-}
-
 impl Layer {
-    pub fn from_req(req: CreateLayer, user: &User) -> Self {
+    pub fn from_req(req: Layer, user: &User) -> Self {
         Layer {
             id: Uuid::new_v4().to_string(),
             workspace_id: req.workspace_id,
@@ -34,7 +29,7 @@ impl Layer {
 
     pub async fn create<D: Database + ?Sized>(
         &self,
-        database: &D,
+        database: &Arc<dyn Database>,
         user: &User,
         workspace: &Workspace,
     ) -> Result<()> {
@@ -50,14 +45,19 @@ impl Layer {
     }
 
     pub async fn send_to_postgis(&self, file_path: &str) -> Result<()> {
-        let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk";
+        // Retrieve the PostGIS URI from an environment variable
+        let postgis_uri = std::env::var("POSTGIS_URI")
+            .map_err(|_| anyhow!("PostGIS URI not set in environment variables"))?;
+
         let schema = duckdb_postgis::duckdb_load::launch_process_file(
             file_path,
             &self.id,
-            postgis_uri,
+            &postgis_uri,
             &self.workspace_id,
-        )?;
-        println!("{schema:?}");
+        )
+        .map_err(|e| anyhow!("Failed to send file to PostGIS: {:?}", e))?;
+
+        println!("{:?}", schema);
         Ok(())
     }
 

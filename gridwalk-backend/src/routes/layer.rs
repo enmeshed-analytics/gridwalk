@@ -1,7 +1,7 @@
+use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::core::{Layer, Workspace, WorkspaceRole};
 use crate::data::Database;
-use crate::{app_state::AppState, core::CreateLayer};
 use axum::{
     extract::{Extension, Multipart, State},
     http::StatusCode,
@@ -17,7 +17,7 @@ use tokio::{
 };
 
 pub async fn upload_layer<D: Database + ?Sized>(
-    State(state): State<Arc<AppState<D>>>,
+    State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -25,7 +25,7 @@ pub async fn upload_layer<D: Database + ?Sized>(
     let user = auth_user.user.as_ref().ok_or(StatusCode::UNAUTHORIZED)?;
 
     let mut file_data = Vec::new();
-    let mut layer_info: Option<CreateLayer> = None;
+    let mut layer_info: Option<Layer> = None;
 
     // Process multipart form data
     while let Some(field) = multipart
@@ -68,7 +68,7 @@ pub async fn upload_layer<D: Database + ?Sized>(
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
     let member = workspace
-        .get_member(&state.app_data, user)
+        .get_member(&state.app_data, user.clone())
         .await
         .map_err(|_| StatusCode::FORBIDDEN)?;
 
@@ -106,7 +106,7 @@ pub async fn upload_layer<D: Database + ?Sized>(
 
     // Write layer record to database
     layer
-        .write_record(&state.app_data)
+        .write_record(state.app_data.as_ref())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
