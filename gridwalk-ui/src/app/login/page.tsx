@@ -23,10 +23,11 @@ const FloatingSquare = ({ size, duration, delay, initialPosition }) => {
   );
 };
 
-export default function Home() {
+export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [squares, setSquares] = useState([]);
 
   useEffect(() => {
@@ -44,14 +45,38 @@ export default function Home() {
     setSquares(newSquares);
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Please fill in all fields');
       return;
     }
+
     setError('');
-    console.log('Login attempted with:', { email, password });
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Redirect or update UI on successful login
+      window.location.href = '/project'; // Or use Next.js router
+    } catch (err) {
+      setError(err.message || 'An error occurred during login');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -123,8 +148,8 @@ export default function Home() {
                     Forgot password?
                   </Button>
                 </div>
-                <Button type="submit" className="w-full">
-                  Sign in
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Signing in...' : 'Sign in'}
                 </Button>
                 <div className="text-center text-sm">
                   Don't have an account?{' '}
