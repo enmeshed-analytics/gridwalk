@@ -4,6 +4,7 @@ export interface MainMapNav {
   title: string;
   icon?: string;
   description?: string;
+  children?: React.ReactNode;
 }
 
 /* Simple Modal Prop Elements */
@@ -12,7 +13,11 @@ export interface ModalProps {
   onClose: () => void;
   onNavItemClick: (item: MainMapNav) => void;
   selectedItem: MainMapNav | null;
-  children: React.ReactNode;
+  layers: LayerUpload[];
+  onLayerUpload: (file: File) => Promise<void>;
+  onLayerDelete: (layerId: string) => void;
+  isUploading: boolean;
+  error: string | null;
 }
 
 /* Map Edit Items */
@@ -29,4 +34,12 @@ export interface BaseEditNav {
   title: string;
   icon?: string;
   description: string;
+}
+
+/* Upload Layer */
+export interface LayerUpload {
+  id: string;
+  name: string;
+  type: string;
+  visible?: boolean;
 }

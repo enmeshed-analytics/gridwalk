@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useMapInit } from "./components/mapInit/mapInit";
 import MainMapNavigation from "./components/navBars/mainMapNavigation";
-import { MainMapNav } from "./components/navBars/types";
+import { MainMapNav, LayerUpload } from "./components/navBars/types";
 import MapEditNavigation from "./components/navBars/mapEditNavigation";
 import { MapEditNav } from "./components/navBars/types";
 import BaseLayerNavigation from "./components/navBars/baseLayerNavigation";
@@ -21,7 +21,6 @@ const INITIAL_MAP_CONFIG = {
   zoom: 11,
 };
 
-// Set up page
 export default function Project() {
   // State management
   const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
@@ -34,13 +33,58 @@ export default function Project() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
 
+  // Layer state management
+  const [layers, setLayers] = useState<LayerUpload[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   // Map initialisation
   const { mapContainer, mapError } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
   });
 
-  // Event handlers
+  // Layer handlers
+  const handleLayerUpload = async (file: File) => {
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload/layer", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await response.json();
+
+      setLayers((prev) => [
+        ...prev,
+        {
+          id: data.data.id || Math.random().toString(),
+          name: file.name,
+          type: file.type,
+          visible: true,
+        },
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload file");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleLayerDelete = (layerId: string) => {
+    setLayers((prev) => prev.filter((layer) => layer.id !== layerId));
+  };
+
+  // Navigation handlers
   const handleNavItemClick = (item: MainMapNav) => {
     setSelectedItem(item);
     setIsModalOpen(true);
@@ -72,38 +116,29 @@ export default function Project() {
 
   return (
     <div className="w-full h-screen relative">
-      {/* Error display */}
       {mapError && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg">
           {mapError}
         </div>
       )}
-
-      {/* Map container */}
       <div className="absolute inset-0 pl-10">
         <div ref={mapContainer} className="h-full w-full" />
       </div>
-
-      {/* Navigation components */}
       <MapEditNavigation
         onEditItemClick={handleEditItemClick}
         selectedEditItem={selectedEditItem}
       />
-
       <MainMapNavigation
         isOpen={isModalOpen}
         onClose={handleModalClose}
         onNavItemClick={handleNavItemClick}
         selectedItem={selectedItem}
-      >
-        {selectedItem && (
-          <div>
-            <h2 className="text-xl font-bold mb-4">{selectedItem.title}</h2>
-            <p className="text-gray-600">{selectedItem.description}</p>
-          </div>
-        )}
-      </MainMapNavigation>
-
+        layers={layers}
+        onLayerUpload={handleLayerUpload}
+        onLayerDelete={handleLayerDelete}
+        isUploading={isUploading}
+        error={error}
+      />
       <BaseLayerNavigation
         onBaseItemClick={handleBaseItemClick}
         selectedBaseItem={selectedBaseItem}
