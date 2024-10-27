@@ -149,7 +149,7 @@ export default function GridBackground(): JSX.Element {
     const updateBlocks = (time: number) => {
       blocks.forEach((block) => {
         const t = (time * 0.001) / block.duration + block.delay;
-        const moveRange = 60;
+        const moveRange = 900;
 
         block.x = block.baseX + Math.sin(t) * moveRange;
         block.y = block.baseY + Math.sin(t * 0.8 + block.phase) * moveRange;
