@@ -7,6 +7,12 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CreateLayer {
+    pub name: String,
+    pub workspace_id: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Layer {
     pub id: String,
@@ -17,7 +23,7 @@ pub struct Layer {
 }
 
 impl Layer {
-    pub fn from_req(req: Layer, user: &User) -> Self {
+    pub fn from_req(req: CreateLayer, user: &User) -> Self {
         Layer {
             id: Uuid::new_v4().to_string(),
             workspace_id: req.workspace_id,

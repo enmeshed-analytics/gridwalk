@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::core::{Layer, Workspace, WorkspaceRole};
+use crate::core::{CreateLayer, Layer, Workspace, WorkspaceRole};
 use axum::{
     extract::{Extension, Multipart, State},
     http::StatusCode,
@@ -24,7 +24,7 @@ pub async fn upload_layer(
     // Early return if no user
     let user = auth_user.user.as_ref().ok_or(StatusCode::UNAUTHORIZED)?;
     let mut file_data = Vec::new();
-    let mut layer_info: Option<Layer> = None;
+    let mut layer_info: Option<CreateLayer> = None;
 
     // Process multipart form data
     while let Some(field) = multipart

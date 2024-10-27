@@ -37,13 +37,13 @@ pub fn create_app(app_state: AppState) -> Router {
             "/workspace/:workspace_id/connection/:connection_id/sources",
             get(list_sources),
         )
+        .route("/upload_layer", post(upload_layer))
         .layer(middleware::from_fn_with_state(
             shared_state.clone(),
             auth_middleware,
         ))
         .route("/tiles/:workspace_id/:connection_id/:z/:x/:y", get(tiles))
         .route("/register", post(register))
-        .route("/upload_layer", post(upload_layer))
         .route("/login", post(login))
         .route("/os-token", get(generate_os_token))
         .with_state(shared_state)
