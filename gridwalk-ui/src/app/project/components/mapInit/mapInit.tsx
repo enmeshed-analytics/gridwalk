@@ -3,12 +3,13 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 // Constants
-const REFRESH_THRESHOLD = 30; // Refresh 30 seconds before expiry
+const REFRESH_THRESHOLD = 30;
 const DEFAULT_CENTER: [number, number] = [-0.1278, 51.5074];
 const DEFAULT_ZOOM = 11;
 const MIN_ZOOM = 6;
 const defaultStyleUrl = "/OS_VTS_3857_Light.json";
 
+// Interfaces
 export interface TokenData {
   access_token: string;
   issued_at: number;
@@ -28,6 +29,7 @@ export interface UseMapInitResult {
 }
 
 // Helper functions
+// Get token
 const getToken = (): TokenData => {
   const xhr = new XMLHttpRequest();
   xhr.open("GET", "http://localhost:3001/os-token", false);
@@ -60,7 +62,6 @@ export const useMapInit = (config?: MapConfig): UseMapInitResult => {
 
     const initializeMap = async () => {
       try {
-        // Explicitly define the style URL as a string
         const styleUrl =
           typeof config?.styleUrl === "string"
             ? config.styleUrl
@@ -135,7 +136,7 @@ export const useMapInit = (config?: MapConfig): UseMapInitResult => {
     };
   }, [config?.center, config?.zoom]);
 
-  // Handle style changes
+  // Handle style changes - changing between different basemaps
   useEffect(() => {
     if (!map.current || typeof config?.styleUrl !== "string") return;
 

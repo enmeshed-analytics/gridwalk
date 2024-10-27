@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
     // Create GeospatialConfig
     let geospatial_config = GeospatialConfig::new();
 
+    // Create initial App State
     let app_state = AppState {
         app_data: app_db,
         geospatial_config,

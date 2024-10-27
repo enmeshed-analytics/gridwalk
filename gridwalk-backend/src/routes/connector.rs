@@ -68,7 +68,7 @@ pub async fn list_sources(
         .await
         .unwrap();
     let _member = workspace
-        .get_member(&state.app_data, auth_user.user.unwrap())
+        .get_member(&state.app_data, &auth_user.user.unwrap())
         .await
         .unwrap();
     // Check member role

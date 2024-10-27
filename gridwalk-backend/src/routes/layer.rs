@@ -1,7 +1,6 @@
+use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::core::{Layer, Workspace, WorkspaceRole};
-use crate::data::Database;
-use crate::{app_state::AppState, core::CreateLayer};
+use crate::core::{CreateLayer, Layer, Workspace, WorkspaceRole};
 use axum::{
     extract::{Extension, Multipart, State},
     http::StatusCode,
@@ -16,14 +15,18 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
-pub async fn upload_layer<D: Database>(
-    State(state): State<Arc<AppState<D>>>,
+// Remove the generic type parameter and use Arc<AppState> directly
+pub async fn upload_layer(
+    State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, StatusCode> {
+    // Early return if no user
+    let user = auth_user.user.as_ref().ok_or(StatusCode::UNAUTHORIZED)?;
     let mut file_data = Vec::new();
     let mut layer_info: Option<CreateLayer> = None;
 
+    // Process multipart form data
     while let Some(field) = multipart
         .next_field()
         .await
@@ -32,7 +35,6 @@ pub async fn upload_layer<D: Database>(
         let name = field.name().ok_or(StatusCode::BAD_REQUEST)?.to_string();
         match name.as_str() {
             "file" => {
-                println!("FILE");
                 file_data = field
                     .bytes()
                     .await
@@ -57,25 +59,25 @@ pub async fn upload_layer<D: Database>(
     }
 
     let layer_info = layer_info.ok_or(StatusCode::BAD_REQUEST)?;
-    let layer = Layer::from_req(layer_info, auth_user.user.clone().unwrap());
-    let workspace = Workspace::from_id(state.app_data.clone(), &layer.workspace_id)
-        .await
-        .unwrap();
-    let member = workspace
-        .get_member(state.app_data.clone(), auth_user.user.unwrap())
-        .await
-        .unwrap();
+    let layer = Layer::from_req(layer_info, user);
 
-    // Check requesting user workspace permissions
+    // Get workspace and check permissions
+    let workspace = Workspace::from_id(&state.app_data, &layer.workspace_id)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let member = workspace
+        .get_member(&state.app_data, &user)
+        .await
+        .map_err(|_| StatusCode::FORBIDDEN)?;
+
     if member.role == WorkspaceRole::Read {
-        return Ok((StatusCode::FORBIDDEN, format!("")));
+        return Ok((StatusCode::FORBIDDEN, String::new()));
     }
 
-    // Save the file data locally
-    let file_name = format!("{}", layer.id);
+    // Save file locally
     let dir_path = Path::new("uploads");
-    let file_path = dir_path.join(&file_name);
-
+    let file_path = dir_path.join(&layer.id);
     fs::create_dir_all(dir_path)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -88,15 +90,25 @@ pub async fn upload_layer<D: Database>(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // Process file and upload to PostGIS
     let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk";
-    let _processed_file = launch_process_file(file_path.to_str().unwrap(), &layer.id, postgis_uri);
+    launch_process_file(
+        file_path.to_str().unwrap(),
+        &layer.id,
+        postgis_uri,
+        &layer.workspace_id,
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     println!("Uploaded to POSTGIS!");
 
-    match layer.clone().write_record(state.app_data.clone()).await {
-        Ok(_) => {
-            let json_response = serde_json::to_value(&layer).unwrap();
-            Ok((StatusCode::OK, Json(json_response).to_string()))
-        }
-        Err(_) => Ok((StatusCode::INTERNAL_SERVER_ERROR, "".to_string())),
-    }
+    // Write layer record to database using Arc<dyn Database>
+    layer
+        .create(&state.app_data, user, &workspace)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Return success response
+    let json_response =
+        serde_json::to_value(&layer).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok((StatusCode::OK, Json(json_response).to_string()))
 }

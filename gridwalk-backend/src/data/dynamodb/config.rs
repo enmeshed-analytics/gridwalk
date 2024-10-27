@@ -1,4 +1,6 @@
-use crate::core::{Connection, CreateUser, Email, User, Workspace, WorkspaceMember, WorkspaceRole};
+use crate::core::{
+    Connection, CreateUser, Email, Layer, User, Workspace, WorkspaceMember, WorkspaceRole,
+};
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -304,7 +306,7 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
-    async fn get_workspace_member(&self, wsp: Workspace, user: User) -> Result<WorkspaceMember> {
+    async fn get_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<WorkspaceMember> {
         println!("{wsp:?}");
         let pk = format!("WSP#{0}", wsp.id);
         let sk = format!("USER#{0}", user.id);
@@ -394,7 +396,6 @@ impl UserStore for Dynamodb {
             Err(_e) => Err(anyhow!("workspace not found")),
         }
     }
-
     async fn get_workspace_connections(&self, workspace_id: &str) -> Result<Vec<Connection>> {
         let pk = format!("WSP#{}", workspace_id);
 
@@ -416,5 +417,34 @@ impl UserStore for Dynamodb {
             }
             None => Ok(vec![]),
         }
+    }
+
+    async fn create_layer(&self, layer: &Layer) -> Result<()> {
+        // Create the workspace member item to insert
+        let mut item = std::collections::HashMap::new();
+
+        item.insert(
+            String::from("PK"),
+            AV::S(format!("WSP#{}", layer.workspace_id)),
+        );
+        item.insert(String::from("SK"), AV::S(format!("LAYER#{}", layer.id)));
+        item.insert(String::from("name"), AV::S(layer.clone().name));
+        item.insert(
+            String::from("uploaded_by"),
+            AV::S(layer.clone().uploaded_by),
+        );
+        item.insert(
+            String::from("created_at"),
+            AV::N(layer.created_at.to_string()),
+        );
+
+        self.client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item))
+            .send()
+            .await?;
+
+        Ok(())
     }
 }
