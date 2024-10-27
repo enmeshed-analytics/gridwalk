@@ -1,7 +1,6 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::core::{Layer, Workspace, WorkspaceRole};
-use crate::data::Database;
 use axum::{
     extract::{Extension, Multipart, State},
     http::StatusCode,
@@ -16,14 +15,14 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
-pub async fn upload_layer<D: Database + ?Sized>(
+// Remove the generic type parameter and use Arc<AppState> directly
+pub async fn upload_layer(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, StatusCode> {
     // Early return if no user
     let user = auth_user.user.as_ref().ok_or(StatusCode::UNAUTHORIZED)?;
-
     let mut file_data = Vec::new();
     let mut layer_info: Option<Layer> = None;
 
@@ -79,7 +78,6 @@ pub async fn upload_layer<D: Database + ?Sized>(
     // Save file locally
     let dir_path = Path::new("uploads");
     let file_path = dir_path.join(&layer.id);
-
     fs::create_dir_all(dir_path)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -101,18 +99,16 @@ pub async fn upload_layer<D: Database + ?Sized>(
         &layer.workspace_id,
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
     println!("Uploaded to POSTGIS!");
 
-    // Write layer record to database
+    // Write layer record to database using Arc<dyn Database>
     layer
-        .write_record(state.app_data.as_ref())
+        .create(&state.app_data, user, &workspace)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Return success response
     let json_response =
         serde_json::to_value(&layer).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
     Ok((StatusCode::OK, Json(json_response).to_string()))
 }

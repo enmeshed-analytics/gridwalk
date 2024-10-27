@@ -27,7 +27,7 @@ impl Layer {
         }
     }
 
-    pub async fn create<D: Database + ?Sized>(
+    pub async fn create(
         &self,
         database: &Arc<dyn Database>,
         user: &User,
@@ -35,20 +35,16 @@ impl Layer {
     ) -> Result<()> {
         // Get workspace member record
         let requesting_member = workspace.get_member(database, user).await?;
-
         if requesting_member.role == WorkspaceRole::Read {
             return Err(anyhow!("User does not have permissions to create layers."));
         }
-
         database.create_layer(self).await?;
         Ok(())
     }
 
     pub async fn send_to_postgis(&self, file_path: &str) -> Result<()> {
-        // Retrieve the PostGIS URI from an environment variable
         let postgis_uri = std::env::var("POSTGIS_URI")
             .map_err(|_| anyhow!("PostGIS URI not set in environment variables"))?;
-
         let schema = duckdb_postgis::duckdb_load::launch_process_file(
             file_path,
             &self.id,
@@ -56,12 +52,12 @@ impl Layer {
             &self.workspace_id,
         )
         .map_err(|e| anyhow!("Failed to send file to PostGIS: {:?}", e))?;
-
         println!("{:?}", schema);
         Ok(())
     }
 
-    pub async fn write_record<D: Database + ?Sized>(&self, database: &D) -> Result<()> {
+    // Change this to match the pattern used elsewhere
+    pub async fn write_record(&self, database: &Arc<dyn Database>) -> Result<()> {
         database.create_layer(self).await?;
         Ok(())
     }
