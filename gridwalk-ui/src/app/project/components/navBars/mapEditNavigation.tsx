@@ -88,7 +88,7 @@ const MapEdits: React.FC<MapEditsProps> = ({
               ${
                 selectedEditItem?.id === item.id
                   ? "bg-blue-400 text-white"
-                  : "text-white-600 hover:bg-blue-400"
+                  : "text-gray-300 hover:bg-blue-400"
               }
             `}
             title={item.title}
