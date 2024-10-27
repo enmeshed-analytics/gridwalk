@@ -306,7 +306,7 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
-    async fn get_workspace_member(&self, wsp: Workspace, user: User) -> Result<WorkspaceMember> {
+    async fn get_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<WorkspaceMember> {
         println!("{wsp:?}");
         let pk = format!("WSP#{0}", wsp.id);
         let sk = format!("USER#{0}", user.id);

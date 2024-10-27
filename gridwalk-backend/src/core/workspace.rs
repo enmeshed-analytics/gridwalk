@@ -86,7 +86,7 @@ impl Workspace {
         user: &User,
         role: WorkspaceRole,
     ) -> Result<()> {
-        let requesting_member = self.clone().get_member(&database, req_user.clone()).await?;
+        let requesting_member = self.clone().get_member(&database, &req_user).await?;
 
         println!(
             "{} is {} of the {} workspace",
@@ -105,12 +105,12 @@ impl Workspace {
     }
 
     pub async fn get_member(
-        self,
+        &self,
         database: &Arc<dyn Database>,
-        user: User,
+        user: &User,
     ) -> Result<WorkspaceMember> {
         // TODO: Fix unwrap
-        Ok(database.get_workspace_member(self, user).await.unwrap())
+        Ok(database.get_workspace_member(&self, user).await.unwrap())
     }
 
     pub async fn remove_member(
@@ -119,7 +119,7 @@ impl Workspace {
         req_user: &User,
         user: &User,
     ) -> Result<()> {
-        let requesting_member = self.clone().get_member(&database, req_user.clone()).await?;
+        let requesting_member = self.clone().get_member(&database, &req_user).await?;
 
         println!(
             "{} is {} of the {} workspace",

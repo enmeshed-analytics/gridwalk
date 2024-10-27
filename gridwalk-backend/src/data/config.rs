@@ -20,7 +20,7 @@ pub trait UserStore: Send + Sync + 'static {
         role: WorkspaceRole,
         joined_at: u64,
     ) -> Result<()>;
-    async fn get_workspace_member(&self, wsp: Workspace, user: User) -> Result<WorkspaceMember>;
+    async fn get_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<WorkspaceMember>;
     async fn remove_workspace_member(&self, org: &Workspace, user: &User) -> Result<()>;
     async fn create_connection(&self, connection: &Connection) -> Result<()>;
     async fn get_workspace_connection(

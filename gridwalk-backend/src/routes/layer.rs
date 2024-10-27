@@ -68,7 +68,7 @@ pub async fn upload_layer<D: Database + ?Sized>(
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
     let member = workspace
-        .get_member(&state.app_data, user.clone())
+        .get_member(&state.app_data, &user)
         .await
         .map_err(|_| StatusCode::FORBIDDEN)?;
 
