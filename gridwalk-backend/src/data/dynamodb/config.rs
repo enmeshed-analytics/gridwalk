@@ -420,14 +420,12 @@ impl UserStore for Dynamodb {
     }
 
     async fn create_layer(&self, layer: &Layer) -> Result<()> {
-        // Create the workspace member item to insert
         let mut item = std::collections::HashMap::new();
 
         item.insert(
             String::from("PK"),
             AV::S(format!("WSP#{}", layer.workspace_id)),
         );
-        item.insert(String::from("SK"), AV::S(format!("LAYER#{}", layer.id)));
         item.insert(String::from("name"), AV::S(layer.clone().name));
         item.insert(
             String::from("uploaded_by"),

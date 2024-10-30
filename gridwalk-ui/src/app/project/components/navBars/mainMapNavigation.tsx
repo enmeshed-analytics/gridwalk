@@ -7,7 +7,7 @@ import {
   File,
   X,
   Upload,
-  Trash2,
+  CheckCircle,
 } from "lucide-react";
 import { ModalProps, MainMapNav } from "./types";
 
@@ -16,11 +16,12 @@ const MapModal: React.FC<ModalProps> = ({
   onClose,
   onNavItemClick,
   selectedItem,
-  layers,
+  // layers,
   onLayerUpload,
-  onLayerDelete,
+  // onLayerDelete,
   isUploading,
   error,
+  uploadSuccess,
 }) => {
   const MainMapNavs: MainMapNav[] = [
     {
@@ -99,7 +100,7 @@ const MapModal: React.FC<ModalProps> = ({
                   type="file"
                   className="hidden"
                   onChange={handleFileChange}
-                  accept=".geojson,.json,.kml,.gpx"
+                  accept=".geojson,.json,.gpkg"
                   disabled={isUploading}
                 />
               </label>
@@ -107,35 +108,24 @@ const MapModal: React.FC<ModalProps> = ({
 
             {/* Status Messages */}
             {isUploading && (
-              <div className="mb-4 text-blue-500">Uploading...</div>
+              <div className="mb-4 text-blue-500 flex items-center">
+                <span className="animate-spin mr-2">⏳</span>
+                Uploading...
+              </div>
             )}
-            {error && <div className="mb-4 text-red-500">{error}</div>}
 
-            {/* Layers List */}
-            <div className="space-y-2">
-              {layers.length === 0 ? (
-                <p className="text-gray-500 text-sm">No layers uploaded yet</p>
-              ) : (
-                layers.map((layer) => (
-                  <div
-                    key={layer.id}
-                    className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-800">{layer.name}</p>
-                      <p className="text-sm text-gray-500">{layer.type}</p>
-                    </div>
-                    <button
-                      onClick={() => onLayerDelete(layer.id)}
-                      className="p-1 hover:bg-red-50 rounded-full text-red-500 transition-colors"
-                      aria-label="Delete layer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
+            {error && (
+              <div className="mb-4 text-red-500 flex items-center">
+                ❌ {error}
+              </div>
+            )}
+
+            {uploadSuccess && !isUploading && !error && (
+              <div className="mb-4 text-green-500 flex items-center">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                File uploaded successfully!
+              </div>
+            )}
           </div>
         );
 

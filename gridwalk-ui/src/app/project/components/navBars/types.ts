@@ -13,11 +13,12 @@ export interface ModalProps {
   onClose: () => void;
   onNavItemClick: (item: MainMapNav) => void;
   selectedItem: MainMapNav | null;
-  layers: LayerUpload[];
+  // layers: LayerUpload[];
   onLayerUpload: (file: File) => Promise<void>;
   onLayerDelete: (layerId: string) => void;
   isUploading: boolean;
   error: string | null;
+  uploadSuccess: boolean;
 }
 
 /* Map Edit Items */

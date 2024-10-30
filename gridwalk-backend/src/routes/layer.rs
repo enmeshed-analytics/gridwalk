@@ -7,7 +7,6 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use duckdb_postgis::duckdb_load::launch_process_file;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::{
@@ -15,7 +14,6 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
-// Remove the generic type parameter and use Arc<AppState> directly
 pub async fn upload_layer(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
@@ -77,7 +75,9 @@ pub async fn upload_layer(
 
     // Save file locally
     let dir_path = Path::new("uploads");
-    let file_path = dir_path.join(&layer.id);
+    let file_path = dir_path.join(&layer.name);
+    let file_path_str = file_path.to_str().unwrap();
+
     fs::create_dir_all(dir_path)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -90,22 +90,20 @@ pub async fn upload_layer(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Process file and upload to PostGIS
-    let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk";
-    launch_process_file(
-        file_path.to_str().unwrap(),
-        &layer.id,
-        postgis_uri,
-        &layer.workspace_id,
-    )
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    println!("Uploaded to POSTGIS!");
-
-    // Write layer record to database using Arc<dyn Database>
+    // Check permissions of user
     layer
         .create(&state.app_data, user, &workspace)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Write layer table to PostGis
+    layer
+        .send_to_postgis(file_path_str)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Write layer record to App Database
+    layer.write_record(&state.app_data).await.ok();
 
     // Return success response
     let json_response =
