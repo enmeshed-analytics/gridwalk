@@ -71,6 +71,7 @@ export default function Project() {
   });
 
   // Upload handler with improved error handling and type safety
+  // In your Project component
   const handleLayerUpload = useCallback(
     async (
       file: File,
@@ -78,20 +79,21 @@ export default function Project() {
     ): Promise<void> => {
       setIsUploading(true);
       setError(null);
-      setUploadSuccess(false);
 
-      if (!file) {
-        setError("No file provided");
+      // Add client-side validation
+      const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+      if (file.size > MAX_SIZE) {
+        setError("File size exceeds 50MB limit");
         setIsUploading(false);
         return;
       }
 
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("workspace_id", workspaceId);
-        formData.append("name", file.name);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("workspace_id", workspaceId);
+      formData.append("name", file.name);
 
+      try {
         const response = await fetch("/api/upload/layer", {
           method: "POST",
           body: formData,
@@ -100,25 +102,35 @@ export default function Project() {
         const data = (await response.json()) as UploadResponse;
 
         if (!response.ok || !data.success) {
-          throw new Error(
-            data.error || `Upload failed with status: ${response.status}`,
-          );
+          throw new Error(data.error || `Upload failed: ${response.status}`);
         }
-        // Set success and reset after 3 seconds
+
+        // Update layers state
+        if (data.data) {
+          setLayers((prev) => [
+            ...prev,
+            {
+              id: data.data!.id,
+              name: data.data!.name,
+              type: file.type,
+              visible: true,
+              workspace_id: data.data!.workspace_id,
+            },
+          ]);
+        }
+
         setUploadSuccess(true);
         setTimeout(() => setUploadSuccess(false), 3000);
       } catch (err) {
         const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Unknown error during file upload";
+          err instanceof Error ? err.message : "Unknown error during upload";
         setError(errorMessage);
-        console.error("Layer upload error:", err);
+        console.error("Upload error:", err);
       } finally {
         setIsUploading(false);
       }
     },
-    [],
+    [setLayers],
   );
 
   // Event handlers with proper typing
