@@ -11,7 +11,7 @@ use serde_json::json;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::{
-    fs::{self, File},
+    fs::{self, OpenOptions},
     io::AsyncWriteExt,
 };
 
@@ -21,11 +21,24 @@ pub async fn upload_layer(
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    // Extract headers
-    let file_type = headers
-        .get("x-file-type")
+    // Extract chunk information
+    let chunk_number = headers
+        .get("x-chunk-number")
         .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
+        .and_then(|v| v.parse::<u32>().ok())
+        .ok_or_else(|| {
+            let error = json!({ "error": "Missing or invalid chunk number" });
+            (StatusCode::BAD_REQUEST, Json(error))
+        })?;
+
+    let total_chunks = headers
+        .get("x-total-chunks")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u32>().ok())
+        .ok_or_else(|| {
+            let error = json!({ "error": "Missing or invalid total chunks" });
+            (StatusCode::BAD_REQUEST, Json(error))
+        })?;
 
     let workspace_id = headers
         .get("x-workspace-id")
@@ -37,12 +50,6 @@ pub async fn upload_layer(
             });
             (StatusCode::BAD_REQUEST, Json(error))
         })?;
-
-    tracing::info!(
-        "Processing upload for file type: {} workspace: {}",
-        file_type,
-        workspace_id
-    );
 
     let user = auth_user.user.as_ref().ok_or_else(|| {
         let error = json!({
@@ -65,8 +72,17 @@ pub async fn upload_layer(
         (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
     })?;
 
+    let upload_id = format!("{}_upload", workspace_id);
+
+    tracing::info!(
+        "Processing request: chunk {}/{}, upload_id: {}",
+        chunk_number,
+        total_chunks,
+        upload_id
+    );
+
     // Process multipart form
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
+    while let Some(mut field) = multipart.next_field().await.map_err(|e| {
         let error = json!({
             "error": "Failed to process form field",
             "details": e.to_string()
@@ -79,23 +95,28 @@ pub async fn upload_layer(
             match name {
                 "file" => {
                     if let Some(filename) = field.file_name() {
-                        tracing::info!("Processing file: {}", filename);
+                        let temp_path = dir_path.join(format!("temp_{upload_id}_{filename}"));
+                        tracing::info!("Processing file at path: {}", temp_path.display());
 
-                        let temp_path =
-                            dir_path.join(format!("temp_{}_{}", uuid::Uuid::new_v4(), filename));
+                        let mut file = OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(&temp_path)
+                            .await
+                            .map_err(|e| {
+                                tracing::error!(
+                                    "Failed to open file: {}, error: {}",
+                                    temp_path.display(),
+                                    e
+                                );
+                                let error = json!({
+                                    "error": "Failed to open temporary file",
+                                    "details": e.to_string()
+                                });
+                                (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
+                            })?;
 
-                        let mut file = File::create(&temp_path).await.map_err(|e| {
-                            let error = json!({
-                                "error": "Failed to create temporary file",
-                                "details": e.to_string()
-                            });
-                            (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
-                        })?;
-
-                        let mut total_bytes = 0usize;
-
-                        // Stream the file
-                        let mut field = field;
+                        let mut chunk_bytes = 0usize;
                         while let Some(chunk) = field.chunk().await.map_err(|e| {
                             let error = json!({
                                 "error": "Failed to read file chunk",
@@ -103,10 +124,10 @@ pub async fn upload_layer(
                             });
                             (StatusCode::BAD_REQUEST, Json(error))
                         })? {
-                            total_bytes += chunk.len();
+                            chunk_bytes += chunk.len();
                             file.write_all(&chunk).await.map_err(|e| {
                                 let error = json!({
-                                    "error": "Failed to write file chunk",
+                                    "error": "Failed to write chunk",
                                     "details": e.to_string()
                                 });
                                 (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
@@ -121,7 +142,36 @@ pub async fn upload_layer(
                             (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
                         })?;
 
-                        tracing::info!("File upload complete: {} bytes", total_bytes);
+                        tracing::info!(
+                            "Chunk {}/{} written: {} bytes",
+                            chunk_number + 1,
+                            total_chunks,
+                            chunk_bytes
+                        );
+
+                        if chunk_number < total_chunks - 1 {
+                            let upload_id = if chunk_number == 0 {
+                                temp_path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .and_then(|n| n.split('_').nth(1))
+                                    .unwrap_or("")
+                            } else {
+                                &upload_id
+                            };
+
+                            return Ok((
+                                StatusCode::OK,
+                                Json(json!({
+                                    "status": "chunk_received",
+                                    "chunk": chunk_number,
+                                    "total": total_chunks,
+                                    "upload_id": upload_id,
+                                    "bytes_received": chunk_bytes
+                                })),
+                            ));
+                        }
+
                         file_path = Some(temp_path);
                     }
                 }
@@ -159,7 +209,7 @@ pub async fn upload_layer(
         }
     }
 
-    // Validate required data
+    // Get final path and layer info
     let final_path = file_path.ok_or_else(|| {
         let error = json!({
             "error": "No file was uploaded",
@@ -168,6 +218,20 @@ pub async fn upload_layer(
         (StatusCode::BAD_REQUEST, Json(error))
     })?;
 
+    // If this is not the final chunk, return progress
+    if chunk_number < total_chunks - 1 {
+        return Ok((
+            StatusCode::OK,
+            Json(json!({
+                "status": "chunk_received",
+                "chunk": chunk_number,
+                "total": total_chunks,
+                "upload_id": final_path.file_name().unwrap().to_string_lossy()
+            })),
+        ));
+    }
+
+    // Only process the complete file on the final chunk
     let layer_info = layer_info.ok_or_else(|| {
         let error = json!({
             "error": "No layer info provided",
@@ -176,12 +240,25 @@ pub async fn upload_layer(
         (StatusCode::BAD_REQUEST, Json(error))
     })?;
 
-    // Create and process layer
     let layer = Layer::from_req(layer_info, user);
 
-    // Handle the rest of the process with proper error responses
     match process_layer(&state, &layer, user, &final_path).await {
-        Ok(json_response) => Ok((StatusCode::OK, Json(json_response))),
+        Ok(json_response) => {
+            // Cleanup file after successful processing
+            if let Err(cleanup_err) = fs::remove_file(&final_path).await {
+                tracing::error!(
+                    "Failed to clean up file after successful upload: {}",
+                    cleanup_err
+                );
+                // Continue with success response even if cleanup fails
+            } else {
+                tracing::info!(
+                    "Successfully cleaned up temporary file: {}",
+                    final_path.display()
+                );
+            }
+            Ok((StatusCode::OK, Json(json_response)))
+        }
         Err(e) => {
             if let Err(cleanup_err) = fs::remove_file(&final_path).await {
                 tracing::error!("Failed to clean up file after error: {}", cleanup_err);
@@ -251,10 +328,14 @@ async fn process_layer(
             (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
         })?;
 
-    // Write the record
-    if let Err(e) = layer.write_record(&state.app_data).await {
-        tracing::error!("Failed to write layer record: {}", e);
-    }
+    // Write the record to database
+    layer.write_record(&state.app_data).await.map_err(|e| {
+        let error = json!({
+            "error": "Failed to write layer record to Database",
+            "details": e.to_string()
+        });
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
+    })?;
 
     // Return success response
     Ok(serde_json::to_value(layer).unwrap_or_else(|_| {

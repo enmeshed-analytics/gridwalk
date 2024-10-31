@@ -5,13 +5,17 @@ use crate::routes::{
     list_sources, login, logout, profile, register, remove_workspace_member, tiles, upload_layer,
 };
 use axum::{
+    extract::DefaultBodyLimit,
     middleware,
     routing::{delete, get, post},
     Router,
 };
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
-use tower_http::trace::{self, TraceLayer};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    limit::RequestBodyLimitLayer,
+    trace::{self, TraceLayer},
+};
 use tracing::Level;
 
 pub fn create_app(app_state: AppState) -> Router {
@@ -38,6 +42,8 @@ pub fn create_app(app_state: AppState) -> Router {
             get(list_sources),
         )
         .route("/upload_layer", post(upload_layer))
+        .layer(DefaultBodyLimit::disable()) // Disable default 2MB limit
+        .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
         .layer(middleware::from_fn_with_state(
             shared_state.clone(),
             auth_middleware,

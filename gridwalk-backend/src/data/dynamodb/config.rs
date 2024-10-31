@@ -426,6 +426,7 @@ impl UserStore for Dynamodb {
             String::from("PK"),
             AV::S(format!("WSP#{}", layer.workspace_id)),
         );
+        item.insert(String::from("SK"), AV::S(format!("LAYER#{}", layer.name)));
         item.insert(String::from("name"), AV::S(layer.clone().name));
         item.insert(
             String::from("uploaded_by"),
