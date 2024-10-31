@@ -11,7 +11,7 @@ import {
   BaseEditNav,
 } from "./components/navBars/types";
 
-// Type definitions
+// Enhanced type definitions
 export interface LayerUpload {
   id: string;
   name: string;
@@ -28,9 +28,19 @@ export interface UploadResponse {
     workspace_id: string;
   };
   error?: string;
+  chunkInfo?: {
+    currentChunk: number;
+    totalChunks: number;
+  };
 }
 
-// Constants with strict typing
+export interface UploadProgress {
+  uploaded: number;
+  total: number;
+  percentage: number;
+}
+
+// Constants remain the same
 const MAP_STYLES = {
   light: "/OS_VTS_3857_Light.json",
   dark: "/OS_VTS_3857_Dark.json",
@@ -45,9 +55,10 @@ const INITIAL_MAP_CONFIG = {
 } as const;
 
 const DEFAULT_WORKSPACE = "d068ebc4-dc32-4929-ac55-869e04bfb269" as const;
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
 
 export default function Project() {
-  // Navigation state
+  // Previous state remains
   const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
   const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
     null,
@@ -57,21 +68,19 @@ export default function Project() {
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
-
-  // Layer state
   const [layers, setLayers] = useState<LayerUpload[]>([]);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Map initialization
+  // New state for upload progress
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+
   const { mapContainer, mapError } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
   });
 
-  // Upload handler with improved error handling and type safety
-  // In your Project component
   const handleLayerUpload = useCallback(
     async (
       file: File,
@@ -79,61 +88,67 @@ export default function Project() {
     ): Promise<void> => {
       setIsUploading(true);
       setError(null);
-
-      // Add client-side validation
-      const MAX_SIZE = 50 * 1024 * 1024; // 50MB
-      if (file.size > MAX_SIZE) {
-        setError("File size exceeds 50MB limit");
-        setIsUploading(false);
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("workspace_id", workspaceId);
-      formData.append("name", file.name);
+      setUploadProgress(0);
 
       try {
-        const response = await fetch("/api/upload/layer", {
-          method: "POST",
-          body: formData,
-        });
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-        const data = (await response.json()) as UploadResponse;
+        for (let currentChunk = 0; currentChunk < totalChunks; currentChunk++) {
+          const start = currentChunk * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
 
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || `Upload failed: ${response.status}`);
+          const formData = new FormData();
+          formData.append("file", chunk, file.name);
+          formData.append("workspace_id", workspaceId);
+          formData.append("name", file.name);
+          formData.append(
+            "chunk_info",
+            JSON.stringify({
+              currentChunk,
+              totalChunks,
+              fileSize: file.size,
+            }),
+          );
+
+          const response = await fetch("/api/upload/layer", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = (await response.json()) as UploadResponse;
+
+          if (!response.ok || !data.success) {
+            throw new Error(data.error || `Upload failed: ${response.status}`);
+          }
+
+          // Update progress as a percentage (0-100)
+          const progress = Math.round(((currentChunk + 1) / totalChunks) * 100);
+          setUploadProgress(progress);
+
+          // If this was the last chunk and successful
+          if (currentChunk === totalChunks - 1) {
+            setUploadSuccess(true);
+            setTimeout(() => {
+              setUploadSuccess(false);
+              setUploadProgress(0); // Reset progress
+            }, 3000);
+          }
         }
-
-        // Update layers state
-        if (data.data) {
-          setLayers((prev) => [
-            ...prev,
-            {
-              id: data.data!.id,
-              name: data.data!.name,
-              type: file.type,
-              visible: true,
-              workspace_id: data.data!.workspace_id,
-            },
-          ]);
-        }
-
-        setUploadSuccess(true);
-        setTimeout(() => setUploadSuccess(false), 3000);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error during upload";
         setError(errorMessage);
+        setTimeout(() => setError(null), 3000);
         console.error("Upload error:", err);
       } finally {
         setIsUploading(false);
       }
     },
-    [setLayers],
+    [],
   );
 
-  // Event handlers with proper typing
+  // Other handlers remain the same
   const handleLayerDelete = useCallback((layerId: string) => {
     setLayers((prev) => prev.filter((layer) => layer.id !== layerId));
   }, []);
@@ -160,7 +175,6 @@ export default function Project() {
     setSelectedItem(null);
   }, []);
 
-  // Error UI component
   const ErrorDisplay = mapError ? (
     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50">
       {mapError}
@@ -185,12 +199,12 @@ export default function Project() {
         onClose={handleModalClose}
         onNavItemClick={handleNavItemClick}
         selectedItem={selectedItem}
-        // layers={layers}
         onLayerUpload={handleLayerUpload}
         onLayerDelete={handleLayerDelete}
         isUploading={isUploading}
         error={error}
         uploadSuccess={uploadSuccess}
+        uploadProgress={uploadProgress}
       />
 
       <BaseLayerNavigation

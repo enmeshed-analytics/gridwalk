@@ -19,6 +19,7 @@ export interface ModalProps {
   isUploading: boolean;
   error: string | null;
   uploadSuccess: boolean;
+  uploadProgress: number;
 }
 
 /* Map Edit Items */
