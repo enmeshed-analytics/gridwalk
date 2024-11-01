@@ -21,7 +21,7 @@ pub async fn upload_layer(
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    // Extract chunk information sent front frontend
+    // Extract chunk information sent from frontend
     // Total chunks to be processed
     let total_chunks = headers
         .get("x-total-chunks")
