@@ -21,16 +21,8 @@ pub async fn upload_layer(
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    // Extract chunk information
-    let chunk_number = headers
-        .get("x-chunk-number")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<u32>().ok())
-        .ok_or_else(|| {
-            let error = json!({ "error": "Missing or invalid chunk number" });
-            (StatusCode::BAD_REQUEST, Json(error))
-        })?;
-
+    // Extract chunk information sent front frontend
+    // Total chunks to be processed
     let total_chunks = headers
         .get("x-total-chunks")
         .and_then(|v| v.to_str().ok())
@@ -40,6 +32,17 @@ pub async fn upload_layer(
             (StatusCode::BAD_REQUEST, Json(error))
         })?;
 
+    // The current chunk number in the stream
+    let chunk_number = headers
+        .get("x-chunk-number")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u32>().ok())
+        .ok_or_else(|| {
+            let error = json!({ "error": "Missing or invalid chunk number" });
+            (StatusCode::BAD_REQUEST, Json(error))
+        })?;
+
+    // Get workspace id from frontend
     let workspace_id = headers
         .get("x-workspace-id")
         .and_then(|v| v.to_str().ok())
@@ -51,6 +54,7 @@ pub async fn upload_layer(
             (StatusCode::BAD_REQUEST, Json(error))
         })?;
 
+    // Ensure that the user has auth to upload layer
     let user = auth_user.user.as_ref().ok_or_else(|| {
         let error = json!({
             "error": "Unauthorized request",
@@ -59,6 +63,7 @@ pub async fn upload_layer(
         (StatusCode::UNAUTHORIZED, Json(error))
     })?;
 
+    // Create layer info (layer name and workspace id holder) + holder for final file path
     let mut layer_info: Option<CreateLayer> = None;
     let mut file_path = None;
 
@@ -72,8 +77,13 @@ pub async fn upload_layer(
         (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
     })?;
 
+    // Create upload id - which is the workspace id that is sent through
+    // This is what is used to create the temp file path
+    // "temp_{upload_id}_{filename}"
+    // this is only temporary to ensure that the chunks are appended to the same temp file
     let upload_id = format!("{}_upload", workspace_id);
 
+    // Logging info
     tracing::info!(
         "Processing request: chunk {}/{}, upload_id: {}",
         chunk_number,
@@ -81,7 +91,7 @@ pub async fn upload_layer(
         upload_id
     );
 
-    // Process multipart form
+    // Process multipart form starting point
     while let Some(mut field) = multipart.next_field().await.map_err(|e| {
         let error = json!({
             "error": "Failed to process form field",
@@ -150,6 +160,7 @@ pub async fn upload_layer(
                         );
 
                         if chunk_number < total_chunks - 1 {
+                            tracing::info!("Non-final chunk processed, awaiting more chunks");
                             let upload_id = if chunk_number == 0 {
                                 temp_path
                                     .file_name()
@@ -171,7 +182,7 @@ pub async fn upload_layer(
                                 })),
                             ));
                         }
-
+                        tracing::info!("Final chunk received, processing complete file");
                         file_path = Some(temp_path);
                     }
                 }
@@ -210,6 +221,10 @@ pub async fn upload_layer(
     }
 
     // Get final path and layer info
+    // At this point, we know:
+    // 1. We have processed the final chunk (checked during file processing)
+    // 2. We have a complete file and temp file path
+    // 3. We can proceed with final processing to PostGIS
     let final_path = file_path.ok_or_else(|| {
         let error = json!({
             "error": "No file was uploaded",
@@ -218,20 +233,6 @@ pub async fn upload_layer(
         (StatusCode::BAD_REQUEST, Json(error))
     })?;
 
-    // If this is not the final chunk, return progress
-    if chunk_number < total_chunks - 1 {
-        return Ok((
-            StatusCode::OK,
-            Json(json!({
-                "status": "chunk_received",
-                "chunk": chunk_number,
-                "total": total_chunks,
-                "upload_id": final_path.file_name().unwrap().to_string_lossy()
-            })),
-        ));
-    }
-
-    // Only process the complete file on the final chunk
     let layer_info = layer_info.ok_or_else(|| {
         let error = json!({
             "error": "No layer info provided",
@@ -250,7 +251,7 @@ pub async fn upload_layer(
                     "Failed to clean up file after successful upload: {}",
                     cleanup_err
                 );
-                // Continue with success response even if cleanup fails
+                // Continue with success response even if cleanup fails - NEED TO CHANGE THIS
             } else {
                 tracing::info!(
                     "Successfully cleaned up temporary file: {}",
@@ -285,6 +286,7 @@ async fn process_layer(
             (StatusCode::NOT_FOUND, Json(error))
         })?;
 
+    // Get workspace member
     let member = workspace
         .get_member(&state.app_data, user)
         .await
@@ -304,7 +306,7 @@ async fn process_layer(
         return Err((StatusCode::FORBIDDEN, Json(error)));
     }
 
-    // Create layer in database
+    // Check permissions - WE NEED TO RENAME THIS TO SOMETHING OTHER THAN CREATE
     layer
         .create(&state.app_data, user, &workspace)
         .await
@@ -328,7 +330,7 @@ async fn process_layer(
             (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
         })?;
 
-    // Write the record to database
+    // Write the record to database (e.g. DynamoDB)
     layer.write_record(&state.app_data).await.map_err(|e| {
         let error = json!({
             "error": "Failed to write layer record to Database",

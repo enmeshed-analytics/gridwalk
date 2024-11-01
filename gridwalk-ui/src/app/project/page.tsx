@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useState, useCallback } from "react";
 import { useMapInit } from "./components/mapInit/mapInit";
 import MainMapNavigation from "./components/navBars/mainMapNavigation";
@@ -11,7 +10,6 @@ import {
   BaseEditNav,
 } from "./components/navBars/types";
 
-// Enhanced type definitions
 export interface LayerUpload {
   id: string;
   name: string;
@@ -40,7 +38,6 @@ export interface UploadProgress {
   percentage: number;
 }
 
-// Constants remain the same
 const MAP_STYLES = {
   light: "/OS_VTS_3857_Light.json",
   dark: "/OS_VTS_3857_Dark.json",
@@ -55,10 +52,10 @@ const INITIAL_MAP_CONFIG = {
 } as const;
 
 const DEFAULT_WORKSPACE = "d068ebc4-dc32-4929-ac55-869e04bfb269" as const;
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+const CHUNK_SIZE = 5 * 1024 * 1024;
 
 export default function Project() {
-  // Previous state remains
+  // STATES
   const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
   const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
     null,
@@ -72,15 +69,15 @@ export default function Project() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // New state for upload progress
   const [uploadProgress, setUploadProgress] = useState<number>(0);
 
+  // MAP CONFIG
   const { mapContainer, mapError } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
   });
 
+  // HANDLE UPLOAD
   const handleLayerUpload = useCallback(
     async (
       file: File,
@@ -126,12 +123,13 @@ export default function Project() {
           const progress = Math.round(((currentChunk + 1) / totalChunks) * 100);
           setUploadProgress(progress);
 
-          // If this was the last chunk and successful
+          // If this was the last chunk
+          // Finish chunk upload
           if (currentChunk === totalChunks - 1) {
             setUploadSuccess(true);
             setTimeout(() => {
               setUploadSuccess(false);
-              setUploadProgress(0); // Reset progress
+              setUploadProgress(0);
             }, 3000);
           }
         }
@@ -148,7 +146,6 @@ export default function Project() {
     [],
   );
 
-  // Other handlers remain the same
   const handleLayerDelete = useCallback((layerId: string) => {
     setLayers((prev) => prev.filter((layer) => layer.id !== layerId));
   }, []);

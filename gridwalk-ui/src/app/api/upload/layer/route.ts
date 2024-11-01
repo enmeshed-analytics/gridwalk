@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { LayerInfo, FileConfigs } from "./types";
 
-const HARDCODED_AUTH_TOKEN = "VVPME0BYEDG7LJYGLL9PKJ8AS1GABM";
+const DETAILS = "VVPME0BYEDG7LJYGLL9PKJ8AS1GABM";
 
 interface ChunkInfo {
   currentChunk: number;
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     );
 
     const headers: HeadersInit = {
-      Authorization: `Bearer ${HARDCODED_AUTH_TOKEN}`,
+      Authorization: `Bearer ${DETAILS}`,
       Accept: "application/json",
       "X-File-Type": "." + (file as File).name.split(".").pop()?.toLowerCase(),
       "X-Original-Content-Type": originalType || contentType,
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     return Response.json({
       success: true,
       data,
-      chunkInfo, // Include chunk info in response if present
+      chunkInfo,
     });
   } catch (error) {
     console.error("Upload error:", {
