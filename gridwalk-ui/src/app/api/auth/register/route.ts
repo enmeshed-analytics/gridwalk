@@ -4,9 +4,8 @@ export async function POST(request) {
     const { email, password, name } = body;
 
     const [firstName, ...lastNameParts] = name.trim().split(" ");
-    const lastName = lastNameParts.join(" ") || ""; // Handle case where no last name provided
+    const lastName = lastNameParts.join(" ") || "";
 
-    // Call external API
     const response = await fetch("http://localhost:3001/register", {
       method: "POST",
       headers: {
