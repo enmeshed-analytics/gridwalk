@@ -59,6 +59,25 @@ pub async fn create_connection(
     }
 }
 
+pub async fn list_connections(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(workspace_id): Path<String>,
+) -> impl IntoResponse {
+    match auth_user.user {
+        // TODO: Check permissions
+        Some(_user) => {
+            println!("");
+            let connections = Connection::get_all(&state.app_data, &workspace_id)
+                .await
+                .ok()
+                .unwrap();
+            Ok(Json(connections))
+        }
+        None => Err((StatusCode::FORBIDDEN, "unauthorized".to_string())),
+    }
+}
+
 pub async fn list_sources(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,

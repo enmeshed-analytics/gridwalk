@@ -10,7 +10,7 @@ use tokio_postgres::NoTls;
 use crate::data::Database;
 
 // TODO: Switch connector_type/postgis_uri to enum to support other connectors
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Connection {
     pub id: String,
     pub workspace_id: String,
@@ -35,6 +35,14 @@ impl Connection {
             .get_workspace_connection(workspace_id, connection_id)
             .await?;
         Ok(con)
+    }
+
+    pub async fn get_all(
+        database: &Arc<dyn Database>,
+        workspace_id: &str,
+    ) -> Result<Vec<Connection>> {
+        let connections = database.get_workspace_connections(workspace_id).await?;
+        Ok(connections)
     }
 }
 
@@ -133,8 +141,8 @@ impl GeoConnector for PostgisConfig {
         println!("Fetching MVT for tile z:{} x:{} y:{}", z, x, y);
         let pool = self.pool.as_ref();
         let client = pool.get().await?;
-        let table_name = "test";
-        let geom_column = "geom";
+        let _table_name = "test";
+        let _geom_column = "geom";
         let query = format!(
             "
 WITH
