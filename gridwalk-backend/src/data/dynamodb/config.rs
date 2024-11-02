@@ -1,5 +1,5 @@
 use crate::core::{
-    Connection, CreateUser, Email, Layer, User, Workspace, WorkspaceMember, WorkspaceRole,
+    Connection, CreateUser, Email, Layer, Project, User, Workspace, WorkspaceMember, WorkspaceRole,
 };
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
@@ -435,6 +435,34 @@ impl UserStore for Dynamodb {
         item.insert(
             String::from("created_at"),
             AV::N(layer.created_at.to_string()),
+        );
+
+        self.client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item))
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    async fn create_project(&self, project: &Project) -> Result<()> {
+        let mut item = std::collections::HashMap::new();
+
+        item.insert(
+            String::from("PK"),
+            AV::S(format!("WSP#{}", project.workspace_id)),
+        );
+        item.insert(String::from("SK"), AV::S(format!("PROJ#{}", project.id)));
+        item.insert(String::from("name"), AV::S(project.clone().name));
+        item.insert(
+            String::from("uploaded_by"),
+            AV::S(project.clone().uploaded_by),
+        );
+        item.insert(
+            String::from("created_at"),
+            AV::N(project.created_at.to_string()),
         );
 
         self.client

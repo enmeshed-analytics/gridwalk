@@ -1,4 +1,6 @@
-use crate::core::{Connection, Layer, Session, User, Workspace, WorkspaceMember, WorkspaceRole};
+use crate::core::{
+    Connection, Layer, Project, Session, User, Workspace, WorkspaceMember, WorkspaceRole,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 
@@ -30,6 +32,7 @@ pub trait UserStore: Send + Sync + 'static {
     ) -> Result<Connection>;
     async fn get_workspace_connections(&self, workspace_id: &str) -> Result<Vec<Connection>>;
     async fn create_layer(&self, layer: &Layer) -> Result<()>;
+    async fn create_project(&self, project: &Project) -> Result<()>;
 }
 
 #[async_trait]
