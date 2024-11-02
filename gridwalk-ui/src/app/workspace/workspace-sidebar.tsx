@@ -6,7 +6,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 interface AppSidebarProps {
   userName?: string;
   userEmail?: string;
-  avatarUrl?: string;
 }
 
 const navItems = [
@@ -14,13 +13,9 @@ const navItems = [
   { icon: Database, label: 'Connections', href: '/workspace' },
 ];
 
-export function AppSidebar({ 
-  userName = "John Doe",
-  userEmail = "john@example.com",
-  avatarUrl = "/api/placeholder/32/32"
-}: AppSidebarProps) {
+export function AppSidebar({userName, userEmail, avatarUrl}: AppSidebarProps) {
   // Get first letter of name for avatar fallback
-  const avatarFallback = userName.charAt(0).toUpperCase();
+  const avatar = userName.charAt(0).toUpperCase();
 
   return (
     <Sidebar className="">
@@ -49,8 +44,7 @@ export function AppSidebar({
           <div className="border-t p-4">
             <div className="flex items-center gap-3">
               <Avatar>
-                <AvatarImage src={avatarUrl} alt={userName} />
-                <AvatarFallback>{avatarFallback}</AvatarFallback>
+                <AvatarFallback>{avatar}</AvatarFallback>
               </Avatar>
               <div>
                 <p className="text-sm font-medium">{userName}</p>

@@ -36,7 +36,7 @@ export default function Workspace() {
           <Card key={index} className="group hover:shadow-lg transition-all duration-300">
             <div className="aspect-video w-full relative overflow-hidden">
               <img
-                src="/api/placeholder/400/225"
+                src="/map-placeholder.png"
                 alt={`Map preview for ${project.title}`}
                 className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
               />
