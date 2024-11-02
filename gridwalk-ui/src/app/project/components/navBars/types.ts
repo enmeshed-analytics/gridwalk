@@ -13,13 +13,14 @@ export interface ModalProps {
   onClose: () => void;
   onNavItemClick: (item: MainMapNav) => void;
   selectedItem: MainMapNav | null;
-  // layers: LayerUpload[];
+  layers: LayerUpload[];
   onLayerUpload: (file: File) => Promise<void>;
   onLayerDelete: (layerId: string) => void;
   isUploading: boolean;
   error: string | null;
   uploadSuccess: boolean;
   uploadProgress: number;
+  onAbortUpload: () => void;
 }
 
 /* Map Edit Items */
@@ -36,6 +37,12 @@ export interface BaseEditNav {
   title: string;
   icon?: string;
   description: string;
+}
+
+/* Base Layer Nav Props */
+export interface BaseLayerNavProps {
+  onBaseItemClick: (item: BaseEditNav) => void;
+  selectedBaseItem: BaseEditNav | null;
 }
 
 /* Upload Layer */

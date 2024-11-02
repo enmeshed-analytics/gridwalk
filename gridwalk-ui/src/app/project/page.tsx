@@ -4,6 +4,7 @@ import { useMapInit } from "./components/mapInit/mapInit";
 import MainMapNavigation from "./components/navBars/mainMapNavigation";
 import MapEditNavigation from "./components/navBars/mapEditNavigation";
 import BaseLayerNavigation from "./components/navBars/baseLayerNavigation";
+import { useFileUploader } from "./components/hooks/useFileUploader";
 import {
   MainMapNav,
   MapEditNav,
@@ -16,26 +17,6 @@ export interface LayerUpload {
   type: string;
   visible: boolean;
   workspace_id?: string;
-}
-
-export interface UploadResponse {
-  success: boolean;
-  data?: {
-    id: string;
-    name: string;
-    workspace_id: string;
-  };
-  error?: string;
-  chunkInfo?: {
-    currentChunk: number;
-    totalChunks: number;
-  };
-}
-
-export interface UploadProgress {
-  uploaded: number;
-  total: number;
-  percentage: number;
 }
 
 const MAP_STYLES = {
@@ -51,11 +32,8 @@ const INITIAL_MAP_CONFIG = {
   zoom: 11,
 } as const;
 
-const DEFAULT_WORKSPACE = "d068ebc4-dc32-4929-ac55-869e04bfb269" as const;
-const CHUNK_SIZE = 5 * 1024 * 1024;
-
 export default function Project() {
-  // STATES
+  // UI States
   const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
   const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
     null,
@@ -65,91 +43,78 @@ export default function Project() {
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
-  const [layers, setLayers] = useState<LayerUpload[]>([]);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
-  // MAP CONFIG
+  // Layer Management States
+  const [layers, setLayers] = useState<LayerUpload[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  // Map Initialization
   const { mapContainer, mapError } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
   });
 
-  // HANDLE UPLOAD
-  const handleLayerUpload = useCallback(
-    async (
-      file: File,
-      workspaceId: string = DEFAULT_WORKSPACE,
-    ): Promise<void> => {
+  // File Upload Hook Integration
+  const { uploadFile } = useFileUploader();
+
+  // File Upload Handler
+  const handleUpload = useCallback(
+    async (file: File) => {
       setIsUploading(true);
-      setError(null);
+      setUploadError(null);
+      setUploadSuccess(false);
       setUploadProgress(0);
 
       try {
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-        for (let currentChunk = 0; currentChunk < totalChunks; currentChunk++) {
-          const start = currentChunk * CHUNK_SIZE;
-          const end = Math.min(start + CHUNK_SIZE, file.size);
-          const chunk = file.slice(start, end);
-
-          const formData = new FormData();
-          formData.append("file", chunk, file.name);
-          formData.append("workspace_id", workspaceId);
-          formData.append("name", file.name);
-          formData.append(
-            "chunk_info",
-            JSON.stringify({
-              currentChunk,
-              totalChunks,
-              fileSize: file.size,
-            }),
-          );
-
-          const response = await fetch("/api/upload/layer", {
-            method: "POST",
-            body: formData,
-          });
-
-          const data = (await response.json()) as UploadResponse;
-
-          if (!response.ok || !data.success) {
-            throw new Error(data.error || `Upload failed: ${response.status}`);
-          }
-
-          // Update progress as a percentage (0-100)
-          const progress = Math.round(((currentChunk + 1) / totalChunks) * 100);
-          setUploadProgress(progress);
-
-          // If this was the last chunk
-          // Finish chunk upload
-          if (currentChunk === totalChunks - 1) {
-            setUploadSuccess(true);
-            setTimeout(() => {
-              setUploadSuccess(false);
-              setUploadProgress(0);
-            }, 3000);
-          }
-        }
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error during upload";
-        setError(errorMessage);
-        setTimeout(() => setError(null), 3000);
-        console.error("Upload error:", err);
+        await uploadFile(
+          file,
+          undefined,
+          (progress) => {
+            setUploadProgress(progress);
+          },
+          (response) => {
+            if (response.success && response.data) {
+              setLayers((prev) => [
+                ...prev,
+                {
+                  id: response.data!.id,
+                  name: response.data!.name,
+                  type: "vector",
+                  visible: true,
+                  workspace_id: response.data!.workspace_id,
+                },
+              ]);
+              setUploadSuccess(true);
+            }
+          },
+          (error) => {
+            setUploadError(error);
+          },
+        );
       } finally {
         setIsUploading(false);
       }
     },
-    [],
+    [uploadFile],
   );
 
+  // Abort Upload Handler
+  const handleAbortUpload = useCallback(() => {
+    // Implement abort logic here if needed
+    setIsUploading(false);
+    setUploadProgress(0);
+    setUploadError("Upload cancelled");
+  }, []);
+
+  // Layer Management
   const handleLayerDelete = useCallback((layerId: string) => {
     setLayers((prev) => prev.filter((layer) => layer.id !== layerId));
   }, []);
 
+  // Navigation Handlers
   const handleNavItemClick = useCallback((item: MainMapNav) => {
     setSelectedItem(item);
     setIsModalOpen(true);
@@ -181,29 +146,27 @@ export default function Project() {
   return (
     <div className="w-full h-screen relative">
       {ErrorDisplay}
-
       <div className="absolute inset-0 pl-10">
         <div ref={mapContainer} className="h-full w-full" />
       </div>
-
       <MapEditNavigation
         onEditItemClick={handleEditItemClick}
         selectedEditItem={selectedEditItem}
       />
-
       <MainMapNavigation
         isOpen={isModalOpen}
         onClose={handleModalClose}
         onNavItemClick={handleNavItemClick}
         selectedItem={selectedItem}
-        onLayerUpload={handleLayerUpload}
+        onLayerUpload={handleUpload}
         onLayerDelete={handleLayerDelete}
         isUploading={isUploading}
-        error={error}
+        error={uploadError}
         uploadSuccess={uploadSuccess}
         uploadProgress={uploadProgress}
+        onAbortUpload={handleAbortUpload}
+        layers={layers}
       />
-
       <BaseLayerNavigation
         onBaseItemClick={handleBaseItemClick}
         selectedBaseItem={selectedBaseItem}

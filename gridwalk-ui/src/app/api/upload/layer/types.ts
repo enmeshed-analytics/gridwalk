@@ -14,11 +14,8 @@ export type FileConfigs = {
   readonly [key: string]: FileConfig;
 };
 
-export interface ChunkMetadata {
-  chunkNumber: number;
+export interface ChunkInfo {
+  currentChunk: number;
   totalChunks: number;
   fileSize: number;
-  fileName: string;
-  fileType: string;
-  workspaceId: string;
 }

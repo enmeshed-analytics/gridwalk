@@ -1,13 +1,7 @@
 import { NextRequest } from "next/server";
-import { LayerInfo, FileConfigs } from "./types";
+import { LayerInfo, FileConfigs, ChunkInfo } from "./types";
 
 const DETAILS = "VVPME0BYEDG7LJYGLL9PKJ8AS1GABM";
-
-interface ChunkInfo {
-  currentChunk: number;
-  totalChunks: number;
-  fileSize: number;
-}
 
 const FILE_CONFIGS: FileConfigs = {
   ".geojson": {
@@ -43,7 +37,6 @@ async function prepareUploadFormData(
   const fileName = (file as File).name || layerName!;
   const extension = "." + fileName.split(".").pop()?.toLowerCase();
   const config = FILE_CONFIGS[extension];
-
   if (!config) {
     throw new Error(`Unsupported file type: ${extension}`);
   }

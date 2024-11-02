@@ -42,7 +42,7 @@ pub fn create_app(app_state: AppState) -> Router {
             get(list_sources),
         )
         .route("/upload_layer", post(upload_layer))
-        .layer(DefaultBodyLimit::disable()) // Disable default 2MB limit
+        .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
         .layer(middleware::from_fn_with_state(
             shared_state.clone(),
