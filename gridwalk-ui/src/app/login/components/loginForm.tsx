@@ -1,6 +1,5 @@
-"use client";
 import React, { useState } from "react";
-import { Lock, Mail } from "lucide-react";
+import { Lock, Mail, User } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
@@ -12,19 +11,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-interface LoginFormData {
+interface AuthFormData {
   email: string;
   password: string;
+  name?: string;
 }
 
-interface LoginResponse {
+interface AuthResponse {
   error?: string;
 }
 
-export default function LoginForm(): JSX.Element {
-  const [formData, setFormData] = useState<LoginFormData>({
+export default function AuthForm(): JSX.Element {
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState<AuthFormData>({
     email: "",
     password: "",
+    name: "",
   });
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -41,9 +43,9 @@ export default function LoginForm(): JSX.Element {
     e: React.FormEvent<HTMLFormElement>,
   ): Promise<void> => {
     e.preventDefault();
-    const { email, password } = formData;
+    const { email, password, name } = formData;
 
-    if (!email || !password) {
+    if (!email || !password || (!isLogin && !name)) {
       setError("Please fill in all fields");
       return;
     }
@@ -52,7 +54,8 @@ export default function LoginForm(): JSX.Element {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -60,28 +63,42 @@ export default function LoginForm(): JSX.Element {
         body: JSON.stringify(formData),
       });
 
-      const data: LoginResponse = await response.json();
+      const data: AuthResponse = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Login failed");
+        throw new Error(
+          data.error || `${isLogin ? "Login" : "Registration"} failed`,
+        );
       }
 
       window.location.href = "/project";
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An error occurred during login",
-      );
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleAuthMode = () => {
+    setIsLogin(!isLogin);
+    setError("");
+    setFormData({
+      email: "",
+      password: "",
+      name: "",
+    });
+  };
+
   return (
     <Card className="w-full backdrop-blur-sm bg-white/90">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl text-center">Welcome</CardTitle>
+        <CardTitle className="text-2xl text-center">
+          {isLogin ? "Welcome Back" : "Create Account"}
+        </CardTitle>
         <CardDescription className="text-center">
-          Enter your email and password to login
+          {isLogin
+            ? "Enter your credentials to login"
+            : "Fill in your details to register"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -90,6 +107,22 @@ export default function LoginForm(): JSX.Element {
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
+          )}
+
+          {!isLogin && (
+            <div className="space-y-2">
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                <Input
+                  type="text"
+                  name="name"
+                  placeholder="Full Name"
+                  className="pl-10"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
           )}
 
           <div className="space-y-2">
@@ -120,27 +153,35 @@ export default function LoginForm(): JSX.Element {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <span className="text-sm">Remember me</span>
-            </label>
-            <Button variant="link" className="text-sm">
-              Forgot password?
-            </Button>
-          </div>
+          {isLogin && (
+            <div className="flex items-center justify-between">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <span className="text-sm">Remember me</span>
+              </label>
+              <Button variant="link" className="text-sm">
+                Forgot password?
+              </Button>
+            </div>
+          )}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+            {loading
+              ? isLogin
+                ? "Signing in..."
+                : "Creating account..."
+              : isLogin
+                ? "Sign in"
+                : "Create account"}
           </Button>
 
           <div className="text-center text-sm">
-            Don't have an account?{" "}
-            <Button variant="link" className="p-0">
-              Sign up
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <Button variant="link" className="p-0" onClick={toggleAuthMode}>
+              {isLogin ? "Sign up" : "Sign in"}
             </Button>
           </div>
         </form>
