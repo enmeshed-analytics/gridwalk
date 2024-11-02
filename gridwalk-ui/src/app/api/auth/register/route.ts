@@ -1,22 +1,51 @@
-export async function POST(request) {
+import { NextRequest, NextResponse } from "next/server";
+
+interface RegistrationRequestBody {
+  email: string;
+  password: string;
+  name: string;
+}
+
+interface BackendRegistrationPayload {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface LoginResponse {
+  apiKey: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  error?: string;
+}
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as RegistrationRequestBody;
     const { email, password, name } = body;
 
-    const [firstName, ...lastNameParts] = name.trim().split(" ");
-    const lastName = lastNameParts.join(" ") || "";
+    // Name parsing with type safety
+    const nameParts = name.trim().split(" ");
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    // Register user
+    const registerPayload: BackendRegistrationPayload = {
+      email,
+      password,
+      first_name: firstName,
+      last_name: lastName,
+    };
 
     const response = await fetch("http://localhost:3001/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        email,
-        password,
-        first_name: firstName,
-        last_name: lastName,
-      }),
+      body: JSON.stringify(registerPayload),
     });
 
     if (!response.ok) {
@@ -24,7 +53,7 @@ export async function POST(request) {
       throw new Error(errorData || "Registration failed");
     }
 
-    // After successful registration, automatically log them in
+    // Auto-login after registration
     const loginResponse = await fetch("http://localhost:3001/login", {
       method: "POST",
       headers: {
@@ -37,27 +66,23 @@ export async function POST(request) {
       throw new Error("Auto-login after registration failed");
     }
 
-    const loginData = await loginResponse.json();
+    const loginData = (await loginResponse.json()) as LoginResponse;
 
-    // Create cookie with the apiKey
-    const cookies = new Headers();
-    // TODO: Change to HttpOnly & Secure in production
-    cookies.append(
-      "Set-Cookie",
-      `sid=${loginData.apiKey}; Path=/; SameSite=Strict`,
-    );
-
-    return new Response(JSON.stringify({ success: true }), {
+    // Create success response with cookie
+    return NextResponse.json({ success: true } as ApiResponse, {
       status: 200,
-      headers: cookies,
+      headers: {
+        "Set-Cookie": `sid=${loginData.apiKey}; Path=/; SameSite=Strict`,
+      },
     });
   } catch (error) {
     console.error("Registration error:", error);
-    return new Response(
-      JSON.stringify({
+
+    return NextResponse.json(
+      {
         success: false,
         error: "Registration failed. Please try again.",
-      }),
+      } as ApiResponse,
       { status: 400 },
     );
   }
