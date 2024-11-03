@@ -71,7 +71,7 @@ export default function AuthForm(): JSX.Element {
         );
       }
 
-      window.location.href = "/project";
+      window.location.href = "/workspace";
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
