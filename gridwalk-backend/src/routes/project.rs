@@ -2,13 +2,19 @@ use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::core::{CreateProject, Project, User, Workspace, WorkspaceRole};
 use axum::{
-    extract::{Extension, State},
+    extract::{Extension, Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
+
+#[derive(Debug, Deserialize)]
+pub struct ProjectRequest {
+    workspace_id: String,
+}
 
 pub async fn create_project(
     State(state): State<Arc<AppState>>,
@@ -92,4 +98,55 @@ async fn process_project(
             "workspace_id": project.workspace_id
         })
     }))
+}
+
+pub async fn get_projects(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Query(query): Query<ProjectRequest>,
+) -> impl IntoResponse {
+    #[derive(Serialize)]
+    struct ProjectsResponse {
+        status: String,
+        data: Option<Vec<String>>,
+        error: Option<String>,
+    }
+
+    if let Some(_user) = auth_user.user {
+        println!("Fetching projects for workspace: {:?}", query.workspace_id);
+
+        match state.app_data.get_projects(&query.workspace_id).await {
+            Ok(project_ids) => {
+                println!("Found projects: {:?}", project_ids);
+                (
+                    StatusCode::OK,
+                    Json(ProjectsResponse {
+                        status: "success".to_string(),
+                        data: Some(project_ids),
+                        error: None,
+                    }),
+                )
+            }
+            Err(e) => {
+                println!("Error fetching projects: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ProjectsResponse {
+                        status: "error".to_string(),
+                        data: None,
+                        error: Some("Failed to fetch projects".to_string()),
+                    }),
+                )
+            }
+        }
+    } else {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(ProjectsResponse {
+                status: "error".to_string(),
+                data: None,
+                error: Some("Unauthorized".to_string()),
+            }),
+        )
+    }
 }

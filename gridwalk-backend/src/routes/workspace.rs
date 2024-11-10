@@ -6,9 +6,14 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
+
+#[derive(Serialize)]
+pub struct ErrorResponse {
+    error: String,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct ReqCreateWorkspace {
@@ -91,4 +96,32 @@ pub async fn remove_workspace_member(
         let _ = wsp.remove_member(&state.app_data, &req_user, &user).await;
     };
     "removed workspace member".into_response()
+}
+
+pub async fn get_workspaces(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+) -> Response {
+    if let Some(user) = auth_user.user {
+        println!("Fetching workspaces for user: {:?}", user.id);
+        match Workspace::get_user_workspaces(&state.app_data, &user).await {
+            Ok(workspace_ids) => {
+                println!("Found workspaces: {:?}", workspace_ids);
+                Json(workspace_ids).into_response()
+            }
+            Err(e) => {
+                println!("Error fetching workspaces: {:?}", e);
+                let error = ErrorResponse {
+                    error: "Failed to fetch workspaces".to_string(),
+                };
+                Json(error).into_response()
+            }
+        }
+    } else {
+        println!("No authenticated user found");
+        let error = ErrorResponse {
+            error: "Unauthorized".to_string(),
+        };
+        Json(error).into_response()
+    }
 }

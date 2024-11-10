@@ -1,46 +1,58 @@
-import React from 'react';
+import React from "react";
 import { Sidebar, SidebarContent } from "@/components/ui/sidebar";
-import { Database, Map } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Building2, FolderKanban } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import Link from "next/link";
 
 interface AppSidebarProps {
   userName?: string;
   userEmail?: string;
+  workspaceNames?: string[];
 }
 
-const navItems = [
-  { icon: Map, label: 'Projects', href: '/workspace' },
-  { icon: Database, label: 'Connections', href: '/workspace' },
-];
-
-export function AppSidebar({userName, userEmail, avatarUrl}: AppSidebarProps) {
-  // Get first letter of name for avatar fallback
+export function AppSidebar({
+  userName = "",
+  userEmail = "",
+  workspaceNames = [],
+}: AppSidebarProps) {
   const avatar = userName.charAt(0).toUpperCase();
 
   return (
-    <Sidebar className="">
+    <Sidebar className="border-r">
       <SidebarContent>
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="px-4 py-6">
-            <h1 className="text-xl font-bold">Workspace</h1>
+            <h1 className="text-xl font-bold">Workspaces</h1>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-2">
-            {navItems.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="flex items-center rounded-lg px-3 py-2 text-sm font-medium hover:bg-gray-100"
-              >
-                <item.icon className="mr-3 h-5 w-5" />
-                {item.label}
-              </a>
-            ))}
-          </nav>
+          <div className="flex-1 px-2">
+            <div className="mb-4">
+              <h2 className="px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider">
+                Your Workspaces
+              </h2>
+            </div>
+            <nav className="space-y-1">
+              {workspaceNames.map((workspace) => (
+                <Link
+                  key={workspace}
+                  href={`/workspace/${encodeURIComponent(workspace)}`}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 group"
+                >
+                  <Building2 className="h-5 w-5 text-gray-500 group-hover:text-gray-900" />
+                  {workspace}
+                </Link>
+              ))}
+            </nav>
+          </div>
 
-          {/* User Profile */}
+          <div className="px-2 mb-4">
+            <button className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50">
+              <FolderKanban className="h-5 w-5" />
+              New Workspace
+            </button>
+          </div>
+
           <div className="border-t p-4">
             <div className="flex items-center gap-3">
               <Avatar>

@@ -133,4 +133,11 @@ impl Workspace {
         database.remove_workspace_member(&self, user).await?;
         Ok(())
     }
+
+    pub async fn get_user_workspaces(
+        database: &Arc<dyn Database>,
+        user: &User,
+    ) -> Result<Vec<String>> {
+        database.get_workspaces(user).await
+    }
 }

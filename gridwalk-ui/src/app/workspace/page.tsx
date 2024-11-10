@@ -2,61 +2,36 @@
 import React, { useState } from "react";
 import { Plus } from "lucide-react";
 
-interface Project {
-  title: string;
-  description: string;
-  status: "Not Started" | "Planning" | "In Progress" | "Completed";
-}
-
-interface ProjectCardProps {
-  project: Project;
-}
-
-const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => (
-  <div className="group hover:shadow-lg transition-all duration-300 bg-white rounded-lg overflow-hidden border border-gray-200">
-    <div className="aspect-video w-full relative overflow-hidden bg-slate-100">
-      <img
-        src="/map-placeholder.png"
-        alt={`Map preview for ${project.title}`}
-        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-      />
-      <div className="absolute top-2 right-2">
-        <StatusBadge status={project.status} />
-      </div>
-    </div>
-    <div className="p-4">
-      <h3 className="text-xl font-bold text-slate-900 line-clamp-1">
-        {project.title}
-      </h3>
-      <p className="text-slate-600 font-medium line-clamp-2 mt-2">
-        {project.description}
-      </p>
-    </div>
-  </div>
-);
-
-const StatusBadge: React.FC<{ status: Project["status"] }> = ({ status }) => {
-  const colors = {
-    "Not Started": "bg-gray-100 text-gray-700",
-    Planning: "bg-yellow-100 text-yellow-700",
-    "In Progress": "bg-blue-100 text-blue-700",
-    Completed: "bg-green-100 text-green-700",
-  };
-
-  return (
-    <span
-      className={`${colors[status]} px-3 py-1 rounded-full text-sm font-medium backdrop-blur-sm`}
-    >
-      {status}
-    </span>
-  );
-};
-
-const CreateProjectModal: React.FC<{
+interface CreateProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (name: string) => Promise<void>;
-}> = ({ isOpen, onClose, onSubmit }) => {
+}
+
+const LoadingSpinner: React.FC = () => (
+  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+    <circle
+      className="opacity-25"
+      cx="12"
+      cy="12"
+      r="10"
+      stroke="currentColor"
+      strokeWidth="4"
+      fill="none"
+    />
+    <path
+      className="opacity-75"
+      fill="currentColor"
+      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+    />
+  </svg>
+);
+
+const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+}) => {
   const [projectName, setProjectName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +55,7 @@ const CreateProjectModal: React.FC<{
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Create New Project</h2>
@@ -148,47 +123,8 @@ const CreateProjectModal: React.FC<{
   );
 };
 
-const LoadingSpinner: React.FC = () => (
-  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-      fill="none"
-    />
-    <path
-      className="opacity-75"
-      fill="currentColor"
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-    />
-  </svg>
-);
-
 export default function Workspace() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const projects: Project[] = [
-    {
-      title: "Downtown District Mapping",
-      description:
-        "Detailed street-level mapping of the central business district",
-      status: "In Progress",
-    },
-    {
-      title: "Parks & Recreation Zones",
-      description:
-        "Comprehensive mapping of public recreational areas and green spaces",
-      status: "Planning",
-    },
-    {
-      title: "Historic Districts Survey",
-      description: "Documentation and mapping of heritage sites and landmarks",
-      status: "Not Started",
-    },
-  ];
 
   const handleCreateProject = async (name: string) => {
     const response = await fetch("/api/project", {
@@ -205,37 +141,28 @@ export default function Workspace() {
   };
 
   return (
-    <div className="mt-4 container mx-auto px-4">
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">
-            Map Projects
-          </h1>
-          <p className="text-slate-600 text-lg font-medium">
-            Geographic information systems and mapping initiatives
-          </p>
+    <div className="w-full h-full bg-gray-50">
+      <div className="p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
+          <div className="space-y-2">
+            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">
+              Map Projects
+            </h1>
+          </div>
+          <button
+            onClick={() => setIsDialogOpen(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full sm:w-auto justify-center sm:justify-start"
+          >
+            <Plus size={20} />
+            New Project
+          </button>
         </div>
-
-        <button
-          onClick={() => setIsDialogOpen(true)}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-        >
-          <Plus size={20} />
-          New Project
-        </button>
+        <CreateProjectModal
+          isOpen={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          onSubmit={handleCreateProject}
+        />
       </div>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project, index) => (
-          <ProjectCard key={index} project={project} />
-        ))}
-      </div>
-
-      <CreateProjectModal
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
-        onSubmit={handleCreateProject}
-      />
     </div>
   );
 }

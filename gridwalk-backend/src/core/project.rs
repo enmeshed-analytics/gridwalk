@@ -51,4 +51,12 @@ impl Project {
         database.create_project(self).await?;
         Ok(())
     }
+
+    pub async fn get_workspace_projects(
+        database: &Arc<dyn Database>,
+        workspace: &Workspace,
+    ) -> Result<Vec<String>> {
+        // Get projects from database
+        database.get_projects(&workspace.id).await
+    }
 }

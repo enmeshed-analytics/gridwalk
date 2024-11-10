@@ -4,13 +4,15 @@ import { AppSidebar } from "./workspace-sidebar";
 import { Menu } from "lucide-react";
 import { cookies } from "next/headers";
 
-// Define the profile data type
 type ProfileData = {
   first_name: string;
   email: string;
 };
 
-// Server action to fetch profile data
+type WorkspaceData = {
+  workspaces: string[];
+};
+
 async function getProfile(): Promise<ProfileData> {
   try {
     // You can access cookies or headers here if needed
@@ -43,28 +45,58 @@ async function getProfile(): Promise<ProfileData> {
   }
 }
 
-// Mark the component as async
+async function getWorkspaces(): Promise<WorkspaceData> {
+  try {
+    const cookieStore = await cookies();
+    const sessionId = cookieStore.get("sid").value;
+
+    const response = await fetch(`${process.env.GRIDWALK_API}/get_workspaces`, {
+      headers: {
+        Authorization: `Bearer ${sessionId}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch workspaces");
+    }
+
+    const data = await response.json();
+    console.log("Workspace data received:", data);
+    return {
+      workspaces: data,
+    };
+  } catch (error) {
+    console.error("Error fetching workspaces:", error);
+    return {
+      workspaces: [],
+    };
+  }
+}
+
 export default async function Layout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Fetch profile data on the server
   const profileData = await getProfile();
+  const workspaceData = await getWorkspaces();
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen">
+      <div className="flex h-screen w-screen overflow-hidden">
         <AppSidebar
           userName={profileData.first_name}
           userEmail={profileData.email}
+          workspaceNames={workspaceData.workspaces}
         />
-        <main className="flex-1 px-4 overflow-auto bg-gray-50">
-          <div className="p-4">
-            <SidebarTrigger className="lg:hidden">
+        <main className="flex-1 overflow-auto bg-gray-50 w-full">
+          <div className="h-full w-full">
+            <SidebarTrigger className="lg:hidden p-4">
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
-            {children}
+            {React.cloneElement(children as React.ReactElement, {
+              workspaceNames: workspaceData.workspaces,
+            })}
           </div>
         </main>
       </div>

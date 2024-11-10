@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const DEFAULT_WORKSPACE_ID = "426c93a3-fcca-42cb-b668-d6e3344d3dcf";
+const DEFAULT_WORKSPACE_ID = "2044c4c1-99a0-4894-b49b-f2d950b7aec8";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {

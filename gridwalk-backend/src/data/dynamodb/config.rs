@@ -93,16 +93,16 @@ impl Dynamodb {
                 )
                 .attribute_definitions(
                     AttributeDefinition::builder()
-                        .attribute_name("org_name")
+                        .attribute_name("user_id")
                         .attribute_type(ScalarAttributeType::S)
                         .build()?,
                 )
                 .global_secondary_indexes(
                     GlobalSecondaryIndex::builder()
-                        .index_name("OrgNameIndex")
+                        .index_name("GSI_USER")
                         .key_schema(
                             KeySchemaElement::builder()
-                                .attribute_name("org_name")
+                                .attribute_name("user_id")
                                 .key_type(KeyType::Hash)
                                 .build()?,
                         )
@@ -280,6 +280,64 @@ impl UserStore for Dynamodb {
         }
     }
 
+    async fn get_workspaces(&self, user: &User) -> Result<Vec<String>> {
+        let memberships = self
+            .client
+            .query()
+            .table_name(&self.table_name)
+            .index_name("GSI_USER")
+            .key_condition_expression("#user_id = :user_id")
+            .filter_expression("begins_with(#pk, :prefix)")
+            .expression_attribute_names("#user_id", "user_id")
+            .expression_attribute_names("#pk", "PK")
+            .expression_attribute_values(":user_id", AV::S(user.id.clone()))
+            .expression_attribute_values(":prefix", AV::S("WSP#".to_string()))
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to query DynamoDB: {}", e))?;
+
+        let workspace_ids: Vec<String> = memberships
+            .items
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|item| {
+                item.get("PK")
+                    .and_then(|av| av.as_s().ok())
+                    .and_then(|pk| pk.strip_prefix("WSP#"))
+                    .map(String::from)
+            })
+            .collect();
+
+        Ok(workspace_ids)
+    }
+
+    async fn get_projects(&self, workspace_id: &str) -> Result<Vec<String>> {
+        let projects = self
+            .client
+            .query()
+            .table_name(&self.table_name)
+            .key_condition_expression("PK = :pk AND begins_with(SK, :prefix)")
+            .expression_attribute_values(":pk", AV::S(format!("WSP#{}", workspace_id)))
+            .expression_attribute_values(":prefix", AV::S("PROJ#".to_string()))
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to query DynamoDB: {}", e))?;
+
+        let project_names: Vec<String> = projects
+            .items
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|item| {
+                // Just get the name attribute directly
+                item.get("name")
+                    .and_then(|av| av.as_s().ok())
+                    .map(String::from)
+            })
+            .collect();
+
+        Ok(project_names)
+    }
+
     async fn add_workspace_member(
         &self,
         org: &Workspace,
@@ -287,7 +345,6 @@ impl UserStore for Dynamodb {
         role: WorkspaceRole,
         joined_at: u64,
     ) -> Result<()> {
-        // Create the workspace member item to insert
         let mut item = std::collections::HashMap::new();
 
         item.insert(String::from("PK"), AV::S(format!("WSP#{}", org.id)));
