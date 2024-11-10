@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const DEFAULT_WORKSPACE_ID = "2044c4c1-99a0-4894-b49b-f2d950b7aec8";
-
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const cookieStore = await cookies();
@@ -12,7 +10,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       throw new Error("Authentication token not found");
     }
 
-    const body = (await request.json()) as { name: string };
+    const body = (await request.json()) as {
+      name: string;
+      workspace_id: string;
+    };
+
+    // Validate required fields
+    if (!body.workspace_id) {
+      throw new Error("Workspace ID is required");
+    }
+
+    if (!body.name) {
+      throw new Error("Project name is required");
+    }
 
     const response = await fetch("http://localhost:3001/create_project", {
       method: "POST",
@@ -21,7 +31,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         Authorization: `Bearer ${sessionId.value}`,
       },
       body: JSON.stringify({
-        workspace_id: DEFAULT_WORKSPACE_ID,
+        workspace_id: body.workspace_id,
         name: body.name.trim(),
       }),
     });
