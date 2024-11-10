@@ -161,7 +161,7 @@ export default function WorkspaceProjectsPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [projects, setProjects] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -212,14 +212,11 @@ export default function WorkspaceProjectsPage() {
       const versionA = getProjectVersion(a);
       const versionB = getProjectVersion(b);
 
-      // If both have versions, sort by version number descending
       if (versionA !== null && versionB !== null) {
         return versionB - versionA;
       }
-      // If only one has a version, put versioned items first
       if (versionA !== null) return -1;
       if (versionB !== null) return 1;
-      // If neither has a version, sort alphabetically
       return a.localeCompare(b);
     });
   };
@@ -234,15 +231,18 @@ export default function WorkspaceProjectsPage() {
             </h1>
             <p className="text-gray-600">Workspace: {workspaceId}</p>
           </div>
-          <button
-            onClick={() => setIsDialogOpen(true)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full sm:w-auto justify-center sm:justify-start"
-          >
-            <Plus size={20} />
-            New Project
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => setIsProjectDialogOpen(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full sm:w-auto justify-center sm:justify-start"
+            >
+              <Plus size={20} />
+              New Project
+            </button>
+          </div>
         </div>
 
+        {/* Rest of the existing JSX */}
         <div className="mt-8">
           {isLoading ? (
             <div className="flex items-center justify-center p-8">
@@ -283,10 +283,10 @@ export default function WorkspaceProjectsPage() {
           )}
         </div>
 
-        {isDialogOpen && (
+        {isProjectDialogOpen && (
           <CreateProjectModal
-            isOpen={isDialogOpen}
-            onClose={() => setIsDialogOpen(false)}
+            isOpen={isProjectDialogOpen}
+            onClose={() => setIsProjectDialogOpen(false)}
             onSubmit={handleCreateProject}
           />
         )}
