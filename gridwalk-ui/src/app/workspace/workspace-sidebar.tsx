@@ -1,6 +1,14 @@
 "use client";
 import React, { useState } from "react";
-import { Sidebar, SidebarContent } from "@/components/ui/sidebar";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarFooter,
+} from "@/components/ui/sidebar";
 import { Building2, Briefcase } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
@@ -72,7 +80,7 @@ const CreateWorkspaceModal: React.FC<CreateWorkspaceModalProps> = ({
               type="text"
               value={workspaceName}
               onChange={(e) => setWorkspaceName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter workspace name..."
               minLength={3}
               maxLength={50}
@@ -159,60 +167,62 @@ export function AppSidebar({
         throw new Error(data.error || "Failed to create workspace");
       }
 
-      // Refresh the workspaceNames list
-      // ...
+      window.location.reload();
     } catch (err) {
-      // Handle the error
       console.error("Error creating workspace:", err);
+      throw err;
     }
   };
 
   return (
-    <Sidebar className="border-r">
+    <Sidebar className="border-r border-gray-800">
       <SidebarContent>
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="px-4 py-6">
-            <h1 className="text-xl font-bold">Workspaces</h1>
-            <button
-              onClick={() => setIsWorkspaceDialogOpen(true)}
-              className="mt-4 flex items-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors"
-            >
-              <Briefcase size={20} />
-              New Workspace
-            </button>
+        <SidebarHeader>
+          <h1 className="text-2xl font-bold text-white">Workspaces</h1>
+          <button
+            onClick={() => setIsWorkspaceDialogOpen(true)}
+            className="mt-1 flex items-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600 transition-colors"
+          >
+            <Briefcase size={20} />
+            New Workspace
+          </button>
+        </SidebarHeader>
+
+        <div className="flex-1 px-2">
+          <div className="mb-4">
+            <h2 className="px-3 text-sm font-semibold text-white uppercase tracking-wider">
+              Your Workspaces
+            </h2>
           </div>
-          <div className="flex-1 px-2">
-            <div className="mb-4">
-              <h2 className="px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                Your Workspaces
-              </h2>
-            </div>
-            <nav className="space-y-1">
-              {workspaceNames.map((workspace) => (
+          <SidebarMenu>
+            {workspaceNames.map((workspace) => (
+              <SidebarMenuItem key={workspace}>
                 <Link
-                  key={workspace}
                   href={`/workspace/${encodeURIComponent(workspace)}`}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 group"
+                  legacyBehavior
+                  passHref
                 >
-                  <Building2 className="h-5 w-5 text-gray-500 group-hover:text-gray-900" />
-                  {workspace}
+                  <SidebarMenuButton className="text-gray-300">
+                    <Building2 />
+                    <span>{workspace}</span>
+                  </SidebarMenuButton>
                 </Link>
-              ))}
-            </nav>
-          </div>
-          <div className="border-t p-4">
-            <div className="flex items-center gap-3">
-              <Avatar>
-                <AvatarFallback>{avatar}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-sm font-medium">{userName}</p>
-                <p className="text-xs text-gray-500">{userEmail}</p>
-              </div>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </div>
+
+        <SidebarFooter>
+          <div className="flex items-center gap-3">
+            <Avatar>
+              <AvatarFallback>{avatar}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm font-medium text-white">{userName}</p>
+              <p className="text-xs text-gray-400">{userEmail}</p>
             </div>
           </div>
-        </div>
+        </SidebarFooter>
       </SidebarContent>
 
       {isWorkspaceDialogOpen && (

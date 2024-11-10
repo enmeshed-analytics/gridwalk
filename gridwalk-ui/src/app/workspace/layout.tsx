@@ -15,13 +15,16 @@ type WorkspaceData = {
 
 async function getProfile(): Promise<ProfileData> {
   try {
-    // You can access cookies or headers here if needed
     const cookieStore = await cookies();
-    const sessionId = cookieStore.get("sid").value;
+    const sessionCookie = cookieStore.get("sid");
+
+    if (!sessionCookie?.value) {
+      throw new Error("No session cookie found");
+    }
 
     const response = await fetch(`${process.env.GRIDWALK_API}/profile`, {
       headers: {
-        Authorization: `Bearer ${sessionId}`,
+        Authorization: `Bearer ${sessionCookie.value}`,
       },
     });
 
@@ -30,14 +33,12 @@ async function getProfile(): Promise<ProfileData> {
     }
 
     const data = await response.json();
-
     return {
       first_name: data.first_name,
       email: data.email || "email@example.com",
     };
   } catch (error) {
     console.error("Error fetching profile:", error);
-    // Return default values if fetch fails
     return {
       first_name: "",
       email: "",
@@ -48,11 +49,15 @@ async function getProfile(): Promise<ProfileData> {
 async function getWorkspaces(): Promise<WorkspaceData> {
   try {
     const cookieStore = await cookies();
-    const sessionId = cookieStore.get("sid").value;
+    const sessionCookie = cookieStore.get("sid");
+
+    if (!sessionCookie?.value) {
+      throw new Error("No session cookie found");
+    }
 
     const response = await fetch(`${process.env.GRIDWALK_API}/get_workspaces`, {
       headers: {
-        Authorization: `Bearer ${sessionId}`,
+        Authorization: `Bearer ${sessionCookie.value}`,
       },
     });
 
