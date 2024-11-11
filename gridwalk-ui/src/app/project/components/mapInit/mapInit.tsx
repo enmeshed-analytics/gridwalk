@@ -134,6 +134,7 @@ export const useMapInit = (config?: MapConfig): UseMapInitResult => {
         map.current.remove();
       }
     };
+      // eslint-disable-next-line
   }, [config?.center, config?.zoom]);
 
   // Handle style changes - changing between different basemaps

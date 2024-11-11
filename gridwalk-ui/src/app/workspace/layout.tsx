@@ -4,6 +4,8 @@ import { AppSidebar } from "./workspace-sidebar";
 import { Menu } from "lucide-react";
 import { cookies } from "next/headers";
 
+export const dynamic = 'force-dynamic';
+
 type ProfileData = {
   first_name: string;
   email: string;
