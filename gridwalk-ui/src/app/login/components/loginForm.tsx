@@ -90,7 +90,7 @@ export default function AuthForm(): JSX.Element {
   };
 
   return (
-    <Card className="w-full backdrop-blur-sm bg-white/90">
+    <Card className="w-full backdrop-blur-sm bg-gray-300">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl text-center">
           {isLogin ? "Welcome Back" : "Create Account"}

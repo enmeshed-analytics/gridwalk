@@ -8,13 +8,19 @@ import {
   getProjects,
 } from "./projectModal";
 
+interface Project {
+  name: string;
+  version: number | null;
+  urlSafeId: string;
+}
+
 export default function WorkspaceProjectsPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
 
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-  const [projects, setProjects] = useState<string[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +28,12 @@ export default function WorkspaceProjectsPage() {
     setIsLoading(true);
     getProjects(workspaceId)
       .then((fetchedProjects) => {
-        setProjects(fetchedProjects);
+        const processedProjects = fetchedProjects.map((name) => ({
+          name,
+          version: getProjectVersion(name),
+          urlSafeId: createUrlSafeId(name),
+        }));
+        setProjects(processedProjects);
         setError(null);
       })
       .catch((err) => {
@@ -51,7 +62,12 @@ export default function WorkspaceProjectsPage() {
     }
 
     const updatedProjects = await getProjects(workspaceId);
-    setProjects(updatedProjects);
+    const processedProjects = updatedProjects.map((name) => ({
+      name,
+      version: getProjectVersion(name),
+      urlSafeId: createUrlSafeId(name),
+    }));
+    setProjects(processedProjects);
   };
 
   const getProjectVersion = (name: string) => {
@@ -59,21 +75,24 @@ export default function WorkspaceProjectsPage() {
     return versionMatch ? parseFloat(versionMatch[1]) : null;
   };
 
-  const sortProjects = (projects: string[]) => {
-    return [...projects].sort((a, b) => {
-      const versionA = getProjectVersion(a);
-      const versionB = getProjectVersion(b);
+  const createUrlSafeId = (name: string): string => {
+    const baseName = name.replace(/\sv\d+\.\d+$/, "").trim();
+    return baseName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  };
 
-      if (versionA !== null && versionB !== null) {
-        return versionB - versionA;
+  const sortProjects = (projects: Project[]): Project[] => {
+    return [...projects].sort((a, b) => {
+      if (a.version !== null && b.version !== null) {
+        return b.version - a.version;
       }
-      if (versionA !== null) return -1;
-      if (versionB !== null) return 1;
-      return a.localeCompare(b);
+      if (a.version !== null) return -1;
+      if (b.version !== null) return 1;
+      return a.name.localeCompare(b.name);
     });
   };
 
   const handleProjectClick = () => {
+    // Update to use the correct route structure
     router.push(`/project`);
   };
 
@@ -110,24 +129,23 @@ export default function WorkspaceProjectsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sortProjects(projects).map((projectName, index) => {
-                const version = getProjectVersion(projectName);
-                const baseName = version
-                  ? projectName.replace(` v${version}`, "")
-                  : projectName;
+              {sortProjects(projects).map((project, index) => {
+                const baseName = project.version
+                  ? project.name.replace(` v${project.version}`, "")
+                  : project.name;
 
                 return (
                   <div
-                    key={`${projectName}-${index}`}
+                    key={`${project.name}-${index}`}
                     onClick={() => handleProjectClick()}
                     className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow group cursor-pointer"
                   >
                     <h3 className="font-semibold text-lg text-gray-900 group-hover:text-blue-600 transition-colors">
                       {baseName}
                     </h3>
-                    {version && (
+                    {project.version && (
                       <div className="mt-2 inline-block px-2 py-1 bg-gray-100 rounded-md text-sm text-gray-600">
-                        v{version}
+                        v{project.version}
                       </div>
                     )}
                   </div>

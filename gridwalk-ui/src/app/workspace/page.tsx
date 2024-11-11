@@ -6,7 +6,7 @@ export default function WorkspacePage() {
       <div className="p-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-2">
-            <h1 className="text-3xl sm:text-4xl font-bold text-white">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
               Workspaces
             </h1>
             <p className="text-gray-900">Select a workspace to view projects</p>

@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Building2, Briefcase } from "lucide-react";
+import { Building2, Briefcase, ChevronDown, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 
@@ -149,6 +149,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
   const avatar = userName.charAt(0).toUpperCase();
+  const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(false);
 
   const handleCreateWorkspace = async (name: string) => {
     try {
@@ -189,27 +190,36 @@ export function AppSidebar({
         </SidebarHeader>
 
         <div className="flex-1 px-2">
-          <div className="mb-4">
-            <h2 className="px-3 text-sm font-semibold text-white uppercase tracking-wider">
-              Your Workspaces
-            </h2>
-          </div>
-          <SidebarMenu>
-            {workspaceNames.map((workspace) => (
-              <SidebarMenuItem key={workspace}>
-                <Link
-                  href={`/workspace/${encodeURIComponent(workspace)}`}
-                  legacyBehavior
-                  passHref
-                >
-                  <SidebarMenuButton className="text-gray-300">
-                    <Building2 />
-                    <span>{workspace}</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
+          <button
+            onClick={() => setIsWorkspacesExpanded(!isWorkspacesExpanded)}
+            className="w-full px-3 py-2 flex items-center justify-between text-sm font-semibold text-white uppercase tracking-wider hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            <span>Your Workspaces</span>
+            {isWorkspacesExpanded ? (
+              <ChevronDown size={16} />
+            ) : (
+              <ChevronRight size={16} />
+            )}
+          </button>
+
+          {isWorkspacesExpanded && (
+            <SidebarMenu className="mt-2 transition-all duration-200 ease-in-out">
+              {workspaceNames.map((workspace) => (
+                <SidebarMenuItem key={workspace}>
+                  <Link
+                    href={`/workspace/${encodeURIComponent(workspace)}`}
+                    legacyBehavior
+                    passHref
+                  >
+                    <SidebarMenuButton className="text-gray-300">
+                      <Building2 />
+                      <span>{workspace}</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          )}
         </div>
 
         <SidebarFooter>
