@@ -10,6 +10,7 @@ use crate::core::GeospatialConfig;
 use crate::data::Dynamodb;
 
 use anyhow::Result;
+use std::env;
 use tracing::info;
 
 #[tokio::main]
@@ -18,7 +19,8 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     // Create DynamoDB client
-    let app_db = Dynamodb::new(true, "gridwalk").await.unwrap();
+    let table_name = env::var("DYNAMODB_TABLE").unwrap_or_else(|_| "gridwalk".to_string());
+    let app_db = Dynamodb::new(false, &table_name).await.unwrap();
 
     // Create GeospatialConfig
     let geospatial_config = GeospatialConfig::new();
@@ -31,7 +33,7 @@ async fn main() -> Result<()> {
 
     // Run app
     let app = server::create_app(app_state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3001").await?;
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await?;
     info!("Server listening on {}", listener.local_addr()?);
     axum::serve(listener, app).await?;
 
