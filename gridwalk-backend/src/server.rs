@@ -28,7 +28,6 @@ pub fn create_app(app_state: AppState) -> Router {
     let shared_state = Arc::new(app_state);
 
     Router::new()
-        .route("/health", get(health_check))
         .route("/projects", get(get_projects))
         .route("/get_workspaces", get(get_workspaces))
         .route("/logout", post(logout))
@@ -60,6 +59,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/register", post(register))
         .route("/login", post(login))
         .route("/os-token", get(generate_os_token))
+        .route("/health", get(health_check))
         .with_state(shared_state)
         .layer(
             TraceLayer::new_for_http()
