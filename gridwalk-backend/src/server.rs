@@ -29,7 +29,7 @@ pub fn create_app(app_state: AppState) -> Router {
 
     Router::new()
         .route("/projects", get(get_projects))
-        .route("/get_workspaces", get(get_workspaces))
+        .route("/workspaces", get(get_workspaces))
         .route("/logout", post(logout))
         .route("/profile", get(profile))
         .route("/workspace", post(create_workspace))

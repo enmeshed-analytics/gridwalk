@@ -6,6 +6,8 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use futures;
+use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -106,8 +108,17 @@ pub async fn get_workspaces(
         println!("Fetching workspaces for user: {:?}", user.id);
         match Workspace::get_user_workspaces(&state.app_data, &user).await {
             Ok(workspace_ids) => {
-                println!("Found workspaces: {:?}", workspace_ids);
-                Json(workspace_ids).into_response()
+                let workspaces: Vec<Workspace> = join_all(
+                    workspace_ids
+                        .iter()
+                        .map(|id| Workspace::from_id(&state.app_data, id)),
+                )
+                .await
+                .into_iter()
+                .filter_map(Result::ok)
+                .collect();
+
+                Json(workspaces).into_response()
             }
             Err(e) => {
                 println!("Error fetching workspaces: {:?}", e);
