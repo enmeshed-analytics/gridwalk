@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState } from "react";
 import { Lock, Mail, User } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,23 +12,24 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { loginAction, registerAction } from "./actions";
+import { useRouter } from 'next/navigation';
 
 interface AuthFormData {
   email: string;
   password: string;
-  name?: string;
-}
-
-interface AuthResponse {
-  error?: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 export default function AuthForm(): JSX.Element {
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState<AuthFormData>({
     email: "",
     password: "",
-    name: "",
+    first_name: "",
+    last_name: "",
   });
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -43,9 +46,9 @@ export default function AuthForm(): JSX.Element {
     e: React.FormEvent<HTMLFormElement>,
   ): Promise<void> => {
     e.preventDefault();
-    const { email, password, name } = formData;
+    const { email, password, first_name, last_name } = formData;
 
-    if (!email || !password || (!isLogin && !name)) {
+    if (!email || !password || (!isLogin && (!first_name || !last_name))) {
       setError("Please fill in all fields");
       return;
     }
@@ -54,24 +57,14 @@ export default function AuthForm(): JSX.Element {
     setLoading(true);
 
     try {
-      const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data: AuthResponse = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error || `${isLogin ? "Login" : "Registration"} failed`,
-        );
+      if (isLogin) {
+        await loginAction({ email, password });
+      } else {
+        await registerAction({ email, password, first_name: first_name!, last_name: last_name! });
       }
 
-      window.location.href = "/workspace";
+      // Use router.push instead of window.location for better client-side navigation
+      router.push('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -85,12 +78,13 @@ export default function AuthForm(): JSX.Element {
     setFormData({
       email: "",
       password: "",
-      name: "",
+      first_name: "",
+      last_name: "",
     });
   };
 
   return (
-    <Card className="w-full backdrop-blur-sm bg-gray-300">
+    <Card className="w-full backdrop-blur-sm bg-gray-300/20">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl text-center">
           {isLogin ? "Welcome Back" : "Create Account"}
@@ -104,25 +98,40 @@ export default function AuthForm(): JSX.Element {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <Alert variant="destructive" className="mb-4">
+            <Alert variant="destructive" className="text-red-600 mb-4">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {!isLogin && (
-            <div className="space-y-2">
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                <Input
-                  type="text"
-                  name="name"
-                  placeholder="Full Name"
-                  className="pl-10"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                />
+            <>
+              <div className="space-y-2">
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                  <Input
+                    type="text"
+                    name="first_name"
+                    placeholder="First Name"
+                    className="pl-10"
+                    value={formData.first_name}
+                    onChange={handleInputChange}
+                  />
+                </div>
               </div>
-            </div>
+              <div className="space-y-2">
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                  <Input
+                    type="text"
+                    name="last_name"
+                    placeholder="Last Name"
+                    className="pl-10"
+                    value={formData.last_name}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           <div className="space-y-2">

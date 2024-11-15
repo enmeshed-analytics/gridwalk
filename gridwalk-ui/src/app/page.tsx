@@ -11,22 +11,47 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import GridBackground from "./login/components/gridBackground";
 import { useRouter } from "next/navigation";
+import { saveEmail } from './actions';
 
 export default function Home() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const emailFormRef = useRef<HTMLFormElement>(null);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const scrollToEmailForm = () => {
+    const element = emailFormRef.current;
+    if (element) {
+      const elementRect = element.getBoundingClientRect();
+      const absoluteElementTop = elementRect.top + window.pageYOffset;
+      const middle = absoluteElementTop - (window.innerHeight / 2) + (elementRect.height / 2);
+      window.scrollTo({ top: middle, behavior: 'smooth' });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setEmail("");
-      setIsSubmitted(false);
-    }, 3000);
+    try {
+      const result = await saveEmail(email);
+
+      if (result.success) {
+        setIsSubmitted(true);
+        setError("");
+        setTimeout(() => {
+          setEmail("");
+          setIsSubmitted(false);
+        }, 3000);
+      } else {
+        setError("Failed to save email. Please try again.");
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      console.error('Error in handleSubmit:', err);
+    }
   };
 
   const handleLoginRedirect = () => {
@@ -87,31 +112,37 @@ export default function Home() {
               {/* CTA Section */}
               <div className="mt-12 flex flex-col items-center gap-4">
                 <form
+                  ref={emailFormRef}
                   onSubmit={handleSubmit}
-                  className="flex w-full max-w-md gap-x-4"
+                  className="flex w-full max-w-md flex-col gap-y-4"
                 >
-                  <div className="flex-1 relative">
-                    <Input
-                      type="email"
-                      placeholder="Enter your work email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="flex-1 h-14 text-md pl-5 pr-12 rounded-xl bg-white/10 backdrop-blur-sm border-blue-300/20 text-white placeholder:text-gray-400"
-                      required
-                    />
-                    {isSubmitted && (
-                      <div className="absolute right-0 top-0 bottom-0 flex items-center pr-3">
-                        <Check className="h-6 w-6 text-green-400" />
-                      </div>
-                    )}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1 relative">
+                      <Input
+                        type="email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="flex-1 h-14 text-md pl-5 pr-12 rounded-xl bg-white/10 backdrop-blur-sm border-blue-300/20 text-white placeholder:text-gray-400"
+                        required
+                      />
+                      {isSubmitted && (
+                        <div className="absolute right-0 top-0 bottom-0 flex items-center pr-3">
+                          <Check className="h-6 w-6 text-green-400" />
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="h-14 px-8 text-lg text-white bg-blue-500 hover:bg-blue-600 shadow-lg hover:shadow-blue-500/25 hover:shadow-2xl transition-all rounded-xl"
+                    >
+                      Get Early Access
+                    </Button>
                   </div>
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="h-14 px-8 text-lg bg-blue-500 hover:bg-blue-600 shadow-lg hover:shadow-blue-500/25 hover:shadow-2xl transition-all rounded-xl"
-                  >
-                    Get Early Access
-                  </Button>
+                  {error && (
+                    <p className="text-red-400 text-sm text-center">{error}</p>
+                  )}
                 </form>
 
                 {/* Social Proof */}
@@ -130,6 +161,10 @@ export default function Home() {
                   </p>
                 </div>
               </div>
+
+
+
+
             </div>
           </div>
         </header>
@@ -229,7 +264,7 @@ export default function Home() {
                   originalPrice: "199",
                   features: [
                     "50GB storage",
-                    "Unlimited team members",
+                    "up to 30 team members",
                     "Advanced analytics",
                     "Priority support",
                     "Custom styling",
@@ -308,6 +343,7 @@ export default function Home() {
                     </ul>
                   </div>
                   <Button
+                    onClick={scrollToEmailForm}
                     className={`mt-8 w-full rounded-xl h-12 ${
                       index === 1
                         ? "bg-blue-500 text-white hover:bg-blue-600"

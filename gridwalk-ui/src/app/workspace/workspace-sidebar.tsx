@@ -139,13 +139,19 @@ const LoadingSpinner: React.FC = () => (
 interface AppSidebarProps {
   userName?: string;
   userEmail?: string;
-  workspaceNames?: string[];
+  workspaces?: Array<{
+    id: string;
+    name: string;
+    owner: string;
+    created_at: number;
+    active: boolean;
+  }>;
 }
 
 export function AppSidebar({
   userName = "",
   userEmail = "",
-  workspaceNames = [],
+  workspaces = [],
 }: AppSidebarProps) {
   const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
   const avatar = userName.charAt(0).toUpperCase();
@@ -153,14 +159,11 @@ export function AppSidebar({
 
   const handleCreateWorkspace = async (name: string) => {
     try {
-      // Call the API to create a new workspace
       const response = await fetch("/api/new_workspace", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          name: name.trim(),
-        }),
+        body: JSON.stringify({ name: name.trim() }),
       });
 
       const data = await response.json();
@@ -204,16 +207,16 @@ export function AppSidebar({
 
           {isWorkspacesExpanded && (
             <SidebarMenu className="mt-2 transition-all duration-200 ease-in-out">
-              {workspaceNames.map((workspace) => (
-                <SidebarMenuItem key={workspace}>
+              {workspaces.filter(w => w.active).map((workspace) => (
+                <SidebarMenuItem key={workspace.id}>
                   <Link
-                    href={`/workspace/${encodeURIComponent(workspace)}`}
+                    href={`/workspace/${encodeURIComponent(workspace.id)}`}
                     legacyBehavior
                     passHref
                   >
                     <SidebarMenuButton className="text-gray-300">
                       <Building2 />
-                      <span>{workspace}</span>
+                      <span>{workspace.name}</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
