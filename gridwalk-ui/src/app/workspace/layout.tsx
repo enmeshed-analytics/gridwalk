@@ -21,7 +21,7 @@ export default async function WorkspaceLayout({
       <main className="flex-1 overflow-auto">
         {/* Mobile header with spacer and profile circle */}
         <div className="flex items-center justify-end px-4 h-16 md:h-0">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-400 text-sm font-medium">
+          <div className="flex items-center justify-center md:h-0 w-8 h-8 rounded-full bg-gray-400 text-sm font-medium">
             {initials}
           </div>
         </div>
