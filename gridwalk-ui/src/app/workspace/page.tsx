@@ -10,7 +10,7 @@ export default function WorkspacePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleCreateWorkspace = async (name: string) => {
-    const workspaceId = await createWorkspace(name);
+    await createWorkspace(name);
   };
 
   return (
