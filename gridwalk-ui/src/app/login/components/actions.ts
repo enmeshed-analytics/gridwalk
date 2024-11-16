@@ -17,8 +17,8 @@ export async function loginAction(formData: { email: string; password: string })
   });
 
   if (!response.ok) {
-    console.log(response.text)
-    throw new Error(data.error || 'Login failed');
+    const res = await response.text();
+    throw new Error(res || 'Login failed');
   }
 
   const data: LoginResponse = await response.json();

@@ -1,8 +1,9 @@
 'use server'
 import { cookies } from 'next/headers'
 
-type ProfileData = {
+export type ProfileData = {
   first_name: string;
+  last_name: string;
   email: string;
 }
 
@@ -28,18 +29,27 @@ export async function getProfile(): Promise<ProfileData> {
     const data = await response.json();
     return {
       first_name: data.first_name,
-      email: data.email || "email@example.com",
+      last_name: data.last_name,
+      email: data.email,
     };
   } catch (error) {
     console.error("Error fetching profile:", error);
     return {
       first_name: "",
+      last_name: "",
       email: "",
     };
   }
 }
 
-export async function getWorkspaces() {
+export type Workspace = {
+  id: string;
+    name: string;
+}
+
+export type Workspaces = Workspace[];
+
+export async function getWorkspaces(): Promise<Workspaces> {
   const cookieStore = await cookies()
   const sid = cookieStore.get('sid')
   const response = await fetch(`${process.env.GRIDWALK_API}/workspaces`, {
