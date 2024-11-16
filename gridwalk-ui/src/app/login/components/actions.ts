@@ -36,8 +36,6 @@ export async function loginAction(formData: { email: string; password: string })
     // maxAge: 60 * 60 * 24 * 7, // 1 week
     // domain: 'your-domain.com',
   });
-
-  return data;
 }
 
 export async function registerAction(formData: {
@@ -54,10 +52,14 @@ export async function registerAction(formData: {
     body: JSON.stringify(formData),
   });
 
-  const data = await response.json();
   if (!response.ok) {
+    const data = await response.json();
     throw new Error(data.error || 'Registration failed');
   }
 
-  return data;
+  // After successful registration, log the user in
+  return await loginAction({
+    email: formData.email,
+    password: formData.password,
+  });
 }
