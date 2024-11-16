@@ -1,13 +1,41 @@
+'use client'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import Link from "next/link"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { Menu } from "lucide-react"
-import { ProfileData, Workspaces } from "./actions"
+import { Menu, LogOut } from "lucide-react"
+import { ProfileData, Workspaces, logout } from "./actions"
+import { useRouter } from 'next/navigation'
 
 interface SidebarProps {
   profileData: ProfileData;
   workspaceData: Workspaces;
+}
+
+const LogoutButton = () => {
+  const router = useRouter()
+  
+  const handleLogout = async () => {
+    try {
+      // Call the server action and let it handle the redirect
+      await logout()
+    } catch (error) {
+      // If there's an error, fall back to client-side navigation
+      console.error('Logout error:', error)
+      router.push('/')
+    }
+  }
+  
+  return (
+    <Button 
+      variant="ghost" 
+      className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+      onClick={handleLogout}
+    >
+      <LogOut className="mr-2 h-4 w-4" />
+      Logout
+    </Button>
+  )
 }
 
 const SidebarContent = ({ profileData, workspaceData }: {profileData: ProfileData, workspaceData: Workspaces}) => (
@@ -31,9 +59,12 @@ const SidebarContent = ({ profileData, workspaceData }: {profileData: ProfileDat
     </ScrollArea>
     
     <div className="p-4 border-t">
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{profileData.first_name}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{profileData.email}</p>
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{profileData.first_name}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{profileData.email}</p>
+        </div>
+        <LogoutButton />
       </div>
     </div>
   </div>

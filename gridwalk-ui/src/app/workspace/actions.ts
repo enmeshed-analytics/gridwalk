@@ -1,5 +1,6 @@
 'use server'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 export type ProfileData = {
   first_name: string;
@@ -78,4 +79,30 @@ export async function getWorkspaces(): Promise<Workspaces> {
   const data = await response.json()
 
   return data
+}
+
+export async function logout() {
+  const cookieStore = await cookies()
+  const sid = cookieStore.get('sid')
+  
+  if (sid) {
+    try {
+      const response = await fetch(`${process.env.GRIDWALK_API}/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sid.value}`,
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Logout failed')
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+    // Remove the sid cookie regardless of API call success
+    cookieStore.delete('sid')
+  }
+  
+  // Use redirect() after all operations are complete
+  redirect('/')
 }
