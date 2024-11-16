@@ -42,9 +42,27 @@ export async function getProfile(): Promise<ProfileData> {
   }
 }
 
+export async function createWorkspace(name: string) {
+  const cookieStore = await cookies()
+  const sid = cookieStore.get('sid')
+  
+  const response = await fetch(`${process.env.GRIDWALK_API}/workspace`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${sid?.value}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ name })
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to create workspace: ${response.statusText}`)
+  }
+}
+
 export type Workspace = {
   id: string;
-    name: string;
+  name: string;
 }
 
 export type Workspaces = Workspace[];

@@ -1,6 +1,18 @@
-import { FolderKanban } from "lucide-react";
+'use client';
+
+import { FolderKanban, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { CreateWorkspaceModal } from "./modal";
+import { createWorkspace } from "./actions";
 
 export default function WorkspacePage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleCreateWorkspace = async (name: string) => {
+    const workspaceId = await createWorkspace(name);
+  };
+
   return (
     <div className="w-full min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6 md:p-8">
@@ -15,7 +27,21 @@ export default function WorkspacePage() {
               Manage and organize your projects across different workspaces
             </p>
           </div>
+          <Button 
+            className="w-full sm:w-auto bg-background text-gray-300 hover:bg-blue-600 hover:text-white"
+            size="lg"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Workspace
+          </Button>
         </div>
+
+        <CreateWorkspaceModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onCreate={handleCreateWorkspace}
+        />
 
         <div className="mt-8 flex flex-col items-center justify-center min-h-[400px] bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           <div className="flex flex-col items-center text-center max-w-md">
