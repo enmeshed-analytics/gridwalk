@@ -1,5 +1,4 @@
-'use client';
-
+"use client";
 import { FolderKanban, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -24,10 +23,10 @@ export default function WorkspacePage() {
               </h1>
             </div>
             <p className="text-gray-600 text-lg">
-              Manage and organize your projects across different workspaces
+              Manage and organise your projects across different workspaces.
             </p>
           </div>
-          <Button 
+          <Button
             className="w-full sm:w-auto bg-background text-gray-300 hover:bg-blue-600 hover:text-white"
             size="lg"
             onClick={() => setIsModalOpen(true)}
@@ -37,7 +36,7 @@ export default function WorkspacePage() {
           </Button>
         </div>
 
-        <CreateWorkspaceModal 
+        <CreateWorkspaceModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onCreate={handleCreateWorkspace}
@@ -52,7 +51,9 @@ export default function WorkspacePage() {
               No Workspace Selected
             </h2>
             <p className="text-gray-500 mb-6">
-              Choose a workspace from the sidebar to view and manage your projects. Each workspace helps you organize related projects and collaborate with your team.
+              Choose a workspace from the sidebar to view and manage your
+              projects. Each workspace helps you organise related projects and
+              collaborate with your team.
             </p>
           </div>
         </div>

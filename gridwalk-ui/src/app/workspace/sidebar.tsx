@@ -1,11 +1,18 @@
-'use client'
-import { ScrollArea } from "@/components/ui/scroll-area"
-import Link from "next/link"
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Button } from "@/components/ui/button"
-import { Menu, LogOut } from "lucide-react"
-import { ProfileData, Workspaces, logout } from "./actions"
-import { useRouter } from 'next/navigation'
+"use client";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import Link from "next/link";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Menu, LogOut, ChevronDown, Plus, ChevronRight } from "lucide-react";
+import { ProfileData, Workspaces, logout, createWorkspace } from "./actions";
+import { CreateWorkspaceSidebar } from "./modal";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 
 interface SidebarProps {
   profileData: ProfileData;
@@ -13,56 +20,119 @@ interface SidebarProps {
 }
 
 const LogoutButton = () => {
-  const router = useRouter()
-  
+  const router = useRouter();
   const handleLogout = async () => {
     try {
-      // Call the server action and let it handle the redirect
-      await logout()
+      await logout();
     } catch (error) {
-      // If there's an error, fall back to client-side navigation
-      console.error('Logout error:', error)
-      router.push('/')
+      console.error("Logout error:", error);
+      router.push("/");
     }
-  }
-  
+  };
   return (
-    <Button 
-      variant="ghost" 
-      className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+    <Button
+      variant="ghost"
+      className="w-full justify-start text-red-500 hover:text-white hover:bg-red-50 dark:hover:bg-red-950"
       onClick={handleLogout}
     >
       <LogOut className="mr-2 h-4 w-4" />
       Logout
     </Button>
-  )
-}
+  );
+};
 
-const SidebarContent = ({ profileData, workspaceData }: {profileData: ProfileData, workspaceData: Workspaces}) => (
-  <div className="h-full flex flex-col">
-    <div className="p-4 text-xl font-semibold">
-      Workspaces
-    </div>
-    
-    <ScrollArea className="flex-1 px-2">
-      <div className="space-y-2">
-        {workspaceData.map((workspace) => (
+const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Add this useEffect
+  useEffect(() => {
+    setMounted(true);
+    setIsOpen(true);
+  }, []);
+
+  const handleCreateWorkspace = async (name: string) => {
+    try {
+      await createWorkspace(name);
+      router.refresh();
+    } catch (error) {
+      console.error("Error creating workspace:", error);
+    }
+  };
+
+  // Modify the render logic to handle pre-hydration state
+  return (
+    <div className="space-y-2">
+      <div className="px-4 py-2">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl font-semibold">Workspaces</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="hover:bg-blue-500 hover:text-white"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full flex items-center justify-between rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-800 transition-colors duration-200 focus:outline-none focus:ring-3 focus:ring-blue-500 font-medium text-sm"
+        >
+          <span>Show workspaces</span>
+          <div
+            className={`rounded-full p-1 transition-colors duration-200 ${
+              mounted && isOpen ? "bg-green-500" : "bg-black"
+            }`}
+          >
+            <ChevronDown
+              className={`h-4 w-4 text-white transition-transform duration-200 ${
+                mounted && isOpen ? "transform rotate-180" : ""
+              }`}
+            />
+          </div>
+        </button>
+      </div>
+      <div
+        className={`space-y-1 px-2 overflow-hidden transition-all duration-200 ease-in-out ${
+          mounted && isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        {workspaces.map((workspace) => (
           <Link
             key={workspace.id}
             href={`/workspace/${workspace.id}`}
-            className="block w-full text-left p-3 rounded-lg dark:bg-gray-700 bg-gray-100 dark:bg-gray-800 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            className="w-full text-left py-1.5 px-3 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium group flex items-center gap-2"
           >
-            {workspace.name}
+            <ChevronRight className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+            <span className="flex-1">{workspace.name}</span>
           </Link>
         ))}
       </div>
+
+      <CreateWorkspaceSidebar
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreate={handleCreateWorkspace}
+      />
+    </div>
+  );
+};
+
+const SidebarContent = ({ profileData, workspaceData }: SidebarProps) => (
+  <div className="h-full flex flex-col">
+    <ScrollArea className="flex-1">
+      <WorkspaceAccordion workspaces={workspaceData} />
     </ScrollArea>
-    
     <div className="p-4 border-t">
       <div className="space-y-4">
         <div className="space-y-1">
           <p className="text-sm font-medium">{profileData.first_name}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{profileData.email}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {profileData.email}
+          </p>
         </div>
         <LogoutButton />
       </div>
@@ -70,31 +140,37 @@ const SidebarContent = ({ profileData, workspaceData }: {profileData: ProfileDat
   </div>
 );
 
-export default SidebarContent;
-
 export function Sidebar({ profileData, workspaceData }: SidebarProps) {
   return (
     <>
-      {/* Desktop sidebar */}
       <div className="hidden md:block">
         <aside className="w-64 border-r h-full">
-          <SidebarContent profileData={profileData} workspaceData={workspaceData} />
+          <SidebarContent
+            profileData={profileData}
+            workspaceData={workspaceData}
+          />
         </aside>
       </div>
-      {/* Mobile sidebar */}
       <div className="block md:hidden">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="secondary" size="icon" className="absolute bg-blue-600/60 top-4 left-4">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="absolute bg-blue-600/60 top-4 left-4"
+            >
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64">
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-            <SidebarContent profileData={profileData} workspaceData={workspaceData} />
+            <SidebarContent
+              profileData={profileData}
+              workspaceData={workspaceData}
+            />
           </SheetContent>
         </Sheet>
       </div>
     </>
-  )
+  );
 }

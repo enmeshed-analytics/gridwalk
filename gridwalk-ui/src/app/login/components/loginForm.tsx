@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import React, { useState } from "react";
 import { Lock, Mail, User } from "lucide-react";
@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { loginAction, registerAction } from "./actions";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
 interface AuthFormData {
   email: string;
@@ -60,11 +60,14 @@ export default function AuthForm(): JSX.Element {
       if (isLogin) {
         await loginAction({ email, password });
       } else {
-        await registerAction({ email, password, first_name: first_name!, last_name: last_name! });
+        await registerAction({
+          email,
+          password,
+          first_name: first_name!,
+          last_name: last_name!,
+        });
       }
-
-      // Use router.push instead of window.location for better client-side navigation
-      router.push('/workspace');
+      router.push("/workspace");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
