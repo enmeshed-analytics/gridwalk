@@ -7,7 +7,7 @@ import {
   LoadingSpinner,
   getProjects,
 } from "./projectModal";
-import { useWorkspaces } from "../WorkspaceContext";
+import { useWorkspaces } from "../workspaceContext";
 
 interface Project {
   name: string;
