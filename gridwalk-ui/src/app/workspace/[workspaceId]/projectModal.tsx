@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ApiResponse } from "./types";
 import { CreateProjectModalProps } from "./types";
 
@@ -8,6 +9,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const router = useRouter();
   const [projectName, setProjectName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +23,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       await onSubmit(projectName.trim());
       onClose();
       setProjectName("");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {

@@ -47,7 +47,6 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // Add this useEffect
   useEffect(() => {
     setMounted(true);
     setIsOpen(true);
@@ -62,7 +61,6 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
     }
   };
 
-  // Modify the render logic to handle pre-hydration state
   return (
     <div className="space-y-2">
       <div className="px-4 py-2">
@@ -144,7 +142,7 @@ export function Sidebar({ profileData, workspaceData }: SidebarProps) {
   return (
     <>
       <div className="hidden md:block">
-        <aside className="w-64 border-r h-full">
+        <aside className="w-58 border-r h-full">
           <SidebarContent
             profileData={profileData}
             workspaceData={workspaceData}
