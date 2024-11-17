@@ -7,6 +7,7 @@ import {
   LoadingSpinner,
   getProjects,
 } from "./projectModal";
+import { useWorkspaces } from "../WorkspaceContext";
 
 interface Project {
   name: string;
@@ -15,6 +16,7 @@ interface Project {
 }
 
 export default function WorkspaceProjectsPage() {
+  const { workspaces } = useWorkspaces();
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
@@ -23,6 +25,9 @@ export default function WorkspaceProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Find the current workspace name from the workspaces array
+  const currentWorkspace = workspaces.find((w) => w.id === workspaceId);
 
   useEffect(() => {
     setIsLoading(true);
@@ -92,7 +97,6 @@ export default function WorkspaceProjectsPage() {
   };
 
   const handleProjectClick = () => {
-    // Update to use the correct route structure
     router.push(`/project`);
   };
 
@@ -102,7 +106,9 @@ export default function WorkspaceProjectsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-2">
             <h1 className="sm:text-4xl font-bold text-gray-900">Projects</h1>
-            <p className="text-gray-600">Workspace: {workspaceId}</p>
+            <p className="text-gray-600">
+              Workspace: {currentWorkspace?.name || "Loading..."}
+            </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <button
