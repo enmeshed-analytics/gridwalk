@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import React, { useRef, useState } from "react";
 import GridBackground from "./login/components/gridBackground";
 import { useRouter } from "next/navigation";
-import { saveEmail } from './actions';
+import { saveEmail } from "./actions";
 
 export default function Home() {
   const router = useRouter();
@@ -28,8 +28,9 @@ export default function Home() {
     if (element) {
       const elementRect = element.getBoundingClientRect();
       const absoluteElementTop = elementRect.top + window.pageYOffset;
-      const middle = absoluteElementTop - (window.innerHeight / 2) + (elementRect.height / 2);
-      window.scrollTo({ top: middle, behavior: 'smooth' });
+      const middle =
+        absoluteElementTop - window.innerHeight / 2 + elementRect.height / 2;
+      window.scrollTo({ top: middle, behavior: "smooth" });
     }
   };
 
@@ -50,7 +51,7 @@ export default function Home() {
       }
     } catch (err) {
       setError("An error occurred. Please try again.");
-      console.error('Error in handleSubmit:', err);
+      console.error("Error in handleSubmit:", err);
     }
   };
 
@@ -98,7 +99,7 @@ export default function Home() {
               </div>
 
               <h1 className="text-5xl font-bold tracking-tight text-gray-100 sm:text-7xl mb-6">
-                Make Your Maps
+                Make Better Maps
                 <span className="block bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mt-2">
                   Tell Better Stories
                 </span>
@@ -161,10 +162,6 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-
-
-
-
             </div>
           </div>
         </header>
