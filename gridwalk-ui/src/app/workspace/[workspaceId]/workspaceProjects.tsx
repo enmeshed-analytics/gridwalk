@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { CreateProjectModal } from "./projectModal";
 import { useWorkspaces } from "../workspaceContext";
 import { createProject } from "./actions";
-
+import { useRouter } from "next/navigation";
 interface WorkspaceProjectsClientProps {
   workspaceId: string;
   initialProjects: string[];
@@ -14,10 +14,10 @@ export default function WorkspaceProjectsClient({
   workspaceId,
   initialProjects,
 }: WorkspaceProjectsClientProps) {
+  const router = useRouter();
   const { workspaces } = useWorkspaces();
   const [projects, setProjects] = useState(initialProjects);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-
   const currentWorkspace = workspaces.find((w) => w.id === workspaceId);
 
   const handleCreateProject = async (name: string) => {
@@ -26,7 +26,6 @@ export default function WorkspaceProjectsClient({
         name: name.trim(),
         workspace_id: workspaceId,
       });
-
       setProjects((prevProjects) => [...prevProjects, newProject.name]);
       setIsProjectDialogOpen(false);
     } catch (error: unknown) {
@@ -35,6 +34,13 @@ export default function WorkspaceProjectsClient({
       }
       throw new Error("Failed to create project");
     }
+  };
+
+  const handleProjectClick = (projectName: string) => {
+    const safeProjectName = encodeURIComponent(
+      projectName.toLowerCase().replace(/\s+/g, "-"),
+    );
+    router.push(`/project/${workspaceId}/${safeProjectName}`);
   };
 
   return (
@@ -67,7 +73,8 @@ export default function WorkspaceProjectsClient({
               {projects.map((project, index) => (
                 <div
                   key={index}
-                  className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+                  onClick={() => handleProjectClick(project)}
+                  className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer" // Added cursor-pointer
                 >
                   <h3 className="font-medium text-gray-900">{project}</h3>
                 </div>
