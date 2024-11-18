@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+'use client'
+import { useEffect, useRef, useState } from "react"
+import maplibregl from "maplibre-gl"
+import "maplibre-gl/dist/maplibre-gl.css"
 
 // Constants
 const REFRESH_THRESHOLD = 30;
@@ -20,6 +21,7 @@ export interface MapConfig {
   center?: [number, number];
   zoom?: number;
   styleUrl?: string;
+  apiUrl: string
 }
 
 export interface UseMapInitResult {
@@ -28,18 +30,16 @@ export interface UseMapInitResult {
   mapError: string | null;
 }
 
-// Helper functions
-// Get token
-const getToken = (): TokenData => {
-  const xhr = new XMLHttpRequest();
-  xhr.open("GET", "http://localhost:3001/os-token", false);
-  xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.send();
+const getToken = (apiUrl: string): TokenData => {
+  const xhr = new XMLHttpRequest()
+  xhr.open("GET", `${apiUrl}/os-token`, false)
+  xhr.setRequestHeader("Content-Type", "application/json")
+  xhr.send()
   if (xhr.status !== 200) {
-    throw new Error(`HTTP error! status: ${xhr.status}`);
+    throw new Error(`HTTP error! status: ${xhr.status}`)
   }
-  return JSON.parse(xhr.responseText);
-};
+  return JSON.parse(xhr.responseText)
+}
 
 const isTokenValid = (tokenData: TokenData | null): boolean => {
   if (!tokenData) return false;
@@ -50,7 +50,7 @@ const isTokenValid = (tokenData: TokenData | null): boolean => {
   return currentTime < expirationTime;
 };
 
-export const useMapInit = (config?: MapConfig): UseMapInitResult => {
+export const useMapInit = (config: MapConfig): UseMapInitResult => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export const useMapInit = (config?: MapConfig): UseMapInitResult => {
             if (url.startsWith("https://api.os.uk")) {
               if (!isTokenValid(tokenRef.current)) {
                 try {
-                  tokenRef.current = getToken();
+                  tokenRef.current = getToken(config.apiUrl);
                 } catch (error) {
                   console.error("Failed to fetch token:", error);
                   return {
