@@ -1,3 +1,4 @@
+'use client'
 import React from "react";
 import {
   Map,
@@ -8,21 +9,23 @@ import {
   X,
   Upload,
   CheckCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { ModalProps, MainMapNav } from "./types";
+import { useRouter } from "next/navigation";
 
 const MapModal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   onNavItemClick,
   selectedItem,
-  // layers,
   onLayerUpload,
-  // onLayerDelete,
   isUploading,
   error,
   uploadSuccess,
 }) => {
+  const router = useRouter();
+  
   const MainMapNavs: MainMapNav[] = [
     {
       id: "map",
@@ -169,7 +172,22 @@ const MapModal: React.FC<ModalProps> = ({
             </span>
           </button>
         ))}
+        
+        {/* Back Button */}
+        <div className="mt-auto mb-6">
+          <button
+            onClick={() => router.push('/workspace')}
+            className="w-10 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:bg-blue-400 hover:text-white transition-colors group relative"
+            aria-label="Back to workspace"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              Back to Workspace
+            </span>
+          </button>
+        </div>
       </div>
+      
       {/* Modal Content */}
       {isOpen && selectedItem && (
         <div
