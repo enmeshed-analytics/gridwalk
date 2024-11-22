@@ -22,6 +22,13 @@ pub struct ReqCreateWorkspace {
     name: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ReqAddWorkspaceMember {
+    workspace_id: String,
+    email: String,
+    role: WorkspaceRole,
+}
+
 impl Workspace {
     pub fn from_req(req: ReqCreateWorkspace, owner: String) -> Self {
         Workspace {
@@ -59,29 +66,35 @@ pub async fn create_workspace(
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ReqAddWorkspaceMember {
-    workspace_id: String,
-    user_id: String,
-    role: WorkspaceRole,
-}
-
 pub async fn add_workspace_member(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Json(req): Json<ReqAddWorkspaceMember>,
+    Json(req): Json<ReqAddWorkspaceMember>, // Using your existing struct
 ) -> Response {
     if let Some(req_user) = auth_user.user {
-        // TODO: sort out unwraps and response
-        let wsp = Workspace::from_id(&state.app_data, &req.workspace_id)
+        // Get the target user by email
+        let user_to_add = match User::from_email(&state.app_data, &req.email).await {
+            Ok(user) => user,
+            Err(_) => return "user not found".into_response(),
+        };
+
+        // Get the workspace
+        let workspace = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
+            Ok(ws) => ws,
+            Err(_) => return "workspace not found".into_response(),
+        };
+
+        // Attempt to add member (role is already parsed since you use WorkspaceRole in ReqAddWorkspaceMember)
+        match workspace
+            .add_member(&state.app_data, &req_user, &user_to_add, req.role)
             .await
-            .unwrap();
-        let user = User::from_id(&state.app_data, &req.user_id).await.unwrap();
-        let _ = wsp
-            .add_member(&state.app_data, &req_user, &user, req.role)
-            .await;
-    };
-    "added workspace member".into_response()
+        {
+            Ok(_) => "member added".into_response(),
+            Err(_) => "failed to add member".into_response(),
+        }
+    } else {
+        "unauthorized".into_response()
+    }
 }
 
 pub async fn remove_workspace_member(
@@ -90,14 +103,25 @@ pub async fn remove_workspace_member(
     Json(req): Json<ReqAddWorkspaceMember>,
 ) -> Response {
     if let Some(req_user) = auth_user.user {
-        // TODO: sort out unwraps and response
-        let wsp = Workspace::from_id(&state.app_data, &req.workspace_id)
-            .await
-            .unwrap();
-        let user = User::from_id(&state.app_data, &req.user_id).await.unwrap();
-        let _ = wsp.remove_member(&state.app_data, &req_user, &user).await;
-    };
-    "removed workspace member".into_response()
+        // Get the workspace
+        let wsp = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
+            Ok(ws) => ws,
+            Err(_) => return "workspace not found".into_response(),
+        };
+
+        // Get the user to remove by email instead of id
+        let user = match User::from_email(&state.app_data, &req.email).await {
+            Ok(user) => user,
+            Err(_) => return "user not found".into_response(),
+        };
+
+        match wsp.remove_member(&state.app_data, &req_user, &user).await {
+            Ok(_) => "removed workspace member".into_response(),
+            Err(_) => "failed to remove member".into_response(),
+        }
+    } else {
+        "unauthorized".into_response()
+    }
 }
 
 pub async fn get_workspaces(

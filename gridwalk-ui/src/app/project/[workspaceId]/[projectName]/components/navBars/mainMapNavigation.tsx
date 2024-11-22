@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import React from "react";
 import {
   Map,
@@ -25,7 +25,7 @@ const MapModal: React.FC<ModalProps> = ({
   uploadSuccess,
 }) => {
   const router = useRouter();
-  
+
   const MainMapNavs: MainMapNav[] = [
     {
       id: "map",
@@ -43,7 +43,8 @@ const MapModal: React.FC<ModalProps> = ({
       id: "upload",
       title: "File Upload",
       icon: "file",
-      description: "Upload files and add a layer to the map",
+      description:
+        "Upload files and add a layer to the map. Currently accepts .geojson, .json, and .gpkg files.",
     },
     {
       id: "settings",
@@ -172,12 +173,12 @@ const MapModal: React.FC<ModalProps> = ({
             </span>
           </button>
         ))}
-        
+
         {/* Back Button */}
         <div className="mt-auto mb-6">
           <button
-            onClick={() => router.push('/workspace')}
-            className="w-10 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:bg-blue-400 hover:text-white transition-colors group relative"
+            onClick={() => router.push("/workspace")}
+            className="w-10 h-8 flex items-center justify-center rounded-lg text-white bg-orange-500 hover:text-white group relative"
             aria-label="Back to workspace"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -187,7 +188,7 @@ const MapModal: React.FC<ModalProps> = ({
           </button>
         </div>
       </div>
-      
+
       {/* Modal Content */}
       {isOpen && selectedItem && (
         <div
@@ -203,7 +204,7 @@ const MapModal: React.FC<ModalProps> = ({
               className="absolute right-2 top-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
               aria-label="Close modal"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5 text-black" />
             </button>
             {/* Content with black text override */}
             <div className="max-h-[50vh] overflow-y-auto p-4">

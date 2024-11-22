@@ -1,4 +1,4 @@
-import { getProjectsServer } from "./actions";
+import { getProjects } from "./actions/projects/get";
 import WorkspaceProjectsClient from "./workspaceProjects";
 
 type PageProps = {
@@ -7,7 +7,7 @@ type PageProps = {
 
 export default async function Page({ params }: PageProps) {
   const { workspaceId } = await params;
-  const initialProjects = await getProjectsServer(workspaceId);
+  const initialProjects = await getProjects(workspaceId);
   return (
     <WorkspaceProjectsClient
       workspaceId={workspaceId}

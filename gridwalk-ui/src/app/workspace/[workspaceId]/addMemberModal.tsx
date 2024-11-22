@@ -1,14 +1,19 @@
 "use client";
 import React, { useState } from "react";
-import { ApiResponse } from "./types";
-import { CreateProjectModalProps } from "./types";
+import { useRouter } from "next/navigation";
 
-export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
-  isOpen,
-  onClose,
-  onSubmit,
-}) => {
-  const [projectName, setProjectName] = useState("");
+interface AddWorkspaceMemberModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (email: string, role: "Admin" | "Read") => Promise<void>;
+}
+
+export const AddWorkspaceMemberModal: React.FC<
+  AddWorkspaceMemberModalProps
+> = ({ isOpen, onClose, onSubmit }) => {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"Admin" | "Read">("Read");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,9 +23,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     setError(null);
 
     try {
-      await onSubmit(projectName.trim());
+      await onSubmit(email.trim(), role);
       onClose();
-      setProjectName("");
+      setEmail("");
+      setRole("Read");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -35,7 +42,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-900">
-            Create New Project
+            Add Workspace Member
           </h2>
           <button
             onClick={onClose}
@@ -54,22 +61,38 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label
-              htmlFor="projectName"
+              htmlFor="email"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Project Name
+              Email Address
             </label>
             <input
-              id="projectName"
-              type="text"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter project name..."
-              minLength={3}
-              maxLength={50}
+              placeholder="colleague@company.com"
               required
             />
+          </div>
+
+          <div className="mb-6">
+            <label
+              htmlFor="role"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Role
+            </label>
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as "Admin" | "Read")}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="Read">Read</option>
+              <option value="Admin">Admin</option>
+            </select>
           </div>
 
           <div className="flex justify-end gap-2">
@@ -82,16 +105,16 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isLoading || !projectName.trim()}
+              disabled={isLoading || !email.trim()}
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isLoading ? (
                 <>
                   <LoadingSpinner />
-                  Creating...
+                  Inviting...
                 </>
               ) : (
-                "Create Project"
+                "Send Invitation"
               )}
             </button>
           </div>
@@ -101,7 +124,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   );
 };
 
-export const LoadingSpinner: React.FC = () => (
+const LoadingSpinner: React.FC = () => (
   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
     <circle
       className="opacity-25"
@@ -119,28 +142,3 @@ export const LoadingSpinner: React.FC = () => (
     />
   </svg>
 );
-
-export async function getProjects(workspaceId: string): Promise<string[]> {
-  try {
-    const response = await fetch(
-      `/api/get_projects?workspace_id=${workspaceId}`,
-      {
-        credentials: "include",
-      },
-    );
-    if (!response.ok) {
-      throw new Error("Failed to fetch projects");
-    }
-    const apiResponse = (await response.json()) as ApiResponse;
-
-    if (!Array.isArray(apiResponse.data)) {
-      console.warn("Projects data is not an array:", apiResponse.data);
-      return [];
-    }
-
-    return apiResponse.data;
-  } catch (error) {
-    console.error("Error fetching projects:", error);
-    return [];
-  }
-}

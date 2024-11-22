@@ -1,10 +1,13 @@
 "use client";
 import React, { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { CreateProjectModal } from "./projectModal";
+import { AddWorkspaceMemberModal } from "./addMemberModal";
 import { useWorkspaces } from "../workspaceContext";
-import { createProject } from "./actions";
+import { createProject } from "./actions/projects/create";
+import { addWorkspaceMember } from "./actions/workspace";
 import { useRouter } from "next/navigation";
+
 interface WorkspaceProjectsClientProps {
   workspaceId: string;
   initialProjects: string[];
@@ -18,6 +21,7 @@ export default function WorkspaceProjectsClient({
   const { workspaces } = useWorkspaces();
   const [projects, setProjects] = useState(initialProjects);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const currentWorkspace = workspaces.find((w) => w.id === workspaceId);
 
   const handleCreateProject = async (name: string) => {
@@ -43,6 +47,22 @@ export default function WorkspaceProjectsClient({
     router.push(`/project/${workspaceId}/${safeProjectName}`);
   };
 
+  const handleAddMember = async (email: string, role: "Admin" | "Read") => {
+    try {
+      await addWorkspaceMember({
+        workspace_id: workspaceId,
+        email: email.trim(),
+        role,
+      });
+      setIsMemberDialogOpen(false);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        throw new Error(error.message || "Failed to add member");
+      }
+      throw new Error("Failed to add member");
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-gray-50">
       <div className="p-4 sm:p-6">
@@ -54,6 +74,13 @@ export default function WorkspaceProjectsClient({
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => setIsMemberDialogOpen(true)}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full sm:w-auto justify-center sm:justify-start"
+            >
+              <UserPlus size={20} />
+              Add Member
+            </button>
             <button
               onClick={() => setIsProjectDialogOpen(true)}
               className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full sm:w-auto justify-center sm:justify-start"
@@ -74,7 +101,7 @@ export default function WorkspaceProjectsClient({
                 <div
                   key={index}
                   onClick={() => handleProjectClick(project)}
-                  className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer" // Added cursor-pointer
+                  className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
                 >
                   <h3 className="font-medium text-gray-900">{project}</h3>
                 </div>
@@ -82,13 +109,18 @@ export default function WorkspaceProjectsClient({
             </div>
           )}
         </div>
-        {isProjectDialogOpen && (
-          <CreateProjectModal
-            isOpen={isProjectDialogOpen}
-            onClose={() => setIsProjectDialogOpen(false)}
-            onSubmit={handleCreateProject}
-          />
-        )}
+
+        <CreateProjectModal
+          isOpen={isProjectDialogOpen}
+          onClose={() => setIsProjectDialogOpen(false)}
+          onSubmit={handleCreateProject}
+        />
+
+        <AddWorkspaceMemberModal
+          isOpen={isMemberDialogOpen}
+          onClose={() => setIsMemberDialogOpen(false)}
+          onSubmit={handleAddMember}
+        />
       </div>
     </div>
   );

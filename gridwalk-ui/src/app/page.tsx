@@ -3,57 +3,19 @@ import {
   Database,
   Check,
   Star,
-  Lock,
+  Coins,
   Zap,
   Map,
   Activity,
   Users,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import React, { useRef, useState } from "react";
 import GridBackground from "./login/components/gridBackground";
 import { useRouter } from "next/navigation";
-import { saveEmail } from "./actions";
 
 export default function Home() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [error, setError] = useState("");
-  const emailFormRef = useRef<HTMLFormElement>(null);
-
-  const scrollToEmailForm = () => {
-    const element = emailFormRef.current;
-    if (element) {
-      const elementRect = element.getBoundingClientRect();
-      const absoluteElementTop = elementRect.top + window.pageYOffset;
-      const middle =
-        absoluteElementTop - window.innerHeight / 2 + elementRect.height / 2;
-      window.scrollTo({ top: middle, behavior: "smooth" });
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    try {
-      const result = await saveEmail(email);
-
-      if (result.success) {
-        setIsSubmitted(true);
-        setError("");
-        setTimeout(() => {
-          setEmail("");
-          setIsSubmitted(false);
-        }, 3000);
-      } else {
-        setError("Failed to save email. Please try again.");
-      }
-    } catch (err) {
-      setError("An error occurred. Please try again.");
-      console.error("Error in handleSubmit:", err);
-    }
-  };
 
   const handleLoginRedirect = () => {
     router.push("/login");
@@ -91,11 +53,8 @@ export default function Home() {
               <div className="mb-8 inline-flex items-center bg-blue-500/10 backdrop-blur-sm rounded-full px-6 py-2">
                 <Star className="h-5 w-5 text-blue-400 mr-2" />
                 <span className="text-blue-200 font-medium">
-                  Early Access Available
+                  Early Access Available During MVP Phase
                 </span>
-                <div className="ml-2 px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full">
-                  50% OFF
-                </div>
               </div>
 
               <h1 className="text-5xl font-bold tracking-tight text-gray-100 sm:text-7xl mb-6">
@@ -105,63 +64,11 @@ export default function Home() {
                 </span>
               </h1>
               <p className="mt-6 text-xl leading-8 text-gray-300 max-w-2xl mx-auto">
-                GridWalk transforms complex location data into crystal-clear
-                insights. Build beautiful maps, analyze patterns, and share
-                discoveries with your team in minutes.
+                GridWalk provides a collaborative environment to manage your
+                location data and turn it into crystal-clear insights. Build
+                beautiful maps, analyse patterns, and share discoveries with
+                your team in minutes.
               </p>
-
-              {/* CTA Section */}
-              <div className="mt-12 flex flex-col items-center gap-4">
-                <form
-                  ref={emailFormRef}
-                  onSubmit={handleSubmit}
-                  className="flex w-full max-w-md flex-col gap-y-4"
-                >
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1 relative">
-                      <Input
-                        type="email"
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="flex-1 h-14 text-md pl-5 pr-12 rounded-xl bg-white/10 backdrop-blur-sm border-blue-300/20 text-white placeholder:text-gray-400"
-                        required
-                      />
-                      {isSubmitted && (
-                        <div className="absolute right-0 top-0 bottom-0 flex items-center pr-3">
-                          <Check className="h-6 w-6 text-green-400" />
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="h-14 px-8 text-lg text-white bg-blue-500 hover:bg-blue-600 shadow-lg hover:shadow-blue-500/25 hover:shadow-2xl transition-all rounded-xl"
-                    >
-                      Get Early Access
-                    </Button>
-                  </div>
-                  {error && (
-                    <p className="text-red-400 text-sm text-center">{error}</p>
-                  )}
-                </form>
-
-                {/* Social Proof */}
-                <div className="flex flex-col items-center mt-8 space-y-4">
-                  <div className="flex -space-x-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 border-2 border-gray-900"
-                      />
-                    ))}
-                  </div>
-                  <p className="text-sm text-gray-300">
-                    <span className="font-semibold text-white">180+ teams</span>{" "}
-                    already on the waitlist
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
         </header>
@@ -175,32 +82,32 @@ export default function Home() {
                 Powerful Features
               </div>
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Everything You Need for Modern Mapping
+                Everything You Need from a Modern Mapping Application
               </h2>
             </div>
             <div className="mx-auto mt-16 max-w-7xl">
               <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-3">
                 {[
                   {
-                    icon: Activity,
-                    title: "Real-time Analysis",
+                    icon: Database,
+                    title: "Workspace Management",
                     description:
-                      "Watch your data come alive with instant updates and dynamic visualizations.",
-                    benefit: "Live data processing",
+                      "A space to manage your geospatial data projects efficiently - providing a workspace environment that drives collaboration.",
+                    benefit: "Team collaboration",
                   },
                   {
-                    icon: Database,
-                    title: "Universal Compatibility",
+                    icon: Activity,
+                    title: "Flexible Data Integration",
                     description:
-                      "Import from any source: CSV, GeoJSON, Shapefiles, or connect your database directly.",
-                    benefit: "Works with your stack",
+                      "Upload data from the UI or connect your own database allowing you to use your geospatial data instantly.",
+                    benefit: "Instant connectivity",
                   },
                   {
                     icon: Users,
-                    title: "Team Collaboration",
+                    title: "Intuitive Workflows",
                     description:
-                      "Built for teams with real-time editing, version control, and granular permissions.",
-                    benefit: "True multiplayer",
+                      "Intuitive workflows and UI to make sure you have more time to focus on your analysis and stakeholders.",
+                    benefit: "Streamlined experience",
                   },
                 ].map((feature, index) => (
                   <div
@@ -226,106 +133,133 @@ export default function Home() {
         </section>
 
         {/* Pricing Section */}
-        <section className="py-32">
-          <div className="mx-auto max-w-7xl px-6">
+        <section className="py-32 overflow-x-auto">
+          <div className="mx-auto max-w-[90rem] px-6">
             <div className="mx-auto max-w-2xl text-center mb-16">
-              <div className="inline-flex items-center rounded-full bg-green-500/10 backdrop-blur-sm px-6 py-2 text-sm font-semibold text-green-400 mb-6">
-                <Lock className="h-4 w-4 mr-2" />
-                Lock In Launch Pricing
+              <div className="inline-flex items-center rounded-full bg-blue-500/10 backdrop-blur-sm px-6 py-2 text-sm font-semibold text-blue-300 mb-6">
+                <Coins className="h-4 w-4 mr-2" />
+                Simple Pricing Plans
               </div>
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Early Adopter Pricing
+                Choose Your Plan
               </h2>
               <p className="mt-6 text-lg leading-8 text-gray-300">
-                Join now to secure lifetime discounted pricing
+                Flexible options for teams of all sizes
               </p>
             </div>
-            <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 lg:grid-cols-3">
+
+            <div className="flex gap-6 min-w-max px-4">
               {[
                 {
-                  name: "Starter",
-                  price: "49",
-                  originalPrice: "99",
+                  name: "Free",
+                  price: "0",
                   features: [
-                    "10GB storage",
-                    "Up to 5 team members",
-                    "Real-time analytics",
+                    "1 user",
+                    "1 workspace",
+                    "5 projects",
+                    "500MB storage",
+                    "Basic features",
+                  ],
+                  popular: false,
+                  colors: {
+                    card: "from-emerald-600/20 to-teal-600/20",
+                    ring: "ring-emerald-500/30",
+                    badge: "bg-emerald-400/10 text-emerald-300",
+                    button:
+                      "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600",
+                    check: "text-emerald-400",
+                  },
+                },
+                {
+                  name: "Solo",
+                  price: "15",
+                  features: [
+                    "1 user",
+                    "5 workspaces",
+                    "Unlimited projects",
+                    "5GB storage",
                     "Community support",
                   ],
                   popular: false,
-                  discount: "50% OFF",
+                  colors: {
+                    card: "from-blue-600/20 to-cyan-600/20",
+                    ring: "ring-blue-500/30",
+                    badge: "bg-blue-400/10 text-blue-300",
+                    button:
+                      "bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600",
+                    check: "text-blue-400",
+                  },
                 },
                 {
-                  name: "Professional",
-                  price: "99",
-                  originalPrice: "199",
+                  name: "Team",
+                  price: "50",
                   features: [
-                    "50GB storage",
-                    "up to 30 team members",
-                    "Advanced analytics",
+                    "15 users",
+                    "15 workspaces",
+                    "Unlimited projects",
+                    "15GB storage",
                     "Priority support",
-                    "Custom styling",
+                    "Advanced features",
                   ],
                   popular: true,
-                  discount: "50% OFF",
+                  colors: {
+                    card: "from-purple-600/20 to-pink-600/20",
+                    ring: "ring-purple-500/30",
+                    badge: "bg-purple-400/10 text-purple-300",
+                    button:
+                      "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
+                    check: "text-purple-400",
+                  },
                 },
                 {
-                  name: "Enterprise",
-                  price: "Custom",
+                  name: "Organisation",
+                  price: "150",
                   features: [
-                    "Unlimited storage",
-                    "Custom deployment",
+                    "30 users",
+                    "30 workspaces",
+                    "Unlimited projects",
+                    "20GB storage",
                     "24/7 support",
-                    "SLA guarantees",
+                    "Custom integrations",
                     "Advanced security",
                   ],
                   popular: false,
+                  colors: {
+                    card: "from-orange-600/20 to-red-600/20",
+                    ring: "ring-orange-500/30",
+                    badge: "bg-orange-400/10 text-orange-300",
+                    button:
+                      "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600",
+                    check: "text-orange-400",
+                  },
                 },
               ].map((plan, index) => (
                 <div
                   key={index}
-                  className={`relative flex flex-col justify-between rounded-3xl p-8 xl:p-10 ${
-                    index === 1
-                      ? "bg-blue-600/20 backdrop-blur-sm ring-blue-500/30"
-                      : "bg-white/5 backdrop-blur-sm ring-white/10"
-                  } ring-1 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl`}
+                  className={`relative flex flex-col justify-between rounded-3xl p-8 xl:p-10 w-80
+                    bg-gradient-to-b ${plan.colors.card} backdrop-blur-sm ${plan.colors.ring}
+                    ring-1 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl`}
                 >
-                  {plan.discount && (
-                    <div className="absolute -top-4 -right-4 bg-green-500 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
-                      {plan.discount}
-                    </div>
-                  )}
                   <div>
                     <div className="flex items-center justify-between gap-x-4">
                       <h3 className="text-lg font-semibold leading-8 text-white">
                         {plan.name}
                       </h3>
                       {plan.popular && (
-                        <p className="rounded-full bg-blue-400/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-300">
+                        <p
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold leading-5 ${plan.colors.badge}`}
+                        >
                           Most popular
                         </p>
                       )}
                     </div>
                     <p className="mt-6 flex items-baseline gap-x-1 text-white">
-                      {plan.price !== "Custom" ? (
-                        <>
-                          <span className="text-4xl font-bold tracking-tight">
-                            ${plan.price}
-                          </span>
-                          <span className="text-sm font-semibold leading-6 text-gray-300">
-                            /month
-                          </span>
-                          {plan.originalPrice && (
-                            <span className="ml-2 text-sm line-through text-gray-500">
-                              ${plan.originalPrice}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-4xl font-bold tracking-tight">
-                          Custom
-                        </span>
-                      )}
+                      <span className="text-4xl font-bold tracking-tight">
+                        ${plan.price}
+                      </span>
+                      <span className="text-sm font-semibold leading-6 text-gray-300">
+                        /month
+                      </span>
                     </p>
                     <ul
                       role="list"
@@ -333,22 +267,24 @@ export default function Home() {
                     >
                       {plan.features.map((feature) => (
                         <li key={feature} className="flex gap-x-3">
-                          <Check className="h-6 w-5 flex-none text-blue-400" />
+                          <Check
+                            className={`h-6 w-5 flex-none ${plan.colors.check}`}
+                          />
                           <span className="text-gray-300">{feature}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
-                  <Button
-                    onClick={scrollToEmailForm}
-                    className={`mt-8 w-full rounded-xl h-12 ${
-                      index === 1
-                        ? "bg-blue-500 text-white hover:bg-blue-600"
-                        : "bg-white/10 text-white hover:bg-white/20"
-                    }`}
+                  <a
+                    href={`mailto:hello@enmeshed.dev?subject=Interest in ${plan.name} Plan&body=Hi, I'm interested in learning more about the ${plan.name} plan for GridWalk.`}
+                    className="mt-8 block"
                   >
-                    Get Started
-                  </Button>
+                    <Button
+                      className={`w-full rounded-xl h-12 text-white ${plan.colors.button}`}
+                    >
+                      Contact Us
+                    </Button>
+                  </a>
                 </div>
               ))}
             </div>
@@ -360,15 +296,20 @@ export default function Home() {
           <div className="mx-auto max-w-7xl px-6 md:flex md:items-center md:justify-between">
             <div className="flex justify-center space-x-6 md:order-2">
               {[
+                {
+                  name: "Contact",
+                  href: "mailto:hello@enmeshed.dev",
+                  icon: Mail,
+                },
                 { name: "Terms", href: "#" },
                 { name: "Privacy", href: "#" },
-                { name: "Contact", href: "#" },
               ].map((item) => (
                 <a
                   key={item.name}
                   href={item.href}
-                  className="text-gray-400 hover:text-gray-300 transition-colors"
+                  className="text-gray-400 hover:text-gray-300 transition-colors inline-flex items-center"
                 >
+                  {item.icon && <item.icon className="h-4 w-4 mr-1" />}
                   {item.name}
                 </a>
               ))}
