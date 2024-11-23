@@ -30,6 +30,12 @@ pub struct ReqAddWorkspaceMember {
     role: WorkspaceRole,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ReqRemoveWorkspaceMember {
+    workspace_id: String,
+    email: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct SimpleMemberResponse {
     role: WorkspaceRole,
@@ -107,7 +113,7 @@ pub async fn add_workspace_member(
 pub async fn remove_workspace_member(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Json(req): Json<ReqAddWorkspaceMember>,
+    Json(req): Json<ReqRemoveWorkspaceMember>,
 ) -> Response {
     if let Some(req_user) = auth_user.user {
         // Get the workspace

@@ -74,10 +74,12 @@ export default function WorkspaceProjectsClient({
       <div className="p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-2">
-            <h1 className="sm:text-4xl font-bold text-gray-900">Projects</h1>
-            <p className="text-gray-600">
-              Current Workspace: {currentWorkspace?.name || "Loading..."}
-            </p>
+            <h1 className="sm:text-4xl font-bold">
+              <span className="text-orange-400">Current Workspace:</span>{" "}
+              <span className="text-gray-900">
+                {currentWorkspace?.name || "Loading..."}
+              </span>
+            </h1>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <button

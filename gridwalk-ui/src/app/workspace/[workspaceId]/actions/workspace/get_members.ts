@@ -1,6 +1,6 @@
 "use server";
+
 import { getAuthToken } from "../lib/auth";
-import { revalidatePath } from "next/cache";
 
 type WorkspaceMember = {
   email: string;
@@ -41,9 +41,6 @@ export async function getWorkspaceMembers(
     }
 
     const members: WorkspaceMember[] = await response.json();
-
-    // Revalidate the members list page/cache
-    revalidatePath(`/workspaces/${workspaceId}/members`);
 
     return members;
   } catch (error) {

@@ -15,12 +15,14 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing
+    // Initialise tracing
     tracing_subscriber::fmt::init();
 
     // Create DynamoDB client
     let table_name = env::var("DYNAMODB_TABLE").unwrap_or_else(|_| "gridwalk".to_string());
     let app_db = Dynamodb::new(false, &table_name).await.unwrap();
+    // FOR LOCAL DB DEV
+    // let app_db = Dynamodb::new(true, "gridwalk").await.unwrap();
 
     // Create GeospatialConfig
     let geospatial_config = GeospatialConfig::new();
