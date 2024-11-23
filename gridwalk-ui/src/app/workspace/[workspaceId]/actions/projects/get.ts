@@ -1,6 +1,6 @@
 "use server";
 
-import { getAuthToken } from "../lib /auth";
+import { getAuthToken } from "../lib/auth";
 
 export async function getProjects(workspaceId: string): Promise<string[]> {
   const token = await getAuthToken();

@@ -1,6 +1,6 @@
 "use server";
 
-import { getAuthToken } from "../lib /auth";
+import { getAuthToken } from "../lib/auth";
 import { AddWorkspaceMemberRequest } from "./types";
 import { revalidatePath } from "next/cache";
 
