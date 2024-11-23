@@ -1,13 +1,14 @@
 use crate::auth::AuthUser;
-use crate::core::{User, Workspace, WorkspaceRole};
+use crate::core::{Profile, User, Workspace, WorkspaceRole};
 use crate::{app_state::AppState, core::get_unix_timestamp};
 use axum::{
-    extract::{Extension, State},
+    extract::{Extension, Path, State},
     response::{IntoResponse, Response},
     Json,
 };
 use futures;
 use futures::future::join_all;
+use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -27,11 +28,6 @@ pub struct ReqAddWorkspaceMember {
     workspace_id: String,
     email: String,
     role: WorkspaceRole,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ReqGetWorkspaceMembers {
-    workspace_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -80,7 +76,7 @@ pub async fn create_workspace(
 pub async fn add_workspace_member(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Json(req): Json<ReqAddWorkspaceMember>, // Using your existing struct
+    Json(req): Json<ReqAddWorkspaceMember>,
 ) -> Response {
     if let Some(req_user) = auth_user.user {
         // Get the target user by email
@@ -138,11 +134,11 @@ pub async fn remove_workspace_member(
 pub async fn get_workspace_members(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Json(req): Json<ReqGetWorkspaceMembers>,
+    Path(workspace_id): Path<String>,
 ) -> Response {
     if let Some(req_user) = auth_user.user {
         // Get the workspace
-        let workspace = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
+        let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
             Ok(ws) => ws,
             Err(_) => {
                 let error = ErrorResponse {
@@ -156,14 +152,30 @@ pub async fn get_workspace_members(
             // Get all members and transform to simplified response
             match workspace.get_members(&state.app_data).await {
                 Ok(members) => {
-                    let simplified_members: Vec<SimpleMemberResponse> = members
-                        .into_iter()
-                        .map(|m| SimpleMemberResponse {
-                            role: m.role,
-                            email: m.email,
+                    let users: Vec<Result<User, _>> = futures::stream::iter(members)
+                        .then(|m| {
+                            let state_clone = state.clone();
+                            async move { User::from_id(&state_clone.app_data, &m.user_id).await }
                         })
-                        .collect();
-                    Json(simplified_members).into_response()
+                        .collect()
+                        .await;
+                    match users.into_iter().collect::<Result<Vec<User>, _>>() {
+                        Ok(users) => {
+                            let profiles = users
+                                .into_iter()
+                                .map(Profile::from)
+                                .collect::<Vec<Profile>>();
+                            Json(profiles).into_response()
+                        }
+                        Err(_) => {
+                            let error = ErrorResponse {
+                                error: "Failed to fetch some user details".to_string(),
+                            };
+                            Json(error).into_response()
+                        }
+                    }
+
+                    //Json(users).into_response()
                 }
                 Err(_) => {
                     let error = ErrorResponse {

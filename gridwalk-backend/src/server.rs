@@ -34,7 +34,10 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/profile", get(profile))
         .route("/workspace", post(create_workspace))
         .route("/workspace/members", post(add_workspace_member))
-        .route("/workspace/getmem", post(get_workspace_members))
+        .route(
+            "/workspace/:workspace_id/members",
+            get(get_workspace_members),
+        )
         .route(
             "/workspace/:workspace_id/members/:user_id",
             delete(remove_workspace_member),

@@ -18,16 +18,13 @@ export async function getWorkspaceMembers(
 
   try {
     const response = await fetch(
-      `${process.env.GRIDWALK_API}/workspace/getmem`,
+      `${process.env.GRIDWALK_API}/workspace/${workspaceId}/members`,
       {
-        method: "POST",
+        method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          workspace_id: workspaceId,
-        }),
       },
     );
 

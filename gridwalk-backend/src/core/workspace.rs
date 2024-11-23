@@ -20,7 +20,6 @@ pub struct WorkspaceMember {
     pub workspace_id: String,
     pub user_id: String,
     pub role: WorkspaceRole,
-    pub email: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
