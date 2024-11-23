@@ -8,9 +8,10 @@ use aws_config::meta::region::RegionProviderChain;
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::{
     AttributeDefinition, AttributeValue as AV, GlobalSecondaryIndex, KeySchemaElement, KeyType,
-    Projection, ProjectionType, ProvisionedThroughput, ScalarAttributeType,
+    KeysAndAttributes, Projection, ProjectionType, ProvisionedThroughput, ScalarAttributeType,
 };
 use aws_sdk_dynamodb::Client;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::info;
 
@@ -379,6 +380,95 @@ impl UserStore for Dynamodb {
             Ok(response) => Ok(response.item.unwrap().into()),
             Err(_e) => Err(anyhow!("workspace not found")),
         }
+    }
+
+    async fn get_workspace_members(&self, wsp: &Workspace) -> Result<Vec<WorkspaceMember>> {
+        let pk = format!("WSP#{}", wsp.id);
+
+        // Get all member records for the workspace
+        let members_response = self
+            .client
+            .query()
+            .table_name(&self.table_name)
+            .key_condition_expression("PK = :pk AND begins_with(SK, :user_prefix)")
+            .expression_attribute_values(":pk", AV::S(pk))
+            .expression_attribute_values(":user_prefix", AV::S("USER#".to_string()))
+            .send()
+            .await?;
+
+        let member_items = members_response.items.unwrap_or_default();
+        if member_items.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Extract user IDs and create batch get request
+        let keys: Vec<HashMap<String, AV>> = member_items
+            .iter()
+            .filter_map(|item| {
+                let sk = item.get("SK")?.as_s().ok()?;
+                Some(HashMap::from([
+                    ("PK".to_string(), AV::S(sk.to_string())),
+                    ("SK".to_string(), AV::S(sk.to_string())),
+                ]))
+            })
+            .collect();
+
+        let keys_and_attributes = KeysAndAttributes::builder().set_keys(Some(keys)).build()?;
+
+        // Get all user records in one batch
+        let user_responses = self
+            .client
+            .batch_get_item()
+            .set_request_items(Some(HashMap::from([(
+                self.table_name.clone(),
+                keys_and_attributes,
+            )])))
+            .send()
+            .await?;
+
+        // Create a map of user_id -> email
+        let email_map: HashMap<String, String> = user_responses
+            .responses
+            .and_then(|mut r| r.remove(&self.table_name))
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|item| {
+                let id = item.get("PK")?.as_s().ok()?.strip_prefix("USER#")?;
+                let email = item.get("primary_email")?.as_s().ok()?;
+                Some((id.to_string(), email.to_string()))
+            })
+            .collect();
+
+        // Convert member items, keeping original PK/SK and adding email
+        let members = member_items
+            .into_iter()
+            .filter_map(|mut item| {
+                let user_id = item
+                    .get("SK")?
+                    .as_s()
+                    .ok()?
+                    .strip_prefix("USER#")?
+                    .to_string();
+                let email = email_map.get(&user_id)?;
+
+                // Add email to the item
+                item.insert("email".to_string(), AV::S(email.clone()));
+
+                // Ensure role exists (the From impl expects it)
+                if !item.contains_key("role") {
+                    item.insert("role".to_string(), AV::S("member".to_string()));
+                }
+
+                // The conversion will use:
+                // - PK (already contains WSP#<id>)
+                // - SK (already contains USER#<id>)
+                // - role (we just ensured exists)
+                // - email (we just added)
+                Some(item.into())
+            })
+            .collect();
+
+        Ok(members)
     }
 
     async fn remove_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<()> {

@@ -29,6 +29,17 @@ pub struct ReqAddWorkspaceMember {
     role: WorkspaceRole,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ReqGetWorkspaceMembers {
+    workspace_id: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SimpleMemberResponse {
+    role: WorkspaceRole,
+    email: String,
+}
+
 impl Workspace {
     pub fn from_req(req: ReqCreateWorkspace, owner: String) -> Self {
         Workspace {
@@ -121,6 +132,57 @@ pub async fn remove_workspace_member(
         }
     } else {
         "unauthorized".into_response()
+    }
+}
+
+pub async fn get_workspace_members(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Json(req): Json<ReqGetWorkspaceMembers>,
+) -> Response {
+    if let Some(req_user) = auth_user.user {
+        // Get the workspace
+        let workspace = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
+            Ok(ws) => ws,
+            Err(_) => {
+                let error = ErrorResponse {
+                    error: "Workspace not found".to_string(),
+                };
+                return Json(error).into_response();
+            }
+        };
+
+        if let Ok(_member) = workspace.get_member(&state.app_data, &req_user).await {
+            // Get all members and transform to simplified response
+            match workspace.get_members(&state.app_data).await {
+                Ok(members) => {
+                    let simplified_members: Vec<SimpleMemberResponse> = members
+                        .into_iter()
+                        .map(|m| SimpleMemberResponse {
+                            role: m.role,
+                            email: m.email,
+                        })
+                        .collect();
+                    Json(simplified_members).into_response()
+                }
+                Err(_) => {
+                    let error = ErrorResponse {
+                        error: "Failed to fetch workspace members".to_string(),
+                    };
+                    Json(error).into_response()
+                }
+            }
+        } else {
+            let error = ErrorResponse {
+                error: "Unauthorized to view workspace members".to_string(),
+            };
+            Json(error).into_response()
+        }
+    } else {
+        let error = ErrorResponse {
+            error: "Unauthorized".to_string(),
+        };
+        Json(error).into_response()
     }
 }
 

@@ -4,8 +4,6 @@ use crate::core::{
 use aws_sdk_dynamodb::types::AttributeValue as AV;
 use std::collections::HashMap;
 
-// These functions convert the returned data from the aws_sdk_dynamodb into Gridwalk structs.
-
 fn split_at_hash(input: &str) -> &str {
     input.split_once('#').unwrap().1
 }
@@ -82,6 +80,7 @@ impl From<HashMap<String, AV>> for WorkspaceMember {
             workspace_id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
             user_id: split_at_hash(value.get("SK").unwrap().as_s().unwrap()).to_string(),
             role: value.get("role").unwrap().as_s().unwrap().into(),
+            email: value.get("email").unwrap().as_s().unwrap().to_string(),
         }
     }
 }

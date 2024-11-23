@@ -14,7 +14,6 @@ pub trait UserStore: Send + Sync + 'static {
     async fn get_user_by_id(&self, id: &str) -> Result<User>;
     async fn create_workspace(&self, wsp: &Workspace) -> Result<()>;
     async fn get_workspace_by_id(&self, id: &str) -> Result<Workspace>;
-    //
     async fn add_workspace_member(
         &self,
         wsp: &Workspace,
@@ -23,6 +22,7 @@ pub trait UserStore: Send + Sync + 'static {
         joined_at: u64,
     ) -> Result<()>;
     async fn get_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<WorkspaceMember>;
+    async fn get_workspace_members(&self, wsp: &Workspace) -> Result<Vec<WorkspaceMember>>;
     async fn remove_workspace_member(&self, org: &Workspace, user: &User) -> Result<()>;
     async fn create_connection(&self, connection: &Connection) -> Result<()>;
     async fn get_workspace_connection(

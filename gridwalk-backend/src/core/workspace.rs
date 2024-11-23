@@ -20,6 +20,7 @@ pub struct WorkspaceMember {
     pub workspace_id: String,
     pub user_id: String,
     pub role: WorkspaceRole,
+    pub email: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -40,8 +41,7 @@ impl fmt::Display for WorkspaceRole {
 }
 
 impl FromStr for WorkspaceRole {
-    type Err = String; // Using String as error type for simplicity
-
+    type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_lowercase().as_str() {
             "superuser" => Ok(WorkspaceRole::Superuser),
@@ -111,6 +111,10 @@ impl Workspace {
     ) -> Result<WorkspaceMember> {
         // TODO: Fix unwrap
         Ok(database.get_workspace_member(&self, user).await.unwrap())
+    }
+
+    pub async fn get_members(&self, database: &Arc<dyn Database>) -> Result<Vec<WorkspaceMember>> {
+        database.get_workspace_members(self).await
     }
 
     pub async fn remove_member(

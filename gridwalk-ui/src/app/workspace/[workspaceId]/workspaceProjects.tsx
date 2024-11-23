@@ -57,6 +57,10 @@ export default function WorkspaceProjectsClient({
         role,
       });
       setIsMemberDialogOpen(false);
+      if (isViewMemberDialogOpen) {
+        setIsViewMemberDialogOpen(false);
+        setIsViewMemberDialogOpen(true);
+      }
     } catch (error: unknown) {
       if (error instanceof Error) {
         throw new Error(error.message || "Failed to add member");
@@ -134,6 +138,7 @@ export default function WorkspaceProjectsClient({
         <ViewWorkspaceMemberModal
           isOpen={isViewMemberDialogOpen}
           onClose={() => setIsViewMemberDialogOpen(false)}
+          workspaceId={workspaceId}
         />
       </div>
     </div>
