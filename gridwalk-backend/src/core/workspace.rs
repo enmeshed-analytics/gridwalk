@@ -65,7 +65,7 @@ pub struct RemoveOrgMember {
 
 impl Workspace {
     pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<Self> {
-        Ok(database.get_workspace_by_id(id).await.unwrap())
+        Ok(database.get_workspace_by_id(id).await?)
     }
 
     pub async fn create(database: &Arc<dyn Database>, wsp: &Workspace) -> Result<()> {
@@ -142,5 +142,25 @@ impl Workspace {
         user: &User,
     ) -> Result<Vec<String>> {
         database.get_workspaces(user).await
+    }
+}
+
+impl WorkspaceMember {
+    pub async fn get(
+        database: &Arc<dyn Database>,
+        workspace: &Workspace,
+        user: &User,
+    ) -> Result<Self> {
+        Ok(database
+            .get_workspace_member(workspace, user)
+            .await
+            .unwrap())
+    }
+
+    pub fn is_admin(&self) -> bool {
+        if self.role == WorkspaceRole::Admin {
+            return true;
+        }
+        false
     }
 }

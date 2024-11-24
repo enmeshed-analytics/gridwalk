@@ -276,8 +276,11 @@ impl UserStore for Dynamodb {
             .send()
             .await
         {
-            Ok(response) => Ok(response.item.unwrap().into()),
-            Err(_e) => Err(anyhow!("org not found")),
+            Ok(response) => response
+                .item
+                .ok_or_else(|| anyhow!("workspace not found"))
+                .map(Into::into),
+            Err(e) => Err(anyhow!("failed to query workspace: {}", e)),
         }
     }
 
@@ -512,6 +515,9 @@ impl UserStore for Dynamodb {
             String::from("pg_password"),
             AV::S(con.clone().config.password),
         );
+        if let Some(schema) = &con.config.schema {
+            item.insert(String::from("pg_schema"), AV::S(schema.to_string()));
+        }
 
         self.client
             .put_item()
@@ -564,6 +570,18 @@ impl UserStore for Dynamodb {
             }
             None => Ok(vec![]),
         }
+    }
+
+    async fn delete_workspace_connection(&self, con: &Connection) -> Result<()> {
+        self.client
+            .delete_item()
+            .table_name(&self.table_name)
+            .key("PK", AV::S(format!("WSP#{}", con.workspace_id)))
+            .key("SK", AV::S(format!("CON#{}", con.id)))
+            .send()
+            .await?;
+
+        Ok(())
     }
 
     async fn create_layer(&self, layer: &Layer) -> Result<()> {

@@ -44,6 +44,10 @@ impl Connection {
         let connections = database.get_workspace_connections(workspace_id).await?;
         Ok(connections)
     }
+
+    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
+        database.delete_workspace_connection(self).await
+    }
 }
 
 // Trait for all geospatial data sources
@@ -62,6 +66,7 @@ pub struct PostgresConnection {
     pub database: String,
     pub username: String,
     pub password: String,
+    pub schema: Option<String>,
 }
 
 #[derive(Clone, Debug)]

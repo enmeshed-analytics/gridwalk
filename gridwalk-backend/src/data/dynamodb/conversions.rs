@@ -118,6 +118,10 @@ impl From<HashMap<String, AV>> for Connection {
                 database: value.get("pg_db").unwrap().as_s().unwrap().into(),
                 username: value.get("pg_username").unwrap().as_s().unwrap().into(),
                 password: value.get("pg_password").unwrap().as_s().unwrap().into(),
+                schema: value
+                    .get("pg_schema")
+                    .and_then(|v| v.as_s().ok())
+                    .map(Into::into),
             },
         }
     }
