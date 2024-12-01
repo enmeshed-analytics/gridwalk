@@ -198,7 +198,7 @@ const MapModal: React.FC<ModalProps> = ({
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Back to Workspace
+              Back to Workspaces
             </span>
           </button>
         </div>
