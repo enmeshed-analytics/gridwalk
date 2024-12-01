@@ -52,10 +52,15 @@ impl Project {
         Ok(())
     }
 
+    pub async fn delete_project_record(&self, database: &Arc<dyn Database>) -> Result<()> {
+        database.delete_project(self).await?;
+        Ok(())
+    }
+
     pub async fn get_workspace_projects(
         database: &Arc<dyn Database>,
         workspace: &Workspace,
-    ) -> Result<Vec<String>> {
+    ) -> Result<Vec<Project>> {
         // Get projects from database
         database.get_projects(&workspace.id).await
     }

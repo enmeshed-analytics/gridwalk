@@ -1,5 +1,5 @@
 use crate::core::{
-    Connection, Email, PostgresConnection, Session, User, Workspace, WorkspaceMember,
+    Connection, Email, PostgresConnection, Project, Session, User, Workspace, WorkspaceMember,
 };
 use aws_sdk_dynamodb::types::AttributeValue as AV;
 use std::collections::HashMap;
@@ -123,6 +123,29 @@ impl From<HashMap<String, AV>> for Connection {
                     .and_then(|v| v.as_s().ok())
                     .map(Into::into),
             },
+        }
+    }
+}
+
+impl From<HashMap<String, AV>> for Project {
+    fn from(value: HashMap<String, AV>) -> Self {
+        Project {
+            id: split_at_hash(value.get("SK").unwrap().as_s().unwrap()).to_string(),
+            workspace_id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
+            name: value.get("name").unwrap().as_s().unwrap().to_string(),
+            uploaded_by: value
+                .get("uploaded_by")
+                .unwrap()
+                .as_s()
+                .unwrap()
+                .to_string(),
+            created_at: value
+                .get("created_at")
+                .unwrap()
+                .as_n()
+                .unwrap()
+                .parse()
+                .unwrap(),
         }
     }
 }

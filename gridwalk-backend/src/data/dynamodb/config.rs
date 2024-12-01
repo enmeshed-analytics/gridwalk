@@ -315,7 +315,7 @@ impl UserStore for Dynamodb {
         Ok(workspace_ids)
     }
 
-    async fn get_projects(&self, workspace_id: &str) -> Result<Vec<String>> {
+    async fn get_projects(&self, workspace_id: &str) -> Result<Vec<Project>> {
         let projects = self
             .client
             .query()
@@ -327,19 +327,14 @@ impl UserStore for Dynamodb {
             .await
             .map_err(|e| anyhow!("Failed to query DynamoDB: {}", e))?;
 
-        let project_names: Vec<String> = projects
+        let projects: Vec<Project> = projects
             .items
             .unwrap_or_default()
             .into_iter()
-            .filter_map(|item| {
-                // Just get the name attribute directly
-                item.get("name")
-                    .and_then(|av| av.as_s().ok())
-                    .map(String::from)
-            })
+            .map(|item| item.into())
             .collect();
 
-        Ok(project_names)
+        Ok(projects)
     }
 
     async fn add_workspace_member(
@@ -606,6 +601,24 @@ impl UserStore for Dynamodb {
             .put_item()
             .table_name(&self.table_name)
             .set_item(Some(item))
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    async fn delete_project(&self, project: &Project) -> Result<()> {
+        let mut key = std::collections::HashMap::new();
+        key.insert(
+            String::from("PK"),
+            AV::S(format!("WSP#{}", project.workspace_id)),
+        );
+        key.insert(String::from("SK"), AV::S(format!("PROJ#{}", project.id)));
+
+        self.client
+            .delete_item()
+            .table_name(&self.table_name)
+            .set_key(Some(key))
             .send()
             .await?;
 
