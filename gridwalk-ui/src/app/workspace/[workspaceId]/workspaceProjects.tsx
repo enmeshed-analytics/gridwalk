@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Plus, UserPlus, Users } from "lucide-react";
+import { Plus, UserPlus, Users, ChevronDown } from "lucide-react";
 import { CreateProjectModal } from "./projectModal";
 import { AddWorkspaceMemberModal } from "./addMemberModal";
 import { ViewWorkspaceMemberModal } from "./viewMembersModal";
@@ -24,6 +24,7 @@ export default function WorkspaceProjectsClient({
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [isViewMemberDialogOpen, setIsViewMemberDialogOpen] = useState(false);
+  const [isActionsOpen, setIsActionsOpen] = useState(true);
   const currentWorkspace = workspaces.find((w) => w.id === workspaceId);
 
   const handleCreateProject = async (name: string) => {
@@ -72,39 +73,65 @@ export default function WorkspaceProjectsClient({
   return (
     <div className="w-full min-h-screen bg-gray-50">
       <div className="p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
-          <div className="space-y-2">
+        <div className="relative">
+          {/* Header with workspace name and accordion toggle */}
+          <div className="flex justify-between items-center mb-8">
             <h1 className="sm:text-4xl font-bold">
-              <span className="text-orange-400">Current Workspace:</span>{" "}
+              <span className="text-black">Current Workspace:</span>{" "}
               <span className="text-gray-900">
                 {currentWorkspace?.name || "Loading..."}
               </span>
             </h1>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2">
             <button
-              onClick={() => setIsViewMemberDialogOpen(true)}
-              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full sm:w-auto justify-center sm:justify-start"
+              onClick={() => setIsActionsOpen(!isActionsOpen)}
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors bg-white px-3 py-1.5 rounded-lg shadow-sm"
             >
-              <Users size={20} />
-              View Members
-            </button>
-            <button
-              onClick={() => setIsMemberDialogOpen(true)}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full sm:w-auto justify-center sm:justify-start"
-            >
-              <UserPlus size={20} />
-              Add Member
-            </button>
-            <button
-              onClick={() => setIsProjectDialogOpen(true)}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors w-full sm:w-auto justify-center sm:justify-start"
-            >
-              <Plus size={20} />
-              New Project
+              Settings
+              <div
+                className={`rounded-full p-1 transition-colors duration-200 ${
+                  isActionsOpen ? "bg-green-500" : "bg-black"
+                }`}
+              >
+                <ChevronDown
+                  className={`h-4 w-4 text-white transition-transform duration-200 ${
+                    isActionsOpen ? "transform rotate-180" : ""
+                  }`}
+                />
+              </div>
             </button>
           </div>
+
+          {/* Vertical actions dropdown */}
+          {isActionsOpen && (
+            <div className="absolute right-0 top-12 z-10 bg-white shadow-lg rounded-lg overflow-hidden min-w-[160px]">
+              <div className="flex flex-col">
+                <button
+                  onClick={() => setIsViewMemberDialogOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left"
+                >
+                  <Users size={16} />
+                  View Members
+                </button>
+                <button
+                  onClick={() => setIsMemberDialogOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left"
+                >
+                  <UserPlus size={16} />
+                  Add Member
+                </button>
+                <button
+                  onClick={() => setIsProjectDialogOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left"
+                >
+                  <Plus size={16} />
+                  New Project
+                </button>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Projects grid */}
         <div className="mt-8">
           {projects.length === 0 ? (
             <div className="text-center p-8 text-gray-500">

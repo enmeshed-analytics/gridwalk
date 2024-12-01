@@ -1,7 +1,10 @@
+"use client";
+
 import { useCallback } from "react";
+import { getUploadHeaders } from "../actions/uploadFile";
+import { ChunkInfo, LayerInfo } from "./types";
 
 const CHUNK_SIZE = 15 * 1024 * 1024; // 15MB chunks
-const DEFAULT_WORKSPACE = "d068ebc4-dc32-4929-ac55-869e04bfb269";
 
 interface UploadResponse {
   success: boolean;
@@ -18,52 +21,86 @@ interface UploadResponse {
 }
 
 export const useFileUploader = () => {
-  // Only keep the chunk upload logic
+  const getWorkspaceIdFromUrl = () => {
+    const path = window.location.pathname;
+    const parts = path.split("/");
+    const projectIndex = parts.indexOf("project");
+    if (projectIndex === -1 || !parts[projectIndex + 1]) {
+      throw new Error("Project ID is required but missing from URL");
+    }
+    return parts[projectIndex + 1];
+  };
+
   const uploadFile = useCallback(
     async (
       file: File,
-      workspaceId: string = DEFAULT_WORKSPACE,
+      _workspaceId: string,
       onProgress?: (progress: number) => void,
       onSuccess?: (data: UploadResponse) => void,
       onError?: (error: string) => void,
     ): Promise<void> => {
+      const currentWorkspaceId = getWorkspaceIdFromUrl();
       try {
+        const baseHeaders = await getUploadHeaders();
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
         for (let currentChunk = 0; currentChunk < totalChunks; currentChunk++) {
           const start = currentChunk * CHUNK_SIZE;
           const end = Math.min(start + CHUNK_SIZE, file.size);
           const chunk = file.slice(start, end);
+          const extension = "." + file.name.split(".").pop()?.toLowerCase();
+
+          // Create layer info object matching backend expectations
+          const layerInfo: LayerInfo = {
+            workspace_id: currentWorkspaceId,
+            name: file.name,
+            file_type: file.name.split(".").pop()?.toLowerCase(),
+          };
+
+          // Create chunk info object matching backend expectations
+          const chunkInfo: ChunkInfo = {
+            currentChunk,
+            totalChunks,
+            fileSize: file.size,
+          };
 
           const formData = new FormData();
           formData.append("file", chunk, file.name);
-          formData.append("workspace_id", workspaceId);
-          formData.append("name", file.name);
-          formData.append(
-            "chunk_info",
-            JSON.stringify({
-              currentChunk,
-              totalChunks,
-              fileSize: file.size,
-            }),
-          );
+          formData.append("layer_info", JSON.stringify(layerInfo));
+          formData.append("chunk_info", JSON.stringify(chunkInfo));
 
-          const response = await fetch("/api/upload/layer", {
+          // Headers matching backend expectations
+          const headers = {
+            ...baseHeaders,
+            "X-File-Type": extension,
+            "X-Workspace-Id": currentWorkspaceId,
+            "X-Chunk-Number": currentChunk.toString(),
+            "X-Total-Chunks": totalChunks.toString(),
+            "X-File-Size": file.size.toString(),
+          };
+
+          const response = await fetch("http://localhost:3001/upload_layer", {
             method: "POST",
+            headers,
             body: formData,
           });
 
-          const data = (await response.json()) as UploadResponse;
-
-          if (!response.ok || !data.success) {
-            throw new Error(data.error || `Upload failed: ${response.status}`);
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+              JSON.stringify({
+                error: errorText,
+                chunkInfo,
+                status: response.status,
+              }),
+            );
           }
 
-          // Call progress callback
+          const data = await response.json();
+
           const progress = Math.round(((currentChunk + 1) / totalChunks) * 100);
           onProgress?.(progress);
 
-          // If this was the last chunk
           if (currentChunk === totalChunks - 1) {
             onSuccess?.(data);
           }

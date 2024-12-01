@@ -1,62 +1,62 @@
-'use client'
-import React, { useState, useCallback } from "react"
-import { useMapInit } from "./mapInit"
-import MainMapNavigation from "./navBars/mainMapNavigation"
-import MapEditNavigation from "./navBars/mapEditNavigation"
-import BaseLayerNavigation from "./navBars/baseLayerNavigation"
-import { useFileUploader } from "./hooks/useFileUploader"
-import {
-  MainMapNav,
-  MapEditNav,
-  BaseEditNav,
-} from "./navBars/types"
+"use client";
+import React, { useState, useCallback } from "react";
+import { useMapInit } from "./mapInit";
+import MainMapNavigation from "./navBars/mainMapNavigation";
+import MapEditNavigation from "./navBars/mapEditNavigation";
+import BaseLayerNavigation from "./navBars/baseLayerNavigation";
+import { useFileUploader } from "./hooks/useFileUploader";
+import { MainMapNav, MapEditNav, BaseEditNav } from "./navBars/types";
 
 export interface LayerUpload {
-  id: string
-  name: string
-  type: string
-  visible: boolean
-  workspace_id?: string
+  id: string;
+  name: string;
+  type: string;
+  visible: boolean;
+  workspace_id?: string;
 }
 
 const MAP_STYLES = {
   light: "/OS_VTS_3857_Light.json",
   dark: "/OS_VTS_3857_Dark.json",
   car: "/OS_VTS_3857_Road.json",
-} as const
+} as const;
 
-type MapStyleKey = keyof typeof MAP_STYLES
+type MapStyleKey = keyof typeof MAP_STYLES;
 
 const INITIAL_MAP_CONFIG = {
   center: [-0.1278, 51.5074] as [number, number],
   zoom: 11,
-} as const
+} as const;
 
 interface MapClientProps {
-  apiUrl: string
+  apiUrl: string;
 }
 
 export function MapClient({ apiUrl }: MapClientProps) {
   // UI States
-  const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null)
-  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(null)
-  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditNav | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light)
+  const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
+  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
+    null,
+  );
+  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditNav | null>(
+    null,
+  );
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
 
   // Layer Management States
-  const [layers, setLayers] = useState<LayerUpload[]>([])
-  const [uploadProgress, setUploadProgress] = useState<number>(0)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [layers, setLayers] = useState<LayerUpload[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   // Map Initialization
   const { mapContainer, mapError } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
     apiUrl,
-  })
+  });
 
   // File Upload Hook Integration
   const { uploadFile } = useFileUploader();
@@ -72,7 +72,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
       try {
         await uploadFile(
           file,
-          undefined,
+          "",
           (progress) => {
             setUploadProgress(progress);
           },
@@ -136,6 +136,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
     setSelectedItem(null);
+    setUploadSuccess(false);
   }, []);
 
   return (
@@ -171,5 +172,5 @@ export function MapClient({ apiUrl }: MapClientProps) {
         selectedBaseItem={selectedBaseItem}
       />
     </div>
-  )
+  );
 }

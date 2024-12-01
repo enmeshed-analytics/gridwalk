@@ -14,6 +14,26 @@ import {
 import { ModalProps, MainMapNav } from "./types";
 import { useRouter } from "next/navigation";
 
+const LoadingDots = () => (
+  <div className="flex gap-1">
+    <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_infinite]"></div>
+    <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_0.2s_infinite]"></div>
+    <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_0.4s_infinite]"></div>
+  </div>
+);
+
+const SuccessMessage = () => (
+  <div className="flex items-center bg-green-50 text-green-700 p-3 rounded-md">
+    <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+    <div>
+      <p className="font-medium">Upload successful!</p>
+      <p className="text-sm text-green-600">
+        Your layer has been added to the map
+      </p>
+    </div>
+  </div>
+);
+
 const MapModal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -112,27 +132,22 @@ const MapModal: React.FC<ModalProps> = ({
 
             {/* Status Messages */}
             {isUploading && (
-              <div className="mb-4 text-blue-500 flex items-center">
-                <span className="animate-spin mr-2">⏳</span>
-                Uploading...
+              <div className="flex items-center justify-center space-x-2 text-blue-500 mb-4">
+                <LoadingDots />
+                <span className="ml-2">Uploading file</span>
               </div>
             )}
 
             {error && (
-              <div className="mb-4 text-red-500 flex items-center">
-                ❌ {error}
+              <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
+                <span className="text-red-500 mr-2">❌</span>
+                <span>{error}</span>
               </div>
             )}
 
-            {uploadSuccess && !isUploading && !error && (
-              <div className="mb-4 text-green-500 flex items-center">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                File uploaded successfully!
-              </div>
-            )}
+            {!isUploading && !error && uploadSuccess && <SuccessMessage />}
           </div>
         );
-
       default:
         return (
           <div>
@@ -178,7 +193,7 @@ const MapModal: React.FC<ModalProps> = ({
         <div className="mt-auto mb-6">
           <button
             onClick={() => router.push("/workspace")}
-            className="w-10 h-8 flex items-center justify-center rounded-lg text-white bg-orange-500 hover:text-white group relative"
+            className="w-10 h-8 flex items-center justify-center text-white bg-blue-700 hover:text-white hover:bg-blue-800 group relative"
             aria-label="Back to workspace"
           >
             <ArrowLeft className="w-5 h-5" />
