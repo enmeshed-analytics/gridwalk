@@ -20,9 +20,9 @@ async fn main() -> Result<()> {
 
     // Create DynamoDB client
     let table_name = env::var("DYNAMODB_TABLE").unwrap_or_else(|_| "gridwalk".to_string());
-    let app_db = Dynamodb::new(false, &table_name).await.unwrap();
+    // let app_db = Dynamodb::new(false, &table_name).await.unwrap();
     // FOR LOCAL DB DEV
-    // let app_db = Dynamodb::new(true, &table_name).await.unwrap();
+    let app_db = Dynamodb::new(true, &table_name).await.unwrap();
 
     // Create GeospatialConfig
     let geospatial_config = GeospatialConfig::new();

@@ -8,7 +8,6 @@ import {
   File,
   X,
   Upload,
-  CheckCircle,
   ArrowLeft,
 } from "lucide-react";
 import { ModalProps, MainMapNav } from "./types";
@@ -22,18 +21,6 @@ const LoadingDots = () => (
   </div>
 );
 
-const SuccessMessage = () => (
-  <div className="flex items-center bg-green-50 text-green-700 p-3 rounded-md">
-    <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-    <div>
-      <p className="font-medium">Upload successful!</p>
-      <p className="text-sm text-green-600">
-        Your layer has been added to the map
-      </p>
-    </div>
-  </div>
-);
-
 const MapModal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -42,7 +29,6 @@ const MapModal: React.FC<ModalProps> = ({
   onLayerUpload,
   isUploading,
   error,
-  uploadSuccess,
 }) => {
   const router = useRouter();
 
@@ -144,8 +130,6 @@ const MapModal: React.FC<ModalProps> = ({
                 <span>{error}</span>
               </div>
             )}
-
-            {!isUploading && !error && uploadSuccess && <SuccessMessage />}
           </div>
         );
       default:

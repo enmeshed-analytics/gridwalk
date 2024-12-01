@@ -136,7 +136,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
     setSelectedItem(null);
-    setUploadSuccess(false);
   }, []);
 
   return (
