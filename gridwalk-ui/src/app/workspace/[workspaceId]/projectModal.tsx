@@ -1,6 +1,5 @@
 "use client";
 import React, { useState } from "react";
-import { ApiResponse } from "./types";
 import { CreateProjectModalProps } from "./types";
 
 export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
@@ -16,7 +15,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-
     try {
       await onSubmit(projectName.trim());
       onClose();
@@ -44,13 +42,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             ✕
           </button>
         </div>
-
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
             {error}
           </div>
         )}
-
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label
@@ -71,7 +67,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               required
             />
           </div>
-
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -101,6 +96,100 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   );
 };
 
+interface DeleteProjectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  projectName: string;
+  onConfirm: () => Promise<void>;
+}
+
+export const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
+  isOpen,
+  onClose,
+  projectName,
+  onConfirm,
+}) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await onConfirm();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Delete Project</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-600 p-3 rounded-md mb-4">
+            {error}
+          </div>
+        )}
+
+        <div className="mb-6">
+          <p className="text-gray-700 mb-2">
+            Are you sure you want to delete{" "}
+            <span className="font-semibold">{projectName}</span>?
+          </p>
+          <p className="text-gray-600 text-sm">
+            This action cannot be undone. All project data will be permanently
+            removed.
+          </p>
+        </div>
+
+        <form onSubmit={handleDelete}>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              disabled={isLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <LoadingSpinner />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Project"
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 export const LoadingSpinner: React.FC = () => (
   <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
     <circle
@@ -119,28 +208,3 @@ export const LoadingSpinner: React.FC = () => (
     />
   </svg>
 );
-
-export async function getProjects(workspaceId: string): Promise<string[]> {
-  try {
-    const response = await fetch(
-      `/api/get_projects?workspace_id=${workspaceId}`,
-      {
-        credentials: "include",
-      },
-    );
-    if (!response.ok) {
-      throw new Error("Failed to fetch projects");
-    }
-    const apiResponse = (await response.json()) as ApiResponse;
-
-    if (!Array.isArray(apiResponse.data)) {
-      console.warn("Projects data is not an array:", apiResponse.data);
-      return [];
-    }
-
-    return apiResponse.data;
-  } catch (error) {
-    console.error("Error fetching projects:", error);
-    return [];
-  }
-}

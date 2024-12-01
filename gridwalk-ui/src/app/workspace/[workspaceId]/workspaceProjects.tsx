@@ -1,17 +1,26 @@
 "use client";
 import React, { useState } from "react";
-import { Plus, UserPlus, Users, ChevronDown } from "lucide-react";
-import { CreateProjectModal } from "./projectModal";
+import { Plus, UserPlus, Users, ChevronDown, Trash2 } from "lucide-react";
+import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
 import { AddWorkspaceMemberModal } from "./addMemberModal";
 import { ViewWorkspaceMemberModal } from "./viewMembersModal";
 import { useWorkspaces } from "../workspaceContext";
 import { createProject } from "./actions/projects/create";
+import { deleteProject } from "./actions/projects/delete";
 import { addWorkspaceMember } from "./actions/workspace";
 import { useRouter } from "next/navigation";
 
+interface Project {
+  workspace_id: string;
+  id: string;
+  name: string;
+  uploaded_by: string;
+  created_at: number;
+}
+
 interface WorkspaceProjectsClientProps {
   workspaceId: string;
-  initialProjects: string[];
+  initialProjects: Project[];
 }
 
 export default function WorkspaceProjectsClient({
@@ -20,21 +29,22 @@ export default function WorkspaceProjectsClient({
 }: WorkspaceProjectsClientProps) {
   const router = useRouter();
   const { workspaces } = useWorkspaces();
-  const [projects, setProjects] = useState(initialProjects);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [isViewMemberDialogOpen, setIsViewMemberDialogOpen] = useState(false);
   const [isActionsOpen, setIsActionsOpen] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const currentWorkspace = workspaces.find((w) => w.id === workspaceId);
 
   const handleCreateProject = async (name: string) => {
     try {
-      const newProject = await createProject({
+      await createProject({
         name: name.trim(),
         workspace_id: workspaceId,
       });
-      setProjects((prevProjects) => [...prevProjects, newProject.name]);
       setIsProjectDialogOpen(false);
+      router.refresh();
     } catch (error: unknown) {
       if (error instanceof Error) {
         throw new Error(error.message || "Failed to create project");
@@ -43,11 +53,27 @@ export default function WorkspaceProjectsClient({
     }
   };
 
-  const handleProjectClick = (projectName: string) => {
-    const safeProjectName = encodeURIComponent(
-      projectName.toLowerCase().replace(/\s+/g, "-"),
-    );
-    router.push(`/project/${workspaceId}/${safeProjectName}`);
+  const handleProjectClick = (project: Project) => {
+    router.push(`/project/${project.workspace_id}/${project.id}`);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, project: Project) => {
+    e.stopPropagation();
+    setSelectedProject(project);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedProject) return;
+    try {
+      await deleteProject(selectedProject.workspace_id, selectedProject.id);
+      router.refresh();
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        throw new Error(error.message || "Failed to delete project");
+      }
+      throw new Error("Failed to delete project");
+    }
   };
 
   const handleAddMember = async (email: string, role: "Admin" | "Read") => {
@@ -133,19 +159,26 @@ export default function WorkspaceProjectsClient({
 
         {/* Projects grid */}
         <div className="mt-8">
-          {projects.length === 0 ? (
+          {initialProjects.length === 0 ? (
             <div className="text-center p-8 text-gray-500">
               No projects found. Create your first project!
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {projects.map((project, index) => (
+              {initialProjects.map((project) => (
                 <div
-                  key={index}
+                  key={project.id}
                   onClick={() => handleProjectClick(project)}
-                  className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+                  className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer group relative"
                 >
-                  <h3 className="font-medium text-gray-900">{project}</h3>
+                  <h3 className="font-medium text-gray-900">{project.name}</h3>
+                  <button
+                    onClick={(e) => handleDeleteClick(e, project)}
+                    className="absolute top-2 right-2 p-2 text-gray-400 hover:text-red-500  transition-opacity"
+                    aria-label="Delete project"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -156,6 +189,16 @@ export default function WorkspaceProjectsClient({
           isOpen={isProjectDialogOpen}
           onClose={() => setIsProjectDialogOpen(false)}
           onSubmit={handleCreateProject}
+        />
+
+        <DeleteProjectModal
+          isOpen={isDeleteDialogOpen}
+          onClose={() => {
+            setIsDeleteDialogOpen(false);
+            setSelectedProject(null);
+          }}
+          projectName={selectedProject?.name || ""}
+          onConfirm={handleDeleteConfirm}
         />
 
         <AddWorkspaceMemberModal
