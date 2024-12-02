@@ -1,5 +1,7 @@
+# Get the current date
 DATE := $(shell date +%Y-%m-%d)
 
+# Import commit types from existing configuration
 define COMMIT_TYPES
 feat:     A new feature
 fix:      A bug fix
@@ -16,10 +18,8 @@ endef
 export COMMIT_TYPES
 
 repo-update: git-add git-commit git-push
-
 git-add:
 	git add .
-
 git-commit:
 	@echo "Available commit types:"
 	@echo "$$COMMIT_TYPES" | sed 's/^/  /'
@@ -46,6 +46,55 @@ git-commit:
 		echo "Invalid commit type. Please use one of the available types."; \
 		exit 1; \
 	fi
-
 git-push:
 	git push
+
+
+# New commands for dev environment setup
+.PHONY: dev-env dev-env-kill load-env docker-services backend frontend
+
+# Load environment variables
+load-env:
+	@if [ -f .env ]; then \
+		set -a; \
+		. .env; \
+		set +a; \
+	else \
+		echo "Error: .env file not found"; \
+		exit 1; \
+	fi
+
+# Start Docker services
+docker-services:
+	@echo "Starting Docker services..."
+	docker-compose up -d
+
+# Start backend services
+backend:
+	@echo "Starting backend services..."
+	cd gridwalk-backend && \
+	echo "$$AWS_PASS" | aws-vault exec gridw -- cargo run
+
+# Start frontend services
+frontend:
+	@echo "Starting frontend services..."
+	cd gridwalk-ui && \
+	npm run dev
+
+# Main command to set up development environment
+dev-env:
+	@echo "Setting up development environment..."
+	tmux new-session -d -s gridwalk
+	tmux rename-window -t gridwalk:0 'GRIDWALK DEV ENVIRONMENT'
+	tmux send-keys -t gridwalk:0 'docker-compose up -d' C-m
+	tmux send-keys -t gridwalk:0 'cd gridwalk-ui && npm run dev' C-m
+	tmux split-window -h -t gridwalk:0
+	tmux send-keys -t gridwalk:0.1 'cd gridwalk-backend && echo $$AWS_PASS | aws-vault exec gridw -- cargo run' C-m
+	tmux select-window -t gridwalk:0
+	tmux attach-session -t gridwalk
+
+# Kill the development environment
+dev-env-kill:
+	@echo "Shutting down development environment..."
+	tmux kill-session -t gridwalk 2>/dev/null || true
+	docker-compose down
