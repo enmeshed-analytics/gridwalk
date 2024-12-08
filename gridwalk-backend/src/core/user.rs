@@ -83,4 +83,25 @@ impl User {
             hash: password_hash,
         }
     }
+
+    pub async fn update_password(
+        &mut self,
+        database: &Arc<dyn Database>,
+        new_password: &str,
+    ) -> Result<()> {
+        let new_hash = hash_password(new_password)?;
+        self.hash = new_hash;
+        database.update_user_password(self).await
+    }
+
+    pub async fn reset_password(
+        database: &Arc<dyn Database>,
+        email: &str,
+        new_password: &str,
+    ) -> Result<User> {
+        let mut user = Self::from_email(database, email).await?;
+        user.update_password(database, new_password).await?;
+
+        Ok(user)
+    }
 }

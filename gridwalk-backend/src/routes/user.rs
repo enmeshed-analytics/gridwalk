@@ -122,3 +122,54 @@ pub async fn profile(
         None => Err((StatusCode::FORBIDDEN, "unauthorized".to_string())),
     }
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ResetPasswordRequest {
+    email: String,
+    new_password: String,
+}
+
+pub async fn reset_password(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Json(req): Json<ResetPasswordRequest>,
+) -> impl IntoResponse {
+    // Ensure user is authenticated
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "error": "Authentication required"
+                })),
+            )
+        }
+    };
+
+    // Only allow users to reset their own password
+    if user.email != req.email {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": "Can only reset your own password"
+            })),
+        );
+    }
+
+    // Use the static method to handle the update
+    match User::reset_password(&state.app_data, &req.email, &req.new_password).await {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({
+                "message": "Password updated successfully"
+            })),
+        ),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": "Failed to update password"
+            })),
+        ),
+    }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Lock, Mail, User } from "lucide-react";
+import { Lock, Mail, User, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
@@ -22,9 +22,16 @@ interface AuthFormData {
   last_name?: string;
 }
 
+const resetPasswordAction = async (email: string): Promise<void> => {
+  // TODO: Implement password reset logic
+  console.log("Password reset requested for:", email);
+  throw new Error("Password reset not yet implemented");
+};
+
 export default function AuthForm(): JSX.Element {
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [formData, setFormData] = useState<AuthFormData>({
     email: "",
     password: "",
@@ -33,6 +40,8 @@ export default function AuthForm(): JSX.Element {
   });
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [isResetSuccess, setIsResetSuccess] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
@@ -75,6 +84,26 @@ export default function AuthForm(): JSX.Element {
     }
   };
 
+  const handleResetPassword = async (
+    e: React.FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
+    e.preventDefault();
+    if (!resetEmail) {
+      setError("Please enter your email address");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      await resetPasswordAction(resetEmail);
+      setIsResetSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     setError("");
@@ -85,6 +114,77 @@ export default function AuthForm(): JSX.Element {
       last_name: "",
     });
   };
+
+  const handleBackToLogin = () => {
+    setShowForgotPassword(false);
+    setIsResetSuccess(false);
+    setResetEmail("");
+    setError("");
+  };
+
+  if (showForgotPassword) {
+    return (
+      <Card className="w-full backdrop-blur-sm bg-gray-300/20">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl text-center">Reset Password</CardTitle>
+          <CardDescription className="text-center">
+            Enter your email address and we will send you a reset link
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isResetSuccess ? (
+            <div className="space-y-4">
+              <Alert className="bg-green-50 text-green-800 border-green-200">
+                <AlertDescription>
+                  If an account exists with this email, you will receive a
+                  password reset link shortly. Please check your email - and
+                  junk folder.
+                </AlertDescription>
+              </Alert>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleBackToLogin}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Login
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              {error && (
+                <Alert variant="destructive" className="text-red-600 mb-4">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    className="pl-10"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Sending reset link..." : "Send reset link"}
+              </Button>
+              <Button
+                variant="link"
+                className="w-full"
+                onClick={handleBackToLogin}
+              >
+                Back to Login
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full backdrop-blur-sm bg-gray-300/20">
@@ -174,7 +274,12 @@ export default function AuthForm(): JSX.Element {
                 />
                 <span className="text-sm">Remember me</span>
               </label>
-              <Button variant="link" className="text-sm">
+              <Button
+                variant="link"
+                className="text-sm"
+                onClick={() => setShowForgotPassword(true)}
+                type="button"
+              >
                 Forgot password?
               </Button>
             </div>

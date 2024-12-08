@@ -37,6 +37,7 @@ pub trait UserStore: Send + Sync + 'static {
     async fn get_workspaces(&self, user: &User) -> Result<Vec<String>>;
     async fn get_projects(&self, workspace_id: &str) -> Result<Vec<Project>>;
     async fn delete_project(&self, project: &Project) -> Result<()>;
+    async fn update_user_password(&self, user: &User) -> Result<()>;
 }
 
 #[async_trait]

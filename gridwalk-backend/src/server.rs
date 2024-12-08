@@ -4,7 +4,7 @@ use crate::routes::{
     add_workspace_member, create_connection, create_project, create_workspace, delete_connection,
     delete_project, generate_os_token, get_projects, get_workspace_members, get_workspaces,
     health_check, list_connections, list_sources, login, logout, profile, register,
-    remove_workspace_member, tiles, upload_layer,
+    remove_workspace_member, reset_password, tiles, upload_layer,
 };
 use axum::{
     extract::DefaultBodyLimit,
@@ -34,6 +34,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/workspaces", get(get_workspaces))
         .route("/logout", post(logout))
         .route("/profile", get(profile))
+        .route("/password_reset", post(reset_password))
         .route("/workspace", post(create_workspace))
         .route("/workspace/members", post(add_workspace_member))
         .route(

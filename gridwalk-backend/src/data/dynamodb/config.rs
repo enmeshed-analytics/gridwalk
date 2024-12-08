@@ -199,6 +199,25 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
+    async fn update_user_password(&self, user: &User) -> Result<()> {
+        // Create update expression for the USER item
+        let key = format!("USER#{}", user.id);
+
+        self.client
+            .update_item()
+            .table_name(&self.table_name)
+            .key("PK", AV::S(key.clone()))
+            .key("SK", AV::S(key))
+            .update_expression("SET #hash = :hash")
+            .expression_attribute_names("#hash", "hash")
+            .expression_attribute_values(":hash", AV::S(user.hash.clone()))
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to update password: {}", e))?;
+
+        Ok(())
+    }
+
     async fn get_user_by_email(&self, email: &str) -> Result<User> {
         let email_key = format!("EMAIL#{email}");
         match self

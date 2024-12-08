@@ -50,43 +50,47 @@ git-push:
 	git push
 
 
-# New commands for dev environment setup
 .PHONY: dev-env dev-env-kill load-env docker-services backend frontend
 
-# Load environment variables
+# Export all variables
+export
+
+# Load environment variables and export them
 load-env:
 	@if [ -f .env ]; then \
 		set -a; \
 		. .env; \
 		set +a; \
+		$(eval include .env) \
+		$(eval export $(shell sed 's/=.*//' .env)) \
 	else \
 		echo "Error: .env file not found"; \
 		exit 1; \
 	fi
 
 # Start Docker services
-docker-services:
+docker-services: load-env
 	@echo "Starting Docker services..."
 	docker-compose up -d
 
 # Start backend services
-backend:
+backend: load-env
 	@echo "Starting backend services..."
 	cd gridwalk-backend && \
-	echo "$$AWS_PASS" | aws-vault exec gridw -- cargo run
+	aws-vault exec gridw -- cargo run
 
 # Start frontend services
-frontend:
+frontend: load-env
 	@echo "Starting frontend services..."
 	cd gridwalk-ui && \
 	npm run dev
 
 # Main command to set up development environment
-dev-env:
+dev-env: load-env
 	@echo "Setting up development environment..."
 	tmux new-session -d -s gridwalk
 	tmux rename-window -t gridwalk:0 'GRIDWALK DEV ENVIRONMENT'
-	tmux send-keys -t gridwalk:0 'docker-compose up -d' C-m
+	tmux send-keys -t gridwalk:0 'make docker-services' C-m
 	tmux send-keys -t gridwalk:0 'cd gridwalk-ui && npm run dev' C-m
 	tmux split-window -h -t gridwalk:0
 	tmux send-keys -t gridwalk:0.1 'cd gridwalk-backend && echo $$AWS_PASS | aws-vault exec gridw -- cargo run' C-m
