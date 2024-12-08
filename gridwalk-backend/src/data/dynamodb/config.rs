@@ -418,6 +418,8 @@ impl UserStore for Dynamodb {
             return Ok(vec![]);
         }
 
+        println!("{:?}", member_items);
+
         // Extract user IDs and create batch get request
         let keys: Vec<HashMap<String, AV>> = member_items
             .iter()
@@ -484,6 +486,8 @@ impl UserStore for Dynamodb {
                 Some(item.into())
             })
             .collect();
+
+        println!("{:?}", members);
 
         Ok(members)
     }

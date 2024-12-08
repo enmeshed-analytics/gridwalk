@@ -1,5 +1,5 @@
 use crate::auth::AuthUser;
-use crate::core::{Profile, User, Workspace, WorkspaceRole};
+use crate::core::{User, Workspace, WorkspaceRole};
 use crate::{app_state::AppState, core::get_unix_timestamp};
 use axum::{
     extract::{Extension, Path, State},
@@ -141,7 +141,7 @@ pub async fn get_workspace_members(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     Path(workspace_id): Path<String>,
-) -> Response {
+) -> impl IntoResponse {
     if let Some(req_user) = auth_user.user {
         // Get the workspace
         let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
@@ -158,30 +158,29 @@ pub async fn get_workspace_members(
             // Get all members and transform to simplified response
             match workspace.get_members(&state.app_data).await {
                 Ok(members) => {
-                    let users: Vec<Result<User, _>> = futures::stream::iter(members)
+                    let users: Vec<SimpleMemberResponse> = futures::stream::iter(members)
                         .then(|m| {
                             let state_clone = state.clone();
-                            async move { User::from_id(&state_clone.app_data, &m.user_id).await }
+                            async move {
+                                if let Ok(user) =
+                                    User::from_id(&state_clone.app_data, &m.user_id).await
+                                {
+                                    SimpleMemberResponse {
+                                        role: m.role,
+                                        email: user.email,
+                                    }
+                                } else {
+                                    SimpleMemberResponse {
+                                        role: m.role,
+                                        email: "Uknown".to_string(),
+                                    }
+                                }
+                            }
                         })
                         .collect()
                         .await;
-                    match users.into_iter().collect::<Result<Vec<User>, _>>() {
-                        Ok(users) => {
-                            let profiles = users
-                                .into_iter()
-                                .map(Profile::from)
-                                .collect::<Vec<Profile>>();
-                            Json(profiles).into_response()
-                        }
-                        Err(_) => {
-                            let error = ErrorResponse {
-                                error: "Failed to fetch some user details".to_string(),
-                            };
-                            Json(error).into_response()
-                        }
-                    }
 
-                    //Json(users).into_response()
+                    Json(users).into_response()
                 }
                 Err(_) => {
                     let error = ErrorResponse {
