@@ -70,7 +70,7 @@ pub async fn create_workspace(
                     .app_data
                     .add_workspace_member(&wsp, &owner, WorkspaceRole::Admin, now)
                     .await;
-                "workspace created".into_response()
+                "workspace created successfully".into_response()
             }
             Err(_) => "workspace not created".into_response(),
         }
@@ -97,13 +97,13 @@ pub async fn add_workspace_member(
             Err(_) => return "workspace not found".into_response(),
         };
 
-        // Attempt to add member (role is already parsed since you use WorkspaceRole in ReqAddWorkspaceMember)
+        // Add memeber workspace
         match workspace
             .add_member(&state.app_data, &req_user, &user_to_add, req.role)
             .await
         {
-            Ok(_) => "member added".into_response(),
-            Err(_) => "failed to add member".into_response(),
+            Ok(_) => "member added to workspace successfully".into_response(),
+            Err(_) => "failed to add member to workspace".into_response(),
         }
     } else {
         "unauthorized".into_response()
@@ -128,6 +128,7 @@ pub async fn remove_workspace_member(
             Err(_) => return "user not found".into_response(),
         };
 
+        // Remove workspace member
         match wsp.remove_member(&state.app_data, &req_user, &user).await {
             Ok(_) => "removed workspace member".into_response(),
             Err(_) => "failed to remove member".into_response(),
@@ -154,6 +155,7 @@ pub async fn get_workspace_members(
             }
         };
 
+        //
         if let Ok(_member) = workspace.get_member(&state.app_data, &req_user).await {
             // Get all members and transform to simplified response
             match workspace.get_members(&state.app_data).await {

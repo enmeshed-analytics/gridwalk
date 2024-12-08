@@ -154,6 +154,7 @@ impl WorkspaceMember {
         Ok(database
             .get_workspace_member(workspace, user)
             .await
+            // TODO: Fix unwrap
             .unwrap())
     }
 

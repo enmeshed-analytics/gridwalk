@@ -418,8 +418,6 @@ impl UserStore for Dynamodb {
             return Ok(vec![]);
         }
 
-        println!("{:?}", member_items);
-
         // Extract user IDs and create batch get request
         let keys: Vec<HashMap<String, AV>> = member_items
             .iter()
@@ -477,17 +475,9 @@ impl UserStore for Dynamodb {
                 if !item.contains_key("role") {
                     item.insert("role".to_string(), AV::S("member".to_string()));
                 }
-
-                // The conversion will use:
-                // - PK (already contains WSP#<id>)
-                // - SK (already contains USER#<id>)
-                // - role (we just ensured exists)
-                // - email (we just added)
                 Some(item.into())
             })
             .collect();
-
-        println!("{:?}", members);
 
         Ok(members)
     }
