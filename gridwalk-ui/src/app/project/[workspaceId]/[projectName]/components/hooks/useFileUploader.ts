@@ -43,6 +43,7 @@ export const useFileUploader = () => {
       try {
         const baseHeaders = await getUploadHeaders();
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        let finalResponse = null;
 
         for (let currentChunk = 0; currentChunk < totalChunks; currentChunk++) {
           const start = currentChunk * CHUNK_SIZE;
@@ -102,9 +103,18 @@ export const useFileUploader = () => {
           onProgress?.(progress);
 
           if (currentChunk === totalChunks - 1) {
-            onSuccess?.(data);
+            finalResponse = data;
           }
         }
+
+        if (finalResponse) {
+          console.log("Upload completed, calling success callback", finalResponse);
+          onSuccess?.({
+            success: true,
+            data: finalResponse
+          });
+        }
+
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error";

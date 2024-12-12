@@ -51,7 +51,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  // Map Initialization
+  // Map Initialisation
   const { mapContainer, mapError } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
@@ -88,7 +88,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
                   workspace_id: response.data!.workspace_id,
                 },
               ]);
+
               setUploadSuccess(true);
+              setIsUploading(false);
+
+              setTimeout(() => {
+                setUploadSuccess(false);
+              }, 1000);
             }
           },
           (error) => {
@@ -136,6 +142,8 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
     setSelectedItem(null);
+    setUploadSuccess(false); 
+    setUploadError(null);     
   }, []);
 
   return (

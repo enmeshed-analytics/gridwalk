@@ -64,16 +64,19 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
   return (
     <div className="space-y-2">
       <div className="px-4 py-2">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-xl font-semibold">Workspaces</h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCreateModalOpen(true)}
-            className="hover:bg-blue-500 hover:text-white"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+        <div className="flex flex-col gap-3">
+          <h2 className="text-gray-600 font-semibold italic">GridWalk</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Workspaces</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="hover:bg-blue-500 hover:text-white"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}

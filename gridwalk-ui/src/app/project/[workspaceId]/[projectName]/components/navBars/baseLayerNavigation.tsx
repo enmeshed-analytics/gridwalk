@@ -52,7 +52,7 @@ const BaseLayerNav: React.FC<BaseLayerNavProps> = ({
               ${
                 selectedBaseItem?.id === item.id
                   ? getSelectedStyle(item.id)
-                  : "text-white hover:bg-gray-700"
+                  : "text-white hover:bg-blue-400"
               }
             `}
             title={item.title}
@@ -69,7 +69,7 @@ const BaseLayerNav: React.FC<BaseLayerNavProps> = ({
 const getSelectedStyle = (id: string) => {
   switch (id) {
     case "light":
-      return "bg-blue-400 text-white"; // Light blue
+      return "bg-yellow-500 text-white"; // Light yellow
     case "dark":
       return "bg-blue-800 text-white"; // Dark blue
     case "car":

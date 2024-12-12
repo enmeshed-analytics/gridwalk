@@ -1,12 +1,14 @@
-"use client";
-import { FolderKanban, Plus } from "lucide-react";
+'use client'
+import React, { useState } from "react";
+import { FolderKanban, Plus, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { CreateWorkspaceModal } from "./modal";
 import { createWorkspace } from "./actions";
+import { HelpSupportModal } from "./supportModal";
 
 export default function WorkspacePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHelpSupportModalOpen, setIsHelpSupportModalOpen] = useState(false);
 
   const handleCreateWorkspace = async (name: string) => {
     await createWorkspace(name);
@@ -19,7 +21,7 @@ export default function WorkspacePage() {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                Workspaces
+                GridWalk Workspaces
               </h1>
             </div>
             <p className="text-gray-600 text-lg">
@@ -27,7 +29,7 @@ export default function WorkspacePage() {
             </p>
           </div>
           <Button
-            className="w-full sm:w-auto bg-background text-gray-300 hover:bg-blue-600 hover:text-white"
+            className="w-full sm:w-auto bg-background text-white hover:bg-blue-600 hover:text-white"
             size="lg"
             onClick={() => setIsModalOpen(true)}
           >
@@ -35,12 +37,6 @@ export default function WorkspacePage() {
             Create Workspace
           </Button>
         </div>
-
-        <CreateWorkspaceModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onCreate={handleCreateWorkspace}
-        />
 
         <div className="mt-8 flex flex-col items-center justify-center min-h-[400px] bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
           <div className="flex flex-col items-center text-center max-w-md">
@@ -58,6 +54,28 @@ export default function WorkspacePage() {
           </div>
         </div>
       </div>
+
+      {/* Help Button - Fixed to bottom right */}
+      <div className="fixed bottom-0 right-0 p-6">
+        <button
+          onClick={() => setIsHelpSupportModalOpen(true)}
+          className="bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group p-4"
+          aria-label="Help and Support"
+        >
+          <HelpCircle className="w-6 h-6 text-blue-500 group-hover:text-blue-600" />
+        </button>
+      </div>
+
+      {/* Modals */}
+      <CreateWorkspaceModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCreate={handleCreateWorkspace}
+      />
+      <HelpSupportModal
+        isOpen={isHelpSupportModalOpen}
+        onClose={() => setIsHelpSupportModalOpen(false)}
+      />
     </div>
   );
 }

@@ -33,7 +33,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/workspace", post(create_workspace))
         .route("/workspace/members", post(add_workspace_member))
         .route(
-            "/workspacei/:workspace_id/members",
+            "/workspace/:workspace_id/members",
             get(get_workspace_members),
         )
         .route(

@@ -1,14 +1,12 @@
 "use client";
 import React from "react";
 import {
-  Map,
   Layers,
-  Settings,
-  Info,
   File,
   X,
   Upload,
   ArrowLeft,
+  CheckCircle2
 } from "lucide-react";
 import { ModalProps, MainMapNav } from "./types";
 import { useRouter } from "next/navigation";
@@ -29,21 +27,27 @@ const MapModal: React.FC<ModalProps> = ({
   onLayerUpload,
   isUploading,
   error,
+  uploadSuccess,
+  uploadProgress
 }) => {
   const router = useRouter();
 
+    // Add a key state that changes when upload is successful
+  const [uploadKey, setUploadKey] = React.useState(0);
+
+    // Reset the key when upload is successful
+  React.useEffect(() => {
+    if (uploadSuccess) {
+      setUploadKey(prev => prev + 1);
+    }
+  }, [uploadSuccess]);
+
   const MainMapNavs: MainMapNav[] = [
-    {
-      id: "map",
-      title: "Map Settings",
-      icon: "map",
-      description: "Configure map display options",
-    },
     {
       id: "layers",
       title: "Layers",
       icon: "layers",
-      description: "Manage map layers",
+      description: "Visualise map layers",
     },
     {
       id: "upload",
@@ -51,18 +55,6 @@ const MapModal: React.FC<ModalProps> = ({
       icon: "file",
       description:
         "Upload files and add a layer to the map. Currently accepts .geojson, .json, and .gpkg files.",
-    },
-    {
-      id: "settings",
-      title: "Settings",
-      icon: "settings",
-      description: "Application settings",
-    },
-    {
-      id: "about",
-      title: "About",
-      icon: "info",
-      description: "About this application",
     },
   ];
 
@@ -75,16 +67,10 @@ const MapModal: React.FC<ModalProps> = ({
 
   const getIconComponent = (iconName: string) => {
     switch (iconName) {
-      case "map":
-        return <Map className="w-5 h-5" />;
       case "layers":
         return <Layers className="w-5 h-5" />;
       case "file":
         return <File className="w-5 h-5" />;
-      case "settings":
-        return <Settings className="w-5 h-5" />;
-      case "info":
-        return <Info className="w-5 h-5" />;
       default:
         return null;
     }
@@ -101,7 +87,10 @@ const MapModal: React.FC<ModalProps> = ({
 
             {/* Upload Section */}
             <div className="mb-6">
-              <label className="flex flex-col items-center px-4 py-6 bg-white rounded-lg shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors">
+            <label 
+                key={uploadKey}
+                className="flex flex-col items-center px-4 py-6 bg-white rounded-lg shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors"
+              >
                 <Upload className="w-8 h-8 text-gray-400 mb-2" />
                 <span className="text-sm text-gray-500">
                   Click to upload a file
@@ -116,11 +105,17 @@ const MapModal: React.FC<ModalProps> = ({
               </label>
             </div>
 
-            {/* Status Messages */}
             {isUploading && (
               <div className="flex items-center justify-center space-x-2 text-blue-500 mb-4">
                 <LoadingDots />
-                <span className="ml-2">Uploading file</span>
+                <span className="ml-2">Uploading file ({uploadProgress}%)</span>
+              </div>
+            )}
+
+            {uploadSuccess && !isUploading && (
+              <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center">
+                <CheckCircle2 className="w-5 h-5 text-green-500 mr-2" />
+                <span>File uploaded successfully!</span>
               </div>
             )}
 
@@ -177,7 +172,7 @@ const MapModal: React.FC<ModalProps> = ({
         <div className="mt-auto mb-6">
           <button
             onClick={() => router.push("/workspace")}
-            className="w-10 h-8 flex items-center justify-center text-white bg-blue-700 hover:text-white hover:bg-blue-800 group relative"
+            className="w-10 h-8 flex items-center justify-center text-white bg-blue-400 hover:text-white hover:bg-blue-500 group relative"
             aria-label="Back to workspace"
           >
             <ArrowLeft className="w-5 h-5" />

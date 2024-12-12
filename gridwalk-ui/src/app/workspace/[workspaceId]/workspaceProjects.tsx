@@ -1,7 +1,8 @@
 "use client";
 import React, { useState } from "react";
-import { Plus, UserPlus, Users, ChevronDown, Trash2 } from "lucide-react";
+import { Plus, UserPlus, Users, ChevronDown, Trash2, HelpCircle } from "lucide-react";
 import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
+import { HelpSupportModal } from "../supportModal";
 import { AddWorkspaceMemberModal } from "./addMemberModal";
 import { ViewWorkspaceMemberModal } from "./viewMembersModal";
 import { useWorkspaces } from "../workspaceContext";
@@ -31,6 +32,7 @@ export default function WorkspaceProjectsClient({
   const { workspaces } = useWorkspaces();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isHelpSupportModalOpen, setIsHelpSupportModalOpen] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [isViewMemberDialogOpen, setIsViewMemberDialogOpen] = useState(false);
   const [isActionsOpen, setIsActionsOpen] = useState(true);
@@ -164,7 +166,7 @@ export default function WorkspaceProjectsClient({
               No projects found. Create your first project!
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 max-w-[800px]">
               {initialProjects.map((project) => (
                 <div
                   key={project.id}
@@ -185,6 +187,18 @@ export default function WorkspaceProjectsClient({
           )}
         </div>
 
+        {/* Help Button */}
+        <div className="fixed bottom-0 right-0 p-6">
+        <button
+          onClick={() => setIsHelpSupportModalOpen(true)}
+          className="bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group p-4"
+          aria-label="Help and Support"
+        >
+          <HelpCircle className="w-6 h-6 text-blue-500 group-hover:text-blue-600" />
+        </button>
+        </div>
+
+        {/* Modals */}
         <CreateProjectModal
           isOpen={isProjectDialogOpen}
           onClose={() => setIsProjectDialogOpen(false)}
@@ -211,6 +225,11 @@ export default function WorkspaceProjectsClient({
           isOpen={isViewMemberDialogOpen}
           onClose={() => setIsViewMemberDialogOpen(false)}
           workspaceId={workspaceId}
+        />
+
+        <HelpSupportModal
+          isOpen={isHelpSupportModalOpen}
+          onClose={() => setIsHelpSupportModalOpen(false)}
         />
       </div>
     </div>

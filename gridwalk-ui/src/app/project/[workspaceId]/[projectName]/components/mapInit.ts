@@ -30,6 +30,7 @@ export interface UseMapInitResult {
   mapError: string | null;
 }
 
+// Fetch api tokens in order to load OS maps
 const getToken = (apiUrl: string): TokenData => {
   const xhr = new XMLHttpRequest()
   xhr.open("GET", `${apiUrl}/os-token`, false)
