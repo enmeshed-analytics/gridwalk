@@ -1,5 +1,6 @@
 use crate::core::{
-    Connection, CreateUser, Email, Layer, Project, User, Workspace, WorkspaceMember, WorkspaceRole,
+    Connection, ConnectionAccess, CreateUser, Email, GlobalRole, Layer, Project, User, Workspace,
+    WorkspaceMember, WorkspaceRole,
 };
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
@@ -146,6 +147,7 @@ impl Dynamodb {
                     email: String::from("test@example.com"),
                     first_name: String::from("Admin"),
                     last_name: String::from("Istrator"),
+                    global_role: Some(GlobalRole::Super),
                     password: String::from("admin"),
                 };
                 User::create(&dynamodb, &admin_user).await?;
@@ -175,6 +177,10 @@ impl UserStore for Dynamodb {
             AV::N(user.created_at.to_string()),
         );
         item.insert(String::from("hash"), AV::S(user.hash.clone()));
+
+        if let Some(global_role) = &user.global_role {
+            item.insert(String::from("global_role"), AV::S(global_role.to_string()));
+        }
 
         self.client
             .put_item()
@@ -498,13 +504,9 @@ impl UserStore for Dynamodb {
         // Create the connection item to insert
         let mut item = std::collections::HashMap::new();
 
-        item.insert(
-            String::from("PK"),
-            AV::S(format!("WSP#{}", con.clone().workspace_id)),
-        );
+        item.insert(String::from("PK"), AV::S(format!("CON#{}", con.clone().id)));
         item.insert(String::from("SK"), AV::S(format!("CON#{}", con.clone().id)));
         item.insert(String::from("name"), AV::S(con.clone().name));
-        item.insert(String::from("created_by"), AV::S(con.clone().created_by));
         item.insert(
             String::from("connector_type"),
             AV::S(con.clone().connector_type),
@@ -523,9 +525,6 @@ impl UserStore for Dynamodb {
             String::from("pg_password"),
             AV::S(con.clone().config.password),
         );
-        if let Some(schema) = &con.config.schema {
-            item.insert(String::from("pg_schema"), AV::S(schema.to_string()));
-        }
 
         self.client
             .put_item()
@@ -537,12 +536,8 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
-    async fn get_workspace_connection(
-        &self,
-        workspace_id: &str,
-        connection_id: &str,
-    ) -> Result<Connection> {
-        let pk = format!("WSP#{workspace_id}");
+    async fn get_connection(&self, connection_id: &str) -> Result<Connection> {
+        let pk = format!("CON#{connection_id}");
         let sk = format!("CON#{connection_id}");
         match self
             .client
@@ -554,42 +549,62 @@ impl UserStore for Dynamodb {
             .await
         {
             Ok(response) => Ok(response.item.unwrap().into()),
-            Err(_e) => Err(anyhow!("workspace not found")),
+            Err(_e) => Err(anyhow!("connection not found")),
         }
     }
-    async fn get_workspace_connections(&self, workspace_id: &str) -> Result<Vec<Connection>> {
-        let pk = format!("WSP#{}", workspace_id);
 
-        let query_output = self
+    async fn create_connection_access(&self, ca: &ConnectionAccess) -> Result<()> {
+        // Create the connection item to insert
+        let mut item = std::collections::HashMap::new();
+        let sk = format!(
+            "CONACC#{}#{}:{}",
+            ca.clone().connection_id,
+            ca.access_config.path(),
+            ca.access_config.variant_name(),
+        );
+
+        item.insert(
+            String::from("PK"),
+            AV::S(format!("WSP#{}", ca.clone().workspace_id)),
+        );
+        item.insert(String::from("SK"), AV::S(sk));
+        item.insert(
+            String::from("source_workspace"),
+            AV::S(ca.clone().workspace_id),
+        );
+
+        self.client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item))
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    async fn get_accessible_connections(&self, wsp: &Workspace) -> Result<Vec<ConnectionAccess>> {
+        let pk = format!("WSP#{}", wsp.id);
+        let sk_prefix = "CONACC#";
+
+        let accessible_connections = self
             .client
             .query()
             .table_name(&self.table_name)
             .key_condition_expression("PK = :pk AND begins_with(SK, :sk_prefix)")
             .expression_attribute_values(":pk", AV::S(pk))
-            .expression_attribute_values(":sk_prefix", AV::S("CON#".to_string()))
+            .expression_attribute_values(":sk_prefix", AV::S(sk_prefix.to_string()))
             .send()
             .await?;
 
-        match query_output.items {
-            Some(items) => {
-                let connections: Vec<Connection> =
-                    items.into_iter().map(|item| item.into()).collect();
-                Ok(connections)
-            }
-            None => Ok(vec![]),
-        }
-    }
+        let connections: Vec<ConnectionAccess> = accessible_connections
+            .items
+            .unwrap_or_default()
+            .into_iter()
+            .map(|item| item.into())
+            .collect();
 
-    async fn delete_workspace_connection(&self, con: &Connection) -> Result<()> {
-        self.client
-            .delete_item()
-            .table_name(&self.table_name)
-            .key("PK", AV::S(format!("WSP#{}", con.workspace_id)))
-            .key("SK", AV::S(format!("CON#{}", con.id)))
-            .send()
-            .await?;
-
-        Ok(())
+        Ok(connections)
     }
 
     async fn create_layer(&self, layer: &Layer) -> Result<()> {

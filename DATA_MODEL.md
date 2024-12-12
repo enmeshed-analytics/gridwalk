@@ -3,13 +3,21 @@
 This is the data model used for the Gridwalk application. Currently, only DynamoDB is supported, with plans to add support for other databases in the future.
 
 ## DynamoDB (Single Table)
-| PK | SK | Attributes | GSIs |
-|---|---|---|---|
-| USER#<user_id> | USER#<user_id> | user_name<br>created_at<br>primary_email | |
-| EMAIL#<email_address> | EMAIL#<email_address> | user_id | |
-| WSP#<workspace_id> | WSP#<workspace_id> | workspace_name<br>workspace_owner<br>created_at | GSI_WORKSPACE_BY_NAME<br>workspace_name: <workspace_name> |
-| WSP#<workspace_id> | USER#<user_id> | user_role<br>joined_at<br>user_id | GSI_USER_ID<br>user_id: <user_id> |
-| WSP#<workspace_id> | CON#<connection_id> | name<br>connector_type<br>created_by<br>pg_host<br>pg_port<br>pg_db<br>pg_username<br>pg_password | |
-| WSP#<workspace_id> | LAYER#<layer_name> | name<br>connection_id<br>uploaded_by<br>created_at | |
-| WSP#<workspace_id> | PROJ#<project_id> | name<br>owner<br>created_at | |
-| SESSION#<session_id> | SESSION#<session_id> | user_id<br>created_at | GSI_USER<br>user_id: <user_id> |
+
+| Entity            | PK            | SK                              | user_id | wsp_id | con_id  | Attributes                             |
+|-------------------|---------------|---------------------------------|---------|--------|---------|----------------------------------------|
+| User              | USER#{id}     | USER#{id}                       |         |        |         | created_at, active                     |
+| User Global Role  | USER#{id}     | ROLE#[SUPER/SUPPORT/READ]       |         |        |         |                                        |
+| Email             | EMAIL#{email} | EMAIL#{email}                   | &check; |        |         | [primary, secondary]                   |
+| Session           | SESSION#{id}  | SESSION#{id}                    | &check; |        |         | created_at, login_ip                   |
+|                   |               |                                 |         |        |         |                                        |
+| Connection        | CON#{id/name} | CON#{id/name}                   |         |        |         | name, connector_type, connector_config |
+| Connection Access | WSP#{id}      | CONACC#{id/name}#{wsp_id}:level |         |        | &check; |                                        |
+|                   |               |                                 |         |        |         |                                        |
+| Workspace         | WSP#{id}      | WSP#{id}                        |         |        |         | name, owner, created_at, active        |
+| Workspace Member  | WSP#{id}      | USER#{id}                       | &check; |        |         | role, joined_at                        |
+| Layer             | WSP#{id}      | LAYER#{layer_name}              |         |        | &check; | created_by, created_at                 |
+| Project           | WSP#{id}      | PROJ#{id}                       |         |        |         | name, owner, created_at                |
+
+## Notes
+ - The Connection entity may have an ID or a name. A Connection with a name is used for global connectors created by the system administrators. A Connection with an ID is used for user-created connectors.

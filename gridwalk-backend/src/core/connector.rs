@@ -9,13 +9,13 @@ use tokio_postgres::NoTls;
 
 use crate::data::Database;
 
+use super::Workspace;
+
 // TODO: Switch connector_type/postgis_uri to enum to support other connectors
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Connection {
     pub id: String,
-    pub workspace_id: String,
     pub name: String,
-    pub created_by: String,
     pub connector_type: String,
     pub config: PostgresConnection,
 }
@@ -26,27 +26,68 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn from_id(
-        database: &Arc<dyn Database>,
-        workspace_id: &str,
-        connection_id: &str,
-    ) -> Result<Self> {
-        let con = database
-            .get_workspace_connection(workspace_id, connection_id)
-            .await?;
+    pub async fn from_name(database: &Arc<dyn Database>, connection_name: &str) -> Result<Self> {
+        let con = database.get_connection(connection_name).await?;
         Ok(con)
+    }
+
+    //pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
+    //    database.delete_workspace_connection(self).await
+    //}
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ConnectionAccess {
+    pub connection_id: String,
+    pub workspace_id: String,
+    pub access_config: ConnectionAccessConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum ConnectionAccessConfig {
+    Admin(String),
+    ReadWrite(String),
+    ReadOnly(String),
+}
+
+impl ConnectionAccessConfig {
+    pub fn from_str(variant: &str, path: String) -> Result<Self, String> {
+        match variant.to_lowercase().as_str() {
+            "admin" => Ok(ConnectionAccessConfig::Admin(path)),
+            "readwrite" | "read_write" => Ok(ConnectionAccessConfig::ReadWrite(path)),
+            "readonly" | "read_only" => Ok(ConnectionAccessConfig::ReadOnly(path)),
+            _ => Err(format!("Invalid variant name: {}", variant)),
+        }
+    }
+
+    pub fn variant_name(&self) -> &'static str {
+        match self {
+            ConnectionAccessConfig::Admin(_) => "Admin",
+            ConnectionAccessConfig::ReadWrite(_) => "ReadWrite",
+            ConnectionAccessConfig::ReadOnly(_) => "ReadOnly",
+        }
+    }
+
+    pub fn path(&self) -> &String {
+        match self {
+            ConnectionAccessConfig::Admin(v)
+            | ConnectionAccessConfig::ReadWrite(v)
+            | ConnectionAccessConfig::ReadOnly(v) => v,
+        }
+    }
+}
+
+impl ConnectionAccess {
+    pub async fn create_record(self, database: &Arc<dyn Database>) -> Result<()> {
+        database.create_connection_access(&self).await?;
+        Ok(())
     }
 
     pub async fn get_all(
         database: &Arc<dyn Database>,
-        workspace_id: &str,
-    ) -> Result<Vec<Connection>> {
-        let connections = database.get_workspace_connections(workspace_id).await?;
-        Ok(connections)
-    }
-
-    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
-        database.delete_workspace_connection(self).await
+        wsp: &Workspace,
+    ) -> Result<Vec<ConnectionAccess>> {
+        database.get_accessible_connections(wsp).await
     }
 }
 
@@ -187,6 +228,7 @@ FROM mvt_data;
     }
 }
 
+// The GeospatialConfig struct and its impl block are used to manage live connections
 #[derive(Clone)]
 pub struct GeospatialConfig {
     sources: Arc<RwLock<HashMap<String, Arc<dyn GeoConnector>>>>,

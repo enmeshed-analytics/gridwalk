@@ -3,6 +3,15 @@ use crate::data::Database;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use strum_macros::{Display, EnumString};
+
+#[derive(PartialEq, Debug, Display, EnumString, Clone, Deserialize, Serialize)]
+#[strum(serialize_all = "snake_case")]
+pub enum GlobalRole {
+    Super,
+    Support,
+    Read,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct User {
@@ -10,6 +19,7 @@ pub struct User {
     pub email: String,
     pub first_name: String,
     pub last_name: String,
+    pub global_role: Option<GlobalRole>,
     pub active: bool,
     pub created_at: u64,
     pub hash: String,
@@ -20,6 +30,7 @@ pub struct CreateUser {
     pub email: String,
     pub first_name: String,
     pub last_name: String,
+    pub global_role: Option<GlobalRole>,
     pub password: String,
 }
 
@@ -78,12 +89,14 @@ impl User {
             email: create_user.email.to_string(),
             first_name: create_user.first_name.to_string(),
             last_name: create_user.last_name.to_string(),
+            global_role: create_user.clone().global_role,
             active,
             created_at: now,
             hash: password_hash,
         }
     }
 
+<<<<<<< HEAD
     pub async fn update_password(
         &mut self,
         database: &Arc<dyn Database>,
@@ -103,5 +116,12 @@ impl User {
         user.update_password(database, new_password).await?;
 
         Ok(user)
+=======
+    pub async fn check_global_role(&self) -> Option<GlobalRole> {
+        match &self.global_role {
+            Some(support_level) => Some(support_level.clone()),
+            None => None,
+        }
+>>>>>>> c688619 (chore: separate connection record)
     }
 }

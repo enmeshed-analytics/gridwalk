@@ -1,5 +1,6 @@
 use crate::core::{
-    Connection, Email, PostgresConnection, Project, Session, User, Workspace, WorkspaceMember,
+    Connection, ConnectionAccess, ConnectionAccessConfig, Email, PostgresConnection, Project,
+    Session, User, Workspace, WorkspaceMember,
 };
 use aws_sdk_dynamodb::types::AttributeValue as AV;
 use std::collections::HashMap;
@@ -8,6 +9,7 @@ fn split_at_hash(input: &str) -> &str {
     input.split_once('#').unwrap().1
 }
 
+// Convert DynamoDB response into User struct
 impl From<HashMap<String, AV>> for User {
     fn from(value: HashMap<String, AV>) -> Self {
         let user = User {
@@ -20,6 +22,10 @@ impl From<HashMap<String, AV>> for User {
                 .to_string(),
             first_name: value.get("first_name").unwrap().as_s().unwrap().to_string(),
             last_name: value.get("last_name").unwrap().as_s().unwrap().to_string(),
+            global_role: value
+                .get("global_role")
+                .and_then(|v| v.as_s().ok())
+                .and_then(|s| s.parse().ok()),
             active: *value.get("active").unwrap().as_bool().unwrap(),
             created_at: value
                 .get("created_at")
@@ -97,14 +103,12 @@ impl From<HashMap<String, AV>> for Session {
     }
 }
 
-// Convert DynamoDB response into ConnectionInfo struct
+// Convert DynamoDB response into Connection struct
 impl From<HashMap<String, AV>> for Connection {
     fn from(value: HashMap<String, AV>) -> Self {
         Connection {
-            id: split_at_hash(value.get("SK").unwrap().as_s().unwrap()).to_string(),
-            workspace_id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
+            id: value.get("PK").unwrap().as_s().unwrap().into(),
             name: value.get("name").unwrap().as_s().unwrap().into(),
-            created_by: value.get("created_by").unwrap().as_s().unwrap().into(),
             connector_type: value.get("connector_type").unwrap().as_s().unwrap().into(),
             config: PostgresConnection {
                 host: value.get("pg_host").unwrap().as_s().unwrap().into(),
@@ -123,6 +127,29 @@ impl From<HashMap<String, AV>> for Connection {
                     .and_then(|v| v.as_s().ok())
                     .map(Into::into),
             },
+        }
+    }
+}
+
+// Convert DynamoDB response into ConnectionAccess struct
+impl From<HashMap<String, AV>> for ConnectionAccess {
+    fn from(value: HashMap<String, AV>) -> Self {
+        println!("{:?}", value);
+        let parts: Vec<&str> = value
+            .get("SK")
+            .unwrap()
+            .as_s()
+            .unwrap()
+            .split('#')
+            .skip(1)
+            .collect();
+        let last_part: Vec<&str> = parts[1].split(':').collect();
+
+        ConnectionAccess {
+            workspace_id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
+            connection_id: parts[0].to_string(),
+            access_config: ConnectionAccessConfig::from_str(last_part[1], last_part[0].to_string())
+                .unwrap(),
         }
     }
 }

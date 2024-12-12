@@ -1,11 +1,6 @@
 use crate::app_state::AppState;
 use crate::auth::auth_middleware;
-use crate::routes::{
-    add_workspace_member, create_connection, create_project, create_workspace, delete_connection,
-    delete_project, generate_os_token, get_projects, get_workspace_members, get_workspaces,
-    health_check, list_connections, list_sources, login, logout, profile, register,
-    remove_workspace_member, reset_password, tiles, upload_layer,
-};
+use crate::routes::*;
 use axum::{
     extract::DefaultBodyLimit,
     middleware,
@@ -38,7 +33,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/workspace", post(create_workspace))
         .route("/workspace/members", post(add_workspace_member))
         .route(
-            "/workspace/:workspace_id/members",
+            "/workspacei/:workspace_id/members",
             get(get_workspace_members),
         )
         .route(
@@ -47,16 +42,8 @@ pub fn create_app(app_state: AppState) -> Router {
         )
         .route("/connection", post(create_connection))
         .route(
-            "/workspace/:workspace_id/connection/:connection_id/sources",
-            get(list_sources),
-        )
-        .route(
             "/workspaces/:workspace_id/connections",
             get(list_connections),
-        )
-        .route(
-            "/workspaces/:workspace_id/connections/:connection_id",
-            delete(delete_connection),
         )
         .route("/create_project", post(create_project))
         .route("/upload_layer", post(upload_layer))
@@ -66,7 +53,6 @@ pub fn create_app(app_state: AppState) -> Router {
             shared_state.clone(),
             auth_middleware,
         ))
-        .route("/tiles/:workspace_id/:connection_id/:z/:x/:y", get(tiles))
         .route("/register", post(register))
         .route("/login", post(login))
         .route("/os-token", get(generate_os_token))

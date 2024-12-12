@@ -6,6 +6,8 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use super::{ConnectionAccess, ConnectionAccessConfig};
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
     pub id: String,
@@ -71,6 +73,14 @@ impl Workspace {
     pub async fn create(database: &Arc<dyn Database>, wsp: &Workspace) -> Result<()> {
         // Check for existing org with same name
         let db_resp = database.create_workspace(wsp).await;
+
+        // Create ConnectionAccess to shared primary db
+        let connection_access = ConnectionAccess {
+            connection_id: "primary".to_string(),
+            workspace_id: wsp.id.clone(),
+            access_config: ConnectionAccessConfig::ReadWrite(wsp.id.clone()),
+        };
+        connection_access.create_record(database).await?;
 
         match db_resp {
             Ok(_) => Ok(()),

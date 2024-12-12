@@ -35,6 +35,7 @@ pub async fn register(
         email: req.email,
         first_name: req.first_name,
         last_name: req.last_name,
+        global_role: None,
         password: req.password,
     };
     match User::create(&state.app_data, &user).await {
