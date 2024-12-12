@@ -96,7 +96,6 @@ impl User {
         }
     }
 
-<<<<<<< HEAD
     pub async fn update_password(
         &mut self,
         database: &Arc<dyn Database>,
@@ -116,12 +115,12 @@ impl User {
         user.update_password(database, new_password).await?;
 
         Ok(user)
-=======
+    }
+
     pub async fn check_global_role(&self) -> Option<GlobalRole> {
         match &self.global_role {
             Some(support_level) => Some(support_level.clone()),
             None => None,
         }
->>>>>>> c688619 (chore: separate connection record)
     }
 }
