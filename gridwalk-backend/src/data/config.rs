@@ -29,6 +29,11 @@ pub trait UserStore: Send + Sync + 'static {
     async fn get_connection(&self, connection_id: &str) -> Result<Connection>;
     async fn create_connection_access(&self, ca: &ConnectionAccess) -> Result<()>;
     async fn get_accessible_connections(&self, wsp: &Workspace) -> Result<Vec<ConnectionAccess>>;
+    async fn get_accessible_connection(
+        &self,
+        wsp: &Workspace,
+        con_id: &str,
+    ) -> Result<ConnectionAccess>;
     async fn create_layer(&self, layer: &Layer) -> Result<()>;
     async fn create_project(&self, project: &Project) -> Result<()>;
     async fn get_workspaces(&self, user: &User) -> Result<Vec<String>>;

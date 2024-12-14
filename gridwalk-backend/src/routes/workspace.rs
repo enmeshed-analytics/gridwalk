@@ -54,15 +54,20 @@ impl Workspace {
     }
 }
 
+// TODO: Create all records within a transaction
 pub async fn create_workspace(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     Json(req): Json<ReqCreateWorkspace>,
 ) -> Response {
     if let Some(owner) = auth_user.user {
-        println!("{owner:?}");
         let wsp = Workspace::from_req(req, owner.clone().id);
-        match Workspace::create(&state.app_data, &wsp).await {
+        let primary_connection = state
+            .geo_connections
+            .get_connection("primary")
+            .await
+            .unwrap();
+        match Workspace::create(&state.app_data, &primary_connection, &wsp).await {
             Ok(_) => {
                 let now = get_unix_timestamp();
                 // TODO: Handle response from adding member
@@ -210,7 +215,6 @@ pub async fn get_workspaces(
     Extension(auth_user): Extension<AuthUser>,
 ) -> Response {
     if let Some(user) = auth_user.user {
-        println!("Fetching workspaces for user: {:?}", user.id);
         match Workspace::get_user_workspaces(&state.app_data, &user).await {
             Ok(workspace_ids) => {
                 let workspaces: Vec<Workspace> = join_all(
@@ -225,8 +229,7 @@ pub async fn get_workspaces(
 
                 Json(workspaces).into_response()
             }
-            Err(e) => {
-                println!("Error fetching workspaces: {:?}", e);
+            Err(_) => {
                 let error = ErrorResponse {
                     error: "Failed to fetch workspaces".to_string(),
                 };
@@ -234,7 +237,6 @@ pub async fn get_workspaces(
             }
         }
     } else {
-        println!("No authenticated user found");
         let error = ErrorResponse {
             error: "Unauthorized".to_string(),
         };

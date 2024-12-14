@@ -89,6 +89,11 @@ impl ConnectionAccess {
     ) -> Result<Vec<ConnectionAccess>> {
         database.get_accessible_connections(wsp).await
     }
+
+    pub async fn get(database: &Arc<dyn Database>, wsp: &Workspace, con_id: &str) -> Result<Self> {
+        let con = database.get_accessible_connection(wsp, con_id).await?;
+        Ok(con)
+    }
 }
 
 // Trait for all geospatial data sources
@@ -96,7 +101,8 @@ impl ConnectionAccess {
 pub trait GeoConnector: Send + Sync {
     async fn connect(&mut self) -> Result<()>;
     async fn disconnect(&mut self) -> Result<()>;
-    async fn list_sources(&self) -> Result<Vec<String>>;
+    async fn create_namespace(&self, name: &str) -> Result<()>;
+    async fn list_sources(&self, namespace: &str) -> Result<Vec<String>>;
     async fn get_tile(&self, z: u32, x: u32, y: u32) -> Result<Vec<u8>>;
 }
 
@@ -111,13 +117,12 @@ pub struct PostgresConnection {
 }
 
 #[derive(Clone, Debug)]
-pub struct PostgisConfig {
+pub struct PostgisConnector {
     pool: Arc<Pool>,
 }
 
-impl PostgisConfig {
+impl PostgisConnector {
     pub fn new(connection: PostgresConnection) -> Result<Self> {
-        println!("Creating new PostgisConfig with connection parameters");
         let mut config = Config::new();
         config.host = Some(connection.host.to_string());
         config.port = Some(connection.port);
@@ -129,14 +134,14 @@ impl PostgisConfig {
             .create_pool(Some(Runtime::Tokio1), NoTls)
             .map_err(|e| anyhow!("Failed to create connection pool: {}", e))?;
 
-        Ok(PostgisConfig {
+        Ok(PostgisConnector {
             pool: Arc::new(pool),
         })
     }
 }
 
 #[async_trait]
-impl GeoConnector for PostgisConfig {
+impl GeoConnector for PostgisConnector {
     async fn connect(&mut self) -> Result<()> {
         println!("Testing connection to PostGIS database");
         let client = self
@@ -157,29 +162,39 @@ impl GeoConnector for PostgisConfig {
         Ok(())
     }
 
-    async fn list_sources(&self) -> Result<Vec<String>> {
-        println!("Listing sources from PostGIS database");
+    async fn create_namespace(&self, name: &str) -> Result<()> {
+        let client = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
+        let escaped_name = format!("\"{}\"", name);
+        let query = format!("CREATE SCHEMA IF NOT EXISTS {}", escaped_name);
+        client
+            .execute(&query, &[])
+            .await
+            .map_err(|e| anyhow!("Failed to execute query to create namespace: {}", e))?;
+        Ok(())
+    }
+
+    async fn list_sources(&self, namespace: &str) -> Result<Vec<String>> {
         let client = self
             .pool
             .get()
             .await
             .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
 
+        // query to list all tables within the schema given in the namespace parameter
         let rows = client
             .query(
-                "SELECT DISTINCT f.table_name
-                 FROM information_schema.columns f
-                 JOIN pg_type t ON f.udt_name = t.typname
-                 WHERE t.typtype = 'b'
-                 AND t.typname IN ('geometry', 'geography')
-                 AND f.table_schema = 'public'",
-                &[],
+                "SELECT table_name 
+                 FROM information_schema.tables 
+                 WHERE table_schema = $1",
+                &[&namespace], // Remove the format! and quotes
             )
             .await
             .map_err(|e| anyhow!("Failed to execute query to list sources: {}", e))?;
-
         let sources: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
-        println!("Found {} sources", sources.len());
         Ok(sources)
     }
 
@@ -228,15 +243,15 @@ FROM mvt_data;
     }
 }
 
-// The GeospatialConfig struct and its impl block are used to manage live connections
+// The GeospatialConnections struct and its impl block are used to manage live connections
 #[derive(Clone)]
-pub struct GeospatialConfig {
+pub struct GeoConnections {
     sources: Arc<RwLock<HashMap<String, Arc<dyn GeoConnector>>>>,
 }
 
-impl GeospatialConfig {
+impl GeoConnections {
     pub fn new() -> Self {
-        GeospatialConfig {
+        GeoConnections {
             sources: Arc::new(RwLock::new(HashMap::new())),
         }
     }

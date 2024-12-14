@@ -6,7 +6,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{ConnectionAccess, ConnectionAccessConfig};
+use super::{ConnectionAccess, ConnectionAccessConfig, GeoConnector};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
@@ -70,7 +70,11 @@ impl Workspace {
         Ok(database.get_workspace_by_id(id).await?)
     }
 
-    pub async fn create(database: &Arc<dyn Database>, wsp: &Workspace) -> Result<()> {
+    pub async fn create(
+        database: &Arc<dyn Database>,
+        connection: &Arc<dyn GeoConnector>,
+        wsp: &Workspace,
+    ) -> Result<()> {
         // Check for existing org with same name
         let db_resp = database.create_workspace(wsp).await;
 
@@ -81,6 +85,7 @@ impl Workspace {
             access_config: ConnectionAccessConfig::ReadWrite(wsp.id.clone()),
         };
         connection_access.create_record(database).await?;
+        let _ = &connection.create_namespace(&wsp.id).await?;
 
         match db_resp {
             Ok(_) => Ok(()),
@@ -96,12 +101,6 @@ impl Workspace {
         role: WorkspaceRole,
     ) -> Result<()> {
         let requesting_member = self.clone().get_member(&database, &req_user).await?;
-
-        println!(
-            "{} is {} of the {} workspace",
-            req_user.first_name, requesting_member.role, self.name
-        );
-
         if requesting_member.role != WorkspaceRole::Admin {
             Err(anyhow!("Only Admin can add members"))?
         }
@@ -133,12 +132,6 @@ impl Workspace {
         user: &User,
     ) -> Result<()> {
         let requesting_member = self.clone().get_member(&database, &req_user).await?;
-
-        println!(
-            "{} is {} of the {} workspace",
-            req_user.first_name, requesting_member.role, self.name
-        );
-
         if requesting_member.role != WorkspaceRole::Admin {
             Err(anyhow!("Only Admin can remove members"))?
         }

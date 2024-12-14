@@ -134,7 +134,6 @@ impl From<HashMap<String, AV>> for Connection {
 // Convert DynamoDB response into ConnectionAccess struct
 impl From<HashMap<String, AV>> for ConnectionAccess {
     fn from(value: HashMap<String, AV>) -> Self {
-        println!("{:?}", value);
         let parts: Vec<&str> = value
             .get("SK")
             .unwrap()

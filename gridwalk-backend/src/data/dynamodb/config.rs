@@ -388,7 +388,6 @@ impl UserStore for Dynamodb {
     }
 
     async fn get_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<WorkspaceMember> {
-        println!("{wsp:?}");
         let pk = format!("WSP#{0}", wsp.id);
         let sk = format!("USER#{0}", user.id);
         match self
@@ -548,8 +547,11 @@ impl UserStore for Dynamodb {
             .send()
             .await
         {
-            Ok(response) => Ok(response.item.unwrap().into()),
-            Err(_e) => Err(anyhow!("connection not found")),
+            Ok(response) => response
+                .item
+                .ok_or_else(|| anyhow!("connection not found"))
+                .map(Into::into),
+            Err(e) => Err(anyhow!("failed to fetch connection: {}", e)),
         }
     }
 
@@ -605,6 +607,41 @@ impl UserStore for Dynamodb {
             .collect();
 
         Ok(connections)
+    }
+
+    async fn get_accessible_connection(
+        &self,
+        wsp: &Workspace,
+        con_id: &str,
+    ) -> Result<ConnectionAccess> {
+        let pk = format!("WSP#{}", wsp.id);
+        let sk_prefix = format!("CONACC#{}", con_id);
+
+        let accessible_connections = self
+            .client
+            .query()
+            .table_name(&self.table_name)
+            .key_condition_expression("PK = :pk AND begins_with(SK, :sk_prefix)")
+            .expression_attribute_values(":pk", AV::S(pk))
+            .expression_attribute_values(":sk_prefix", AV::S(sk_prefix.to_string()))
+            .send()
+            .await?;
+
+        let connections: Vec<ConnectionAccess> = accessible_connections
+            .items
+            .unwrap_or_default()
+            .into_iter()
+            .map(|item| item.into())
+            .collect();
+
+        // If connections is empty or has more than one item, return an error
+        if connections.is_empty() {
+            return Err(anyhow!("connection not found"));
+        } else if connections.len() > 1 {
+            return Err(anyhow!("multiple connections found"));
+        }
+
+        Ok(connections[0].clone())
     }
 
     async fn create_layer(&self, layer: &Layer) -> Result<()> {

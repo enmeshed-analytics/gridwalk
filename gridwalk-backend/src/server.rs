@@ -45,6 +45,10 @@ pub fn create_app(app_state: AppState) -> Router {
             "/workspaces/:workspace_id/connections",
             get(list_connections),
         )
+        .route(
+            "/workspaces/:workspace_id/connections/:connection_id/sources",
+            get(list_sources),
+        )
         .route("/create_project", post(create_project))
         .route("/upload_layer", post(upload_layer))
         .layer(DefaultBodyLimit::disable())

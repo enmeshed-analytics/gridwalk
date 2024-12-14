@@ -1,13 +1,13 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::core::{
-    Connection, ConnectionAccess, GlobalRole, PostgisConfig, PostgresConnection, Workspace,
+    Connection, ConnectionAccess, GlobalRole, PostgisConnector, PostgresConnection, Workspace,
     WorkspaceMember,
 };
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -56,9 +56,29 @@ pub async fn create_connection(
     // Create connection info
     let connection_info = Connection::from_req(req);
 
+    // Check if connection already exists
+    if state
+        .app_data
+        .get_connection(&connection_info.id)
+        .await
+        .is_ok()
+    {
+        return (StatusCode::CONFLICT, "Connection already exists").into_response();
+    }
+
+    // Create postgis connector
+    let postgis_connector = PostgisConnector::new(connection_info.clone().config).unwrap();
+
     // Attempt to create record
-    match connection_info.create_record(&state.app_data).await {
-        Ok(_) => (StatusCode::OK, "Connection creation submitted").into_response(),
+    match connection_info.clone().create_record(&state.app_data).await {
+        Ok(_) => {
+            // Add connection to geo_connections
+            state
+                .geo_connections
+                .add_connection(connection_info.id, postgis_connector)
+                .await;
+            (StatusCode::OK, "Connection creation submitted").into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Connection creation failed: {}", e),
@@ -80,7 +100,7 @@ impl From<ConnectionAccess> for ConnectionResponse {
         ConnectionResponse {
             id: con.connection_id.clone(),
             name: con.connection_id,
-            connector_type: con.access_config.path().to_string(),
+            connector_type: "postgis".into(),
         }
     }
 }
@@ -106,8 +126,6 @@ pub async fn list_connections(
                 .ok()
                 .unwrap();
 
-            println!("Connection access list: {:?}", connection_access_list);
-
             // Convert Vec<Connection> to Vec<ConnectionResponse>
             // Removes the config from the response
             let connection_responses: Vec<ConnectionResponse> = connection_access_list
@@ -121,57 +139,45 @@ pub async fn list_connections(
     }
 }
 
-//pub async fn list_sources(
-//    State(state): State<Arc<AppState>>,
-//    Extension(auth_user): Extension<AuthUser>,
-//    Path((workspace_id, connection_id)): Path<(String, String)>,
-//) -> impl IntoResponse {
-//    let workspace = Workspace::from_id(&state.app_data, &workspace_id)
-//        .await
-//        .unwrap();
-//    let _member = workspace
-//        .get_member(&state.app_data, &auth_user.user.unwrap())
-//        .await
-//        .unwrap();
-//    // Check member role
-//    let connection = Connection::from_id(&state.app_data, &workspace_id, &connection_id)
-//        .await
-//        .unwrap();
-//
-//    match state.geospatial_config.get_connection(&connection_id).await {
-//        Ok(connector) => match connector.list_sources().await {
-//            Ok(sources) => Json(sources).into_response(),
-//            Err(e) => {
-//                eprintln!("Error listing sources: {:?}", e);
-//                (StatusCode::INTERNAL_SERVER_ERROR, "Failed to list sources").into_response()
-//            }
-//        },
-//        Err(_) => {
-//            println!("Connection not found, adding new connection to state");
-//            let pg_config = PostgisConfig::new(connection.config).unwrap();
-//            state
-//                .geospatial_config
-//                .add_connection(connection_id.clone(), pg_config)
-//                .await;
-//
-//            match state.geospatial_config.get_connection(&connection_id).await {
-//                Ok(connector) => match connector.list_sources().await {
-//                    Ok(sources) => Json(sources).into_response(),
-//                    Err(e) => {
-//                        eprintln!("Error listing sources: {:?}", e);
-//                        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to list sources")
-//                            .into_response()
-//                    }
-//                },
-//                Err(e) => {
-//                    eprintln!("Error getting connection after adding: {:?}", e);
-//                    (
-//                        StatusCode::INTERNAL_SERVER_ERROR,
-//                        "Failed to get connection",
-//                    )
-//                        .into_response()
-//                }
-//            }
-//        }
-//    }
-//}
+pub async fn list_sources(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path((workspace_id, connection_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    match auth_user.user {
+        Some(user) => {
+            let workspace = Workspace::from_id(&state.app_data, &workspace_id)
+                .await
+                .map_err(|_| (StatusCode::NOT_FOUND, "".to_string()))?;
+
+            // Check if the requesting user is a member of the workspace
+            WorkspaceMember::get(&state.app_data, &workspace, &user)
+                .await
+                .map_err(|_| (StatusCode::FORBIDDEN, "unauthorized".to_string()))?;
+
+            // TODO: Check Access Level
+            let _connection_access =
+                ConnectionAccess::get(&state.app_data, &workspace, &connection_id)
+                    .await
+                    .map_err(|_| (StatusCode::NOT_FOUND, "".to_string()))?;
+
+            let connection = state
+                .geo_connections
+                .get_connection(&connection_id)
+                .await
+                .unwrap();
+
+            match connection.list_sources(&workspace.id).await {
+                Ok(sources) => Ok(Json(sources)),
+                Err(e) => {
+                    eprintln!("Error listing sources: {:?}", e);
+                    Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Failed to list sources".to_string(),
+                    ))
+                }
+            }
+        }
+        None => Err((StatusCode::FORBIDDEN, "unauthorized".to_string())),
+    }
+}
