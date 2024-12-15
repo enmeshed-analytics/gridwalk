@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useState } from "react";
 import {
   Plus,
@@ -7,6 +8,7 @@ import {
   ChevronDown,
   Trash2,
   HelpCircle,
+  Database,
 } from "lucide-react";
 import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
 import { HelpSupportModal } from "../supportModal";
@@ -16,6 +18,7 @@ import { useWorkspaces } from "../workspaceContext";
 import { createProject } from "./actions/projects/create";
 import { deleteProject } from "./actions/projects/delete";
 import { addWorkspaceMember } from "./actions/workspace";
+import { ViewWorkspaceConnectionsModal } from "./viewConnectionsModal";
 import { useRouter } from "next/navigation";
 
 interface Project {
@@ -38,6 +41,7 @@ export default function WorkspaceProjectsClient({
   const router = useRouter();
   const { workspaces } = useWorkspaces();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isHelpSupportModalOpen, setIsHelpSupportModalOpen] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
@@ -161,6 +165,13 @@ export default function WorkspaceProjectsClient({
                   <Plus size={16} />
                   New Project
                 </button>
+                <button
+                  onClick={() => setIsConnectionDialogOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left"
+                >
+                  <Database size={16} />
+                  View Connections
+                </button>
               </div>
             </div>
           )}
@@ -234,6 +245,12 @@ export default function WorkspaceProjectsClient({
         <ViewWorkspaceMemberModal
           isOpen={isViewMemberDialogOpen}
           onClose={() => setIsViewMemberDialogOpen(false)}
+          workspaceId={workspaceId}
+        />
+
+        <ViewWorkspaceConnectionsModal
+          isOpen={isConnectionDialogOpen}
+          onClose={() => setIsConnectionDialogOpen(false)}
           workspaceId={workspaceId}
         />
 

@@ -82,7 +82,7 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
           onClick={() => setIsOpen(!isOpen)}
           className="w-full flex items-center justify-between rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-800 transition-colors duration-200 focus:outline-none focus:ring-3 focus:ring-blue-500 font-medium text-sm"
         >
-          <span>Show workspaces</span>
+          <span>View Workspaces</span>
           <div
             className={`rounded-full p-1 transition-colors duration-200 ${
               mounted && isOpen ? "bg-green-500" : "bg-black"
