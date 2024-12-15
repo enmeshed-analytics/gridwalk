@@ -111,15 +111,21 @@ export const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+  
+  const isDeleteEnabled = confirmText === "DELETE";
 
   const handleDelete = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isDeleteEnabled) return;
+    
     setIsLoading(true);
     setError(null);
 
     try {
       await onConfirm();
       onClose();
+      setConfirmText("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -153,10 +159,21 @@ export const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
             Are you sure you want to delete{" "}
             <span className="font-semibold">{projectName}</span>?
           </p>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 text-sm mb-4">
             This action cannot be undone. All project data will be permanently
             removed.
           </p>
+          <p className="text-gray-700 text-sm mb-2">
+            Type <span className="font-mono font-bold">DELETE</span> to confirm:
+          </p>
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500"
+            placeholder="Enter Text..."
+            disabled={isLoading}
+          />
         </div>
 
         <form onSubmit={handleDelete}>
@@ -171,7 +188,7 @@ export const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !isDeleteEnabled}
               className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isLoading ? (

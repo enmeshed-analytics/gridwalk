@@ -65,7 +65,7 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
     <div className="space-y-2">
       <div className="px-4 py-2">
         <div className="flex flex-col gap-3">
-          <h2 className="text-gray-600 font-semibold italic">GridWalk</h2>
+          <h2 className="text-gray-600 font-semibold italic">GW</h2>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Workspaces</h2>
             <Button

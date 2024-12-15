@@ -1,6 +1,13 @@
 "use client";
 import React, { useState } from "react";
-import { Plus, UserPlus, Users, ChevronDown, Trash2, HelpCircle } from "lucide-react";
+import {
+  Plus,
+  UserPlus,
+  Users,
+  ChevronDown,
+  Trash2,
+  HelpCircle,
+} from "lucide-react";
 import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
 import { HelpSupportModal } from "../supportModal";
 import { AddWorkspaceMemberModal } from "./addMemberModal";
@@ -112,7 +119,7 @@ export default function WorkspaceProjectsClient({
             </h1>
             <button
               onClick={() => setIsActionsOpen(!isActionsOpen)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors bg-white px-3 py-1.5 rounded-lg shadow-sm"
+              className="flex border border-gray-500 items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors bg-white px-3 py-1.5 rounded-lg shadow-sm"
             >
               Settings
               <div
@@ -131,7 +138,7 @@ export default function WorkspaceProjectsClient({
 
           {/* Vertical actions dropdown */}
           {isActionsOpen && (
-            <div className="absolute right-0 top-12 z-10 bg-white shadow-lg rounded-lg overflow-hidden min-w-[160px]">
+            <div className="absolute border border-gray-500 right-0 top-12 z-10 bg-white shadow-lg rounded-lg overflow-hidden min-w-[160px]">
               <div className="flex flex-col">
                 <button
                   onClick={() => setIsViewMemberDialogOpen(true)}
@@ -171,7 +178,7 @@ export default function WorkspaceProjectsClient({
                 <div
                   key={project.id}
                   onClick={() => handleProjectClick(project)}
-                  className="p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer group relative"
+                  className="p-4 bg-white border border-gray-500 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer group relative"
                 >
                   <h3 className="font-medium text-gray-900">{project.name}</h3>
                   <button
@@ -189,13 +196,16 @@ export default function WorkspaceProjectsClient({
 
         {/* Help Button */}
         <div className="fixed bottom-0 right-0 p-6">
-        <button
-          onClick={() => setIsHelpSupportModalOpen(true)}
-          className="bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group p-4"
-          aria-label="Help and Support"
-        >
-          <HelpCircle className="w-6 h-6 text-blue-500 group-hover:text-blue-600" />
-        </button>
+          <button
+            onClick={() => setIsHelpSupportModalOpen(true)}
+            className="bg-white border border-gray-700 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group p-4 relative"
+            aria-label="Help and Support"
+          >
+            <HelpCircle className="w-6 h-6 text-blue-500 group-hover:text-blue-600" />
+            <span className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              Help and Support 👋
+            </span>
+          </button>
         </div>
 
         {/* Modals */}

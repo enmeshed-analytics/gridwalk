@@ -11,6 +11,7 @@ import {
 import { ModalProps, MainMapNav } from "./types";
 import { useRouter } from "next/navigation";
 
+// Loading dots for file upload
 const LoadingDots = () => (
   <div className="flex gap-1">
     <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_infinite]"></div>
@@ -19,6 +20,7 @@ const LoadingDots = () => (
   </div>
 );
 
+// Modals for uploading files, viewing layers etc
 const MapModal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
@@ -28,14 +30,16 @@ const MapModal: React.FC<ModalProps> = ({
   isUploading,
   error,
   uploadSuccess,
-  uploadProgress
+  uploadProgress,
+  selectedFile,
+  fileName,
+  onFileSelection,
+  onFileNameChange,
+  onCancelSelection
 }) => {
   const router = useRouter();
-
-    // Add a key state that changes when upload is successful
   const [uploadKey, setUploadKey] = React.useState(0);
 
-    // Reset the key when upload is successful
   React.useEffect(() => {
     if (uploadSuccess) {
       setUploadKey(prev => prev + 1);
@@ -61,7 +65,13 @@ const MapModal: React.FC<ModalProps> = ({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      onLayerUpload(file);
+      onFileSelection(file);
+    }
+  };
+
+  const handleUploadClick = () => {
+    if (selectedFile) {
+      onLayerUpload(selectedFile);
     }
   };
 
@@ -86,24 +96,61 @@ const MapModal: React.FC<ModalProps> = ({
             <h2 className="text-xl font-bold mb-4">Upload</h2>
 
             {/* Upload Section */}
-            <div className="mb-6">
-            <label 
-                key={uploadKey}
-                className="flex flex-col items-center px-4 py-6 bg-white rounded-lg shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors"
-              >
-                <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">
-                  Click to upload a file
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileChange}
-                  accept=".geojson,.json,.gpkg"
-                  disabled={isUploading}
-                />
-              </label>
-            </div>
+            {!selectedFile ? (
+              <div className="mb-6">
+                <label 
+                  key={uploadKey}
+                  className="flex flex-col items-center px-4 py-6 bg-white rounded-lg shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors"
+                >
+                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-sm text-gray-500">
+                    Click to upload a file
+                  </span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept=".geojson,.json,.gpkg"
+                    disabled={isUploading}
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="mb-6 space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-2">
+                    Selected file: {selectedFile.name}
+                  </p>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Enter layer name:
+                    </label>
+                    <input
+                      type="text"
+                      value={fileName}
+                      onChange={(e) => onFileNameChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter layer name"
+                    />
+                  </div>
+                  <div className="mt-4 flex space-x-2">
+                    <button
+                      onClick={handleUploadClick}
+                      disabled={!fileName.trim() || isUploading}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Upload
+                    </button>
+                    <button
+                      onClick={onCancelSelection}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {isUploading && (
               <div className="flex items-center justify-center space-x-2 text-blue-500 mb-4">

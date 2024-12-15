@@ -15,6 +15,13 @@ export interface LayerUpload {
   workspace_id?: string;
 }
 
+const defaultBaseLayer: BaseEditNav = {
+  id: "light",
+  title: "Light Mode",
+  icon: "light",
+  description: "Light blue base map style"
+};
+
 const MAP_STYLES = {
   light: "/OS_VTS_3857_Light.json",
   dark: "/OS_VTS_3857_Dark.json",
@@ -35,21 +42,21 @@ interface MapClientProps {
 export function MapClient({ apiUrl }: MapClientProps) {
   // UI States
   const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
-  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
-    null,
-  );
-  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditNav | null>(
-    null,
-  );
+  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(null);
+  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditNav>(defaultBaseLayer); // Initialize with defaultBaseLayer
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
-
+  
   // Layer Management States
   const [layers, setLayers] = useState<LayerUpload[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  // File Upload States
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileName, setFileName] = useState("");
 
   // Map Initialisation
   const { mapContainer, mapError } = useMapInit({
@@ -61,17 +68,36 @@ export function MapClient({ apiUrl }: MapClientProps) {
   // File Upload Hook Integration
   const { uploadFile } = useFileUploader();
 
+  // File Selection Handler
+  const handleFileSelection = useCallback((file: File) => {
+    setSelectedFile(file);
+    setUploadError(null);
+  }, []);
+
   // File Upload Handler
   const handleUpload = useCallback(
-    async (file: File) => {
+    async (fileToUpload: File) => {
+      if (!fileToUpload || !fileName.trim()) {
+        setUploadError("Please provide a valid file and name");
+        return;
+      }
+
       setIsUploading(true);
       setUploadError(null);
       setUploadSuccess(false);
       setUploadProgress(0);
 
       try {
+        // Create a new File object with the custom name while preserving the extension
+        const extension = fileToUpload.name.split('.').pop();
+        const renamedFile = new File(
+          [fileToUpload],
+          `${fileName}${extension ? `.${extension}` : ''}`,
+          { type: fileToUpload.type }
+        );
+
         await uploadFile(
-          file,
+          renamedFile,
           "",
           (progress) => {
             setUploadProgress(progress);
@@ -91,10 +117,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
               setUploadSuccess(true);
               setIsUploading(false);
+              setSelectedFile(null);
+              setFileName("");
 
               setTimeout(() => {
                 setUploadSuccess(false);
-              }, 1000);
+              }, 2000);
             }
           },
           (error) => {
@@ -105,15 +133,23 @@ export function MapClient({ apiUrl }: MapClientProps) {
         setIsUploading(false);
       }
     },
-    [uploadFile],
+    [uploadFile, fileName],
   );
 
   // Abort Upload Handler
   const handleAbortUpload = useCallback(() => {
-    // Implement abort logic here if needed
     setIsUploading(false);
     setUploadProgress(0);
     setUploadError("Upload cancelled");
+    setSelectedFile(null);
+    setFileName("");
+  }, []);
+
+  // Cancel File Selection
+  const handleCancelSelection = useCallback(() => {
+    setSelectedFile(null);
+    setFileName("");
+    setUploadError(null);
   }, []);
 
   // Layer Management
@@ -142,8 +178,10 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
     setSelectedItem(null);
-    setUploadSuccess(false); 
-    setUploadError(null);     
+    setUploadSuccess(false);
+    setUploadError(null);
+    setSelectedFile(null);
+    setFileName("");
   }, []);
 
   return (
@@ -173,6 +211,11 @@ export function MapClient({ apiUrl }: MapClientProps) {
         uploadProgress={uploadProgress}
         onAbortUpload={handleAbortUpload}
         layers={layers}
+        selectedFile={selectedFile}
+        fileName={fileName}
+        onFileSelection={handleFileSelection}
+        onFileNameChange={setFileName}
+        onCancelSelection={handleCancelSelection}
       />
       <BaseLayerNavigation
         onBaseItemClick={handleBaseItemClick}

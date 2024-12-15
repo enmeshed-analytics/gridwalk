@@ -21,6 +21,11 @@ export interface ModalProps {
   uploadSuccess: boolean;
   uploadProgress: number;
   onAbortUpload: () => void;
+  selectedFile: File | null;
+  fileName: string;
+  onFileSelection: (file: File) => void;
+  onFileNameChange: (name: string) => void;
+  onCancelSelection: () => void;
 }
 
 /* Map Edit Items */
