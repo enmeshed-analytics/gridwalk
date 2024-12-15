@@ -51,6 +51,7 @@ pub fn create_app(app_state: AppState) -> Router {
         )
         .route("/create_project", post(create_project))
         .route("/upload_layer", post(upload_layer))
+        .route("/workspaces/:workspace_id/connections/:connection_id/sources/:source_name/tiles/:z/:x/:y", get(tiles))
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
         .layer(middleware::from_fn_with_state(

@@ -1,8 +1,8 @@
 use crate::app_state::AppState;
-use crate::core::Connection;
-//use crate::data::Database;
+use crate::auth::AuthUser;
+use crate::core::{ConnectionAccess, Workspace};
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
@@ -11,22 +11,51 @@ use std::sync::Arc;
 
 pub async fn tiles(
     State(state): State<Arc<AppState>>,
-    Path((workspace_id, connection_id, z, x, y)): Path<(String, String, u32, u32, u32)>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path((workspace_id, source_name, connection_id, z, x, y)): Path<(
+        String,
+        String,
+        String,
+        u32,
+        u32,
+        u32,
+    )>,
 ) -> impl IntoResponse {
-    let connection = Connection::from_id(&state.app_data, &workspace_id, &connection_id)
+    let _user = auth_user
+        .user
+        .as_ref()
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, ""));
+
+    // Get the workspace
+    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => return "workspace not found".into_response(),
+    };
+
+    // Check if user is a member of the workspace
+    let _workspace_member = workspace
+        .get_member(&state.app_data, &auth_user.user.unwrap())
         .await
-        .unwrap();
+        .map_err(|_| (StatusCode::FORBIDDEN, ""));
+
+    // Check if workspace has access to the connection namespace
+    let _connection_access = ConnectionAccess::get(&state.app_data, &workspace, &connection_id)
+        .await
+        .map_err(|_| (StatusCode::NOT_FOUND, ""));
 
     let geoconnector = state
-        .geospatial_config
-        .get_connection(&connection.id)
+        .geo_connections
+        .get_connection(&connection_id)
         .await
         .unwrap();
 
-    let tile = geoconnector.get_tile(z, x, y).await.unwrap();
+    let tile = geoconnector
+        .get_tile(&workspace_id, &source_name, z, x, y)
+        .await
+        .unwrap();
 
-    println!("tile");
-    println!("{tile:?}");
+    //println!("tile");
+    //println!("{tile:?}");
 
     Response::builder()
         .status(StatusCode::OK)

@@ -103,7 +103,14 @@ pub trait GeoConnector: Send + Sync {
     async fn disconnect(&mut self) -> Result<()>;
     async fn create_namespace(&self, name: &str) -> Result<()>;
     async fn list_sources(&self, namespace: &str) -> Result<Vec<String>>;
-    async fn get_tile(&self, z: u32, x: u32, y: u32) -> Result<Vec<u8>>;
+    async fn get_tile(
+        &self,
+        namespace: &str,
+        source_name: &str,
+        z: u32,
+        x: u32,
+        y: u32,
+    ) -> Result<Vec<u8>>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -195,14 +202,24 @@ impl GeoConnector for PostgisConnector {
             .await
             .map_err(|e| anyhow!("Failed to execute query to list sources: {}", e))?;
         let sources: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
+        let test_tile = self
+            .get_tile("f57e7ba0-a30f-47bd-b641-11d5e25b9978", "test", 0, 0, 0)
+            .await;
+        println!("{:?}", test_tile);
         Ok(sources)
     }
 
-    async fn get_tile(&self, z: u32, x: u32, y: u32) -> Result<Vec<u8>> {
+    async fn get_tile(
+        &self,
+        namespace: &str,
+        source_name: &str,
+        z: u32,
+        x: u32,
+        y: u32,
+    ) -> Result<Vec<u8>> {
         println!("Fetching MVT for tile z:{} x:{} y:{}", z, x, y);
         let pool = self.pool.as_ref();
         let client = pool.get().await?;
-        let _table_name = "test";
         let _geom_column = "geom";
         let query = format!(
             "
@@ -223,7 +240,7 @@ mvt_data AS (
     ) AS geom,
     t.name
   FROM
-    test t,
+  {table} t,
     bounds
   WHERE
     ST_Intersects(t.geom, bounds.geom)
@@ -231,14 +248,14 @@ mvt_data AS (
 SELECT ST_AsMVT(mvt_data.*, 'blah', 4096, 'geom') AS mvt
 FROM mvt_data;
 ",
+            table = format!("\"{}\".\"{}\"", namespace, source_name),
             z = z,
             x = x,
             y = y,
         );
         let row = client.query_one(&query, &[]).await?;
-        println!("{row:?}");
+        //println!("{row:?}"); // Debugging
         let mvt_data: Vec<u8> = row.get(0);
-        println!("{mvt_data:?}");
         Ok(mvt_data)
     }
 }
