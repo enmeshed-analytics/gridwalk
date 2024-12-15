@@ -1,15 +1,12 @@
 "use client";
 import React from "react";
-import {
-  Layers,
-  File,
-  X,
-  Upload,
-  ArrowLeft,
-  CheckCircle2
-} from "lucide-react";
-import { ModalProps, MainMapNav } from "./types";
+import { Layers, File, X, Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ModalProps, MainMapNav, WorkspaceConnection } from "./types";
 import { useRouter } from "next/navigation";
+
+interface LayersTableProps {
+  connections: WorkspaceConnection[]; // Changed from sources: Source[]
+}
 
 // Loading dots for file upload
 const LoadingDots = () => (
@@ -17,6 +14,34 @@ const LoadingDots = () => (
     <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_infinite]"></div>
     <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_0.2s_infinite]"></div>
     <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_0.4s_infinite]"></div>
+  </div>
+);
+
+const LayersTable: React.FC<LayersTableProps> = ({ connections }) => (
+  <div className="overflow-x-auto">
+    <table className="w-full border-collapse">
+      <thead>
+        <tr className="bg-gray-50">
+          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">
+            Source Name
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {connections.map((connection, index) => (
+          <tr
+            key={index}
+            className={`border-t border-gray-200 ${
+              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+            }`}
+          >
+            <td className="px-4 py-3 text-sm text-gray-900">
+              {String(connection)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </div>
 );
 
@@ -35,14 +60,15 @@ const MapModal: React.FC<ModalProps> = ({
   fileName,
   onFileSelection,
   onFileNameChange,
-  onCancelSelection
+  onCancelSelection,
+  workspaceConnections,
 }) => {
   const router = useRouter();
   const [uploadKey, setUploadKey] = React.useState(0);
 
   React.useEffect(() => {
     if (uploadSuccess) {
-      setUploadKey(prev => prev + 1);
+      setUploadKey((prev) => prev + 1);
     }
   }, [uploadSuccess]);
 
@@ -90,6 +116,21 @@ const MapModal: React.FC<ModalProps> = ({
     if (!selectedItem) return null;
 
     switch (selectedItem.id) {
+      case "layers":
+        return (
+          <div className="p-4">
+            <h2 className="text-xl font-bold mb-4">Available Layers</h2>
+            {workspaceConnections?.length > 0 ? (
+              <div className="mb-6">
+                <LayersTable connections={workspaceConnections} />{" "}
+                {/* Render table once */}
+              </div>
+            ) : (
+              <p className="text-gray-600">No layers available.</p>
+            )}
+          </div>
+        );
+
       case "upload":
         return (
           <div className="p-4">
@@ -98,7 +139,7 @@ const MapModal: React.FC<ModalProps> = ({
             {/* Upload Section */}
             {!selectedFile ? (
               <div className="mb-6">
-                <label 
+                <label
                   key={uploadKey}
                   className="flex flex-col items-center px-4 py-6 bg-white rounded-lg shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors"
                 >
@@ -235,7 +276,11 @@ const MapModal: React.FC<ModalProps> = ({
         <div
           className="fixed left-12 z-50"
           style={{
-            top: `${MainMapNavs.findIndex((item) => item.id === selectedItem.id) * 32 + 96}px`,
+            top: `${
+              MainMapNavs.findIndex((item) => item.id === selectedItem.id) *
+                32 +
+              96
+            }px`,
           }}
         >
           <div className="bg-white rounded-lg shadow-xl max-w-sm relative">

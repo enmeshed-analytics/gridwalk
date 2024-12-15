@@ -7,6 +7,14 @@ export interface MainMapNav {
   children?: React.ReactNode;
 }
 
+interface Source {
+  name: string;
+}
+
+export type WorkspaceConnection = {
+  sources: Source[];
+};
+
 /* Simple Modal Prop Elements */
 export interface ModalProps {
   isOpen: boolean;
@@ -26,6 +34,7 @@ export interface ModalProps {
   onFileSelection: (file: File) => void;
   onFileNameChange: (name: string) => void;
   onCancelSelection: () => void;
+  workspaceConnections: WorkspaceConnection[];
 }
 
 /* Map Edit Items */

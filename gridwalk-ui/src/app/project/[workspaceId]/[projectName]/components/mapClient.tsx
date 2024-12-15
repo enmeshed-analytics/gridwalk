@@ -1,11 +1,16 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useMapInit } from "./mapInit";
 import MainMapNavigation from "./navBars/mainMapNavigation";
 import MapEditNavigation from "./navBars/mapEditNavigation";
 import BaseLayerNavigation from "./navBars/baseLayerNavigation";
 import { useFileUploader } from "./hooks/useFileUploader";
 import { MainMapNav, MapEditNav, BaseEditNav } from "./navBars/types";
+import { useParams } from "next/navigation";
+import {
+  getWorkspaceConnections,
+  WorkspaceConnection,
+} from "./actions/getSources";
 
 export interface LayerUpload {
   id: string;
@@ -19,7 +24,7 @@ const defaultBaseLayer: BaseEditNav = {
   id: "light",
   title: "Light Mode",
   icon: "light",
-  description: "Light blue base map style"
+  description: "Light blue base map style",
 };
 
 const MAP_STYLES = {
@@ -40,13 +45,22 @@ interface MapClientProps {
 }
 
 export function MapClient({ apiUrl }: MapClientProps) {
+  const [workspaceConnections, setWorkspaceConnections] = useState<
+    WorkspaceConnection[]
+  >([]);
+  const params = useParams();
+  const workspaceId = params.workspaceId as string;
+
   // UI States
   const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
-  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(null);
-  const [selectedBaseItem, setSelectedBaseItem] = useState<BaseEditNav>(defaultBaseLayer); // Initialize with defaultBaseLayer
+  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
+    null
+  );
+  const [selectedBaseItem, setSelectedBaseItem] =
+    useState<BaseEditNav>(defaultBaseLayer); // Initialize with defaultBaseLayer
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
-  
+
   // Layer Management States
   const [layers, setLayers] = useState<LayerUpload[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -89,10 +103,10 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
       try {
         // Create a new File object with the custom name while preserving the extension
-        const extension = fileToUpload.name.split('.').pop();
+        const extension = fileToUpload.name.split(".").pop();
         const renamedFile = new File(
           [fileToUpload],
-          `${fileName}${extension ? `.${extension}` : ''}`,
+          `${fileName}${extension ? `.${extension}` : ""}`,
           { type: fileToUpload.type }
         );
 
@@ -127,13 +141,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
           },
           (error) => {
             setUploadError(error);
-          },
+          }
         );
       } finally {
         setIsUploading(false);
       }
     },
-    [uploadFile, fileName],
+    [uploadFile, fileName]
   );
 
   // Abort Upload Handler
@@ -184,6 +198,19 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setFileName("");
   }, []);
 
+  useEffect(() => {
+    const fetchWorkspaceConnections = async () => {
+      try {
+        const connections = await getWorkspaceConnections(workspaceId);
+        setWorkspaceConnections(connections);
+      } catch (error) {
+        console.error("Failed to fetch workspace connections:", error);
+      }
+    };
+
+    fetchWorkspaceConnections();
+  }, [workspaceId]);
+
   return (
     <div className="w-full h-screen relative">
       {mapError && (
@@ -216,6 +243,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         onFileSelection={handleFileSelection}
         onFileNameChange={setFileName}
         onCancelSelection={handleCancelSelection}
+        workspaceConnections={workspaceConnections}
       />
       <BaseLayerNavigation
         onBaseItemClick={handleBaseItemClick}
