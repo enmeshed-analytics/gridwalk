@@ -1,16 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Database, Loader2 } from "lucide-react";
+import { ViewWorkspaceConnectionsModalProps } from "./types";
 import {
   getWorkspaceConnections,
   type WorkspaceConnection,
 } from "./actions/workspace/get_connections";
-
-interface ViewWorkspaceConnectionsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  workspaceId: string;
-}
 
 export const ViewWorkspaceConnectionsModal: React.FC<
   ViewWorkspaceConnectionsModalProps

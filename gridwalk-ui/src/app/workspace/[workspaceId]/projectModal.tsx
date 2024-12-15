@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { CreateProjectModalProps } from "./types";
+import { CreateProjectModalProps, DeleteProjectModalProps } from "./types";
 
 export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   isOpen,
@@ -20,7 +20,11 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       onClose();
       setProjectName("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An error occurred creating a new project"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -96,13 +100,6 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   );
 };
 
-interface DeleteProjectModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  projectName: string;
-  onConfirm: () => Promise<void>;
-}
-
 export const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
   isOpen,
   onClose,
@@ -112,13 +109,13 @@ export const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
-  
+
   const isDeleteEnabled = confirmText === "DELETE";
 
   const handleDelete = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isDeleteEnabled) return;
-    
+
     setIsLoading(true);
     setError(null);
 

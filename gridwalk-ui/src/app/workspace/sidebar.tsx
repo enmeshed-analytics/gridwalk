@@ -8,7 +8,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, LogOut, ChevronDown, Plus, ChevronRight } from "lucide-react";
+import { Menu, LogOut, ChevronDown, Plus, Briefcase } from "lucide-react";
 import { ProfileData, Workspaces, logout, createWorkspace } from "./actions";
 import { CreateWorkspaceSidebar } from "./modal";
 import { useRouter } from "next/navigation";
@@ -65,14 +65,16 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
     <div className="space-y-2">
       <div className="px-4 py-2">
         <div className="flex flex-col gap-3">
-          <h2 className="text-gray-600 font-semibold italic">GW</h2>
+          <h2 className="text-gray-700 font-semibold italic text-lg">
+            GridWalk
+          </h2>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Workspaces</h2>
+            <h3 className="text-sm font-semibold">New Workspace</h3>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsCreateModalOpen(true)}
-              className="hover:bg-blue-500 hover:text-white"
+              className="hover:bg-blue-500 hover:text-white p-1 h-6 w-6 flex"
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -80,11 +82,11 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-800 transition-colors duration-200 focus:outline-none focus:ring-3 focus:ring-blue-500 font-medium text-sm"
+          className="w-full flex items-center justify-between rounded-lg bg-gray-100 dark:bg-gray-800 hover:text-white transition-colors duration-200 focus:outline-none focus:ring-3 focus:ring-blue-500 font-medium text-sm"
         >
-          <span>View Workspaces</span>
+          <h2 className="text-sm font-semibold">Select Workspace</h2>
           <div
-            className={`rounded-full p-1 transition-colors duration-200 ${
+            className={`rounded-full p-0.7 transition-colors duration-200 ${
               mounted && isOpen ? "bg-green-500" : "bg-black"
             }`}
           >
@@ -105,14 +107,13 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
           <Link
             key={workspace.id}
             href={`/workspace/${workspace.id}`}
-            className="w-full text-left py-1.5 px-3 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium group flex items-center gap-2"
+            className="w-full text-left py-1.5 px-3 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-blue-500 hover:text-white dark:hover:bg-blue-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium group flex items-center gap-2"
           >
-            <ChevronRight className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-            <span className="flex-1">{workspace.name}</span>
+            <Briefcase className="h-4 w-4 text-white dark:text-white" />
+            <span className="flex-1 text-xs">{workspace.name}</span>
           </Link>
         ))}
       </div>
-
       <CreateWorkspaceSidebar
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}

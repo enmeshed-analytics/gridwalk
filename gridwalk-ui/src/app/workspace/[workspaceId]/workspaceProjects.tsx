@@ -9,6 +9,7 @@ import {
   Trash2,
   HelpCircle,
   Database,
+  User2,
 } from "lucide-react";
 import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
 import { HelpSupportModal } from "../supportModal";
@@ -172,6 +173,10 @@ export default function WorkspaceProjectsClient({
                   <Database size={16} />
                   View Connections
                 </button>
+                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left">
+                  <User2 size={16} />
+                  Account Settings
+                </button>
               </div>
             </div>
           )}
@@ -203,6 +208,16 @@ export default function WorkspaceProjectsClient({
               ))}
             </div>
           )}
+        </div>
+
+        {/* Back Button */}
+        <div className="fixed bottom-0 left-29 p-8">
+          <button
+            onClick={() => router.push("/workspace")}
+            className="bg-white border text-black border-gray-700 rounded-full shadow-lg hover:shadow-l transition-all duration-200 group p-1 relative"
+          >
+            ←
+          </button>
         </div>
 
         {/* Help Button */}

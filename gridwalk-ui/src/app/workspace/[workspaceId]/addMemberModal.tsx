@@ -1,12 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-
-interface AddWorkspaceMemberModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (email: string, role: "Admin" | "Read") => Promise<void>;
-}
+import { AddWorkspaceMemberModalProps } from "./types";
 
 export const AddWorkspaceMemberModal: React.FC<
   AddWorkspaceMemberModalProps
