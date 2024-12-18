@@ -1,11 +1,13 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { Layers, File, X, Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ModalProps, MainMapNav, WorkspaceConnection } from "./types";
 import { useRouter } from "next/navigation";
 
 interface LayersTableProps {
-  connections: WorkspaceConnection[]; // Changed from sources: Source[]
+  connections: WorkspaceConnection[];
+  onLayerClick?: (connection: WorkspaceConnection) => void;
 }
 
 // Loading dots for file upload
@@ -17,33 +19,56 @@ const LoadingDots = () => (
   </div>
 );
 
-const LayersTable: React.FC<LayersTableProps> = ({ connections }) => (
-  <div className="overflow-x-auto">
-    <table className="w-full border-collapse">
-      <thead>
-        <tr className="bg-gray-50">
-          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">
-            Source Name
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {connections.map((connection, index) => (
-          <tr
-            key={index}
-            className={`border-t border-gray-200 ${
-              index % 2 === 0 ? "bg-white" : "bg-gray-50"
-            }`}
-          >
-            <td className="px-4 py-3 text-sm text-gray-900">
-              {String(connection)}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+// Table to the available layers
+const LayersTable: React.FC<LayersTableProps> = ({
+  connections,
+  onLayerClick,
+}) => {
+  const [selectedButtons, setSelectedButtons] = useState<{
+    [key: number]: boolean;
+  }>({});
+
+  const toggleButton = (index: number, connection: WorkspaceConnection) => {
+    setSelectedButtons((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+    onLayerClick?.(connection);
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse">
+        <tbody>
+          {connections.map((connection, index) => (
+            <tr
+              key={index}
+              className={`border-t border-gray-200 ${
+                index % 2 === 0 ? "bg-white" : "bg-gray-50"
+              }`}
+            >
+              <td className="px-4 py-3 text-sm text-gray-900">
+                <div className="flex items-center justify-between">
+                  <span>{String(connection)}</span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => toggleButton(index, connection)}
+                    className={`ml-4 ${
+                      selectedButtons[index] ? "text-green-600" : ""
+                    }`}
+                  >
+                    Select
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 // Modals for uploading files, viewing layers etc
 const MapModal: React.FC<ModalProps> = ({
@@ -77,14 +102,14 @@ const MapModal: React.FC<ModalProps> = ({
       id: "layers",
       title: "Layers",
       icon: "layers",
-      description: "Visualise map layers",
+      description: "Visualise available map layers",
     },
     {
       id: "upload",
       title: "File Upload",
       icon: "file",
       description:
-        "Upload files and add a layer to the map. Currently accepts .geojson, .json, and .gpkg files.",
+        "Upload files and add a layer to the map. Currently accepts .geojson, .json, .gpkg files, .xlsx, and .parquet",
     },
   ];
 
@@ -123,7 +148,6 @@ const MapModal: React.FC<ModalProps> = ({
             {workspaceConnections?.length > 0 ? (
               <div className="mb-6">
                 <LayersTable connections={workspaceConnections} />{" "}
-                {/* Render table once */}
               </div>
             ) : (
               <p className="text-gray-600">No layers available.</p>

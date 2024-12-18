@@ -116,7 +116,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
           (progress) => {
             setUploadProgress(progress);
           },
-          (response) => {
+          async (response) => {
             if (response.success && response.data) {
               setLayers((prev) => [
                 ...prev,
@@ -128,6 +128,17 @@ export function MapClient({ apiUrl }: MapClientProps) {
                   workspace_id: response.data!.workspace_id,
                 },
               ]);
+
+              // Refresh workspace layers upon successfull upload
+              try {
+                const connections = await getWorkspaceConnections(workspaceId);
+                setWorkspaceConnections(connections);
+              } catch (error) {
+                console.error(
+                  "Failed to refresh workspace connections:",
+                  error
+                );
+              }
 
               setUploadSuccess(true);
               setIsUploading(false);
@@ -147,7 +158,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         setIsUploading(false);
       }
     },
-    [uploadFile, fileName]
+    [uploadFile, fileName, workspaceId]
   );
 
   // Abort Upload Handler
