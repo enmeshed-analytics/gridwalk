@@ -1,16 +1,20 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FolderKanban,
+  FolderCheck,
+  MapIcon,
   Plus,
   HelpCircle,
   Users,
-  Database,
   LucideIcon,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateWorkspaceModal } from "./modal";
 import { createWorkspace } from "./actions";
+import { getProjects } from "@/app/workspace/[workspaceId]/actions/projects/get";
+import { getWorkspaceMembers } from "@/app/workspace/[workspaceId]/actions/workspace/get_members";
 import { HelpSupportModal } from "./supportModal";
 import { useWorkspaces } from "./workspaceContext";
 
@@ -21,10 +25,17 @@ interface StatCardProps {
   description?: string;
 }
 
+interface WorkspaceWithDetails {
+  id: string;
+  name: string;
+  projectCount: number;
+  memberCount: number;
+  adminCount: number;
+  readOnlyCount: number;
+}
+
 const StatCard = ({ title, value, icon: Icon, description }: StatCardProps) => (
   <div className="bg-white p-6 rounded-xl border border-gray-500 shadow-sm">
-    {" "}
-    {/* Changed border color */}
     <div className="flex items-center gap-4">
       <div className="bg-blue-50 p-3 rounded-lg">
         <Icon className="w-6 h-6 text-blue-500" />
@@ -44,17 +55,89 @@ export default function WorkspacePage() {
   const { workspaces } = useWorkspaces();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHelpSupportModalOpen, setIsHelpSupportModalOpen] = useState(false);
+  const [workspacesWithDetails, setWorkspacesWithDetails] = useState<
+    WorkspaceWithDetails[]
+  >([]);
+  const [totalProjects, setTotalProjects] = useState(0);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data for now
-  // TODO add in real data
+  useEffect(() => {
+    const fetchWorkspaceDetails = async () => {
+      setLoading(true);
+      try {
+        const detailsPromises = workspaces.map(async (workspace) => {
+          try {
+            const [projects, members] = await Promise.all([
+              getProjects(workspace.id),
+              getWorkspaceMembers(workspace.id),
+            ]);
+
+            const adminCount = members.filter((m) => m.role === "Admin").length;
+            const readOnlyCount = members.filter(
+              (m) => m.role === "Read"
+            ).length;
+
+            return {
+              id: workspace.id,
+              name: workspace.name,
+              projectCount: projects.length,
+              memberCount: members.length,
+              adminCount,
+              readOnlyCount,
+            };
+          } catch (error) {
+            console.error(
+              `Failed to fetch details for workspace ${workspace.id}:`,
+              error
+            );
+            return {
+              id: workspace.id,
+              name: workspace.name,
+              projectCount: 0,
+              memberCount: 0,
+              adminCount: 0,
+              readOnlyCount: 0,
+            };
+          }
+        });
+
+        const results = await Promise.all(detailsPromises);
+        setWorkspacesWithDetails(results);
+
+        const projectsTotal = results.reduce(
+          (sum, workspace) => sum + workspace.projectCount,
+          0
+        );
+        const membersTotal = results.reduce(
+          (sum, workspace) => sum + workspace.memberCount,
+          0
+        );
+
+        setTotalProjects(projectsTotal);
+        setTotalMembers(membersTotal);
+      } catch (error) {
+        console.error("Failed to fetch workspace details:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (workspaces.length > 0) {
+      fetchWorkspaceDetails();
+    } else {
+      setWorkspacesWithDetails([]);
+      setTotalProjects(0);
+      setTotalMembers(0);
+      setLoading(false);
+    }
+  }, [workspaces]);
+
   const currentPlan = "MVP";
-  const totalProjects = 0; // Example count
-  const totalConnections = 0; // Example count
 
   return (
     <div className="w-full min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6 md:p-8">
-        {/* Header Section with Plan Info */}
         <div className="flex items-center justify-between mb-8 bg-white p-4 rounded-xl border border-gray-500 shadow-sm">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -68,8 +151,7 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <StatCard
             title="Total Workspaces"
             value={workspaces.length}
@@ -79,38 +161,47 @@ export default function WorkspacePage() {
           <StatCard
             title="Total Projects"
             value={totalProjects}
-            icon={Database}
+            icon={MapIcon}
             description="Across all workspaces"
           />
           <StatCard
-            title="Active Connections"
-            value={totalConnections}
+            title="Active Members"
+            value={totalMembers}
             icon={Users}
-            description="Connected team members"
+            description="All workspace members"
           />
         </div>
 
-        {/* Workspaces List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-500 overflow-hidden">
-          <div className="p-6">
-            <h2 className="text-xl font-semibold text-black">
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-black">
               Your Workspaces
             </h2>
           </div>
-          <div className="p-6">
-            {workspaces.length > 0 ? (
-              <div className="grid gap-4 font-semibold text-black">
-                {workspaces.map((workspace) => (
+          <div className="p-2">
+            {loading ? (
+              <div className="text-center py-8">
+                <Clock className="w-8 h-8 text-gray-400 mx-auto mb-2 animate-spin" />
+                <p className="text-gray-500">Loading workspace details...</p>
+              </div>
+            ) : workspacesWithDetails.length > 0 ? (
+              <div className="divide-y divide-gray-100">
+                {workspacesWithDetails.map((workspace) => (
                   <div
                     key={workspace.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-300"
+                    className="p-3 hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-center gap-4">
-                      <FolderKanban className="w-5 h-5 text-blue-500" />
-                      <div>
-                        <h3 className="font-medium">{workspace.name}</h3>
-                        <p className="text-sm text-black">
-                          0 projects • 0 members
+                    <div className="flex items-center gap-3">
+                      <FolderCheck className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-sm text-gray-900 truncate">
+                          {workspace.name}
+                        </h3>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {workspace.projectCount} projects •{" "}
+                          {workspace.memberCount} members •{" "}
+                          {workspace.adminCount} admins •{" "}
+                          {workspace.readOnlyCount} viewers
                         </p>
                       </div>
                     </div>
@@ -119,7 +210,7 @@ export default function WorkspacePage() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <FolderKanban className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <FolderCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   No workspaces yet
                 </h3>
@@ -136,7 +227,6 @@ export default function WorkspacePage() {
         </div>
       </div>
 
-      {/* Help Button */}
       <div className="fixed bottom-0 right-0 p-6">
         <button
           onClick={() => setIsHelpSupportModalOpen(true)}
@@ -147,7 +237,6 @@ export default function WorkspacePage() {
         </button>
       </div>
 
-      {/* Modals */}
       <CreateWorkspaceModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

@@ -44,7 +44,7 @@ const LayersTable: React.FC<LayersTableProps> = ({
             <tr
               key={index}
               className={`border-t border-gray-200 ${
-                index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                index % 2 === 0 ? "bg-white" : "bg-blue-50"
               }`}
             >
               <td className="px-4 py-3 text-sm text-gray-900">
