@@ -133,7 +133,7 @@ export default function WorkspacePage() {
     }
   }, [workspaces]);
 
-  const currentPlan = "MVP";
+  const currentPlan = "Private Beta";
 
   return (
     <div className="w-full min-h-screen bg-gray-50">
@@ -145,8 +145,8 @@ export default function WorkspacePage() {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className="bg-green-50 px-4 py-2 rounded-full">
-              <span className="text-green-700 font-medium">{currentPlan}</span>
+            <div className="bg-purple-50 px-4 py-2 rounded-full">
+              <span className="text-purple-700 font-medium">{currentPlan}</span>
             </div>
           </div>
         </div>

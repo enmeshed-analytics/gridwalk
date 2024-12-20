@@ -214,9 +214,12 @@ export default function WorkspaceProjectsClient({
         <div className="fixed bottom-0 left-29 p-8">
           <button
             onClick={() => router.push("/workspace")}
-            className="bg-white border text-black border-gray-700 rounded-full shadow-lg hover:shadow-l transition-all duration-200 group p-1 relative"
+            className="bg-white border text-black hover:text-white border-gray-700 rounded-full shadow-lg hover:shadow-l hover:bg-blue-400 transition-all duration-200 group p-1 relative"
           >
-            ←
+            ←{/* Tooltip */}
+            <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-1 text-sm text-white bg-gray-900 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              Back to Main Page
+            </span>
           </button>
         </div>
 

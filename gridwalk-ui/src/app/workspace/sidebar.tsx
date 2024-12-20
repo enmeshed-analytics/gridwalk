@@ -13,6 +13,7 @@ import { ProfileData, Workspaces, logout, createWorkspace } from "./actions";
 import { CreateWorkspaceSidebar } from "./modal";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import ProfileModal from "./profileModal";
 
 interface SidebarProps {
   profileData: ProfileData;
@@ -130,12 +131,7 @@ const SidebarContent = ({ profileData, workspaceData }: SidebarProps) => (
     </ScrollArea>
     <div className="p-4 border-t">
       <div className="space-y-4">
-        <div className="space-y-1">
-          <p className="text-sm font-medium">{profileData.first_name}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {profileData.email}
-          </p>
-        </div>
+        <ProfileModal profileData={profileData} />
         <LogoutButton />
       </div>
     </div>

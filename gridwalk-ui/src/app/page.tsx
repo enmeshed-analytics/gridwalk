@@ -1,18 +1,9 @@
 "use client";
-import {
-  Database,
-  Check,
-  Star,
-  Coins,
-  Zap,
-  Map,
-  Activity,
-  Users,
-  Mail,
-} from "lucide-react";
+import { Database, Star, Map, Activity, Users, Mail, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GridBackground from "./login/components/gridBackground";
 import { useRouter } from "next/navigation";
+import RegisterInterestForm from "./registerInterest";
 
 export default function Home() {
   const router = useRouter();
@@ -51,9 +42,9 @@ export default function Home() {
             <div className="text-center">
               {/* Pre-launch Banner */}
               <div className="mb-8 inline-flex items-center bg-blue-500/10 backdrop-blur-sm rounded-full px-6 py-2">
-                <Star className="h-5 w-5 text-blue-400 mr-2" />
+                <Star className="h-5 w-5 text-yellow-400 mr-2" />
                 <span className="text-blue-200 font-medium">
-                  Early Access Available During MVP Phase
+                  Register for Early Access at the Bottom of the Page
                 </span>
               </div>
 
@@ -132,164 +123,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Pricing Section */}
-        <section className="py-32 overflow-x-auto">
-          <div className="mx-auto max-w-[90rem] px-6">
-            <div className="mx-auto max-w-2xl text-center mb-16">
-              <div className="inline-flex items-center rounded-full bg-blue-500/10 backdrop-blur-sm px-6 py-2 text-sm font-semibold text-blue-300 mb-6">
-                <Coins className="h-4 w-4 mr-2" />
-                Simple Pricing Plans
-              </div>
-              <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Choose Your Plan
-              </h2>
-              <p className="mt-6 text-lg leading-8 text-gray-300">
-                Flexible options for teams of all sizes
-              </p>
-            </div>
-
-            <div className="flex gap-6 min-w-max px-4">
-              {[
-                {
-                  name: "Free",
-                  price: "0",
-                  features: [
-                    "1 user",
-                    "1 workspace",
-                    "5 projects",
-                    "500MB storage",
-                    "Basic features",
-                  ],
-                  popular: false,
-                  colors: {
-                    card: "from-emerald-600/20 to-teal-600/20",
-                    ring: "ring-emerald-500/30",
-                    badge: "bg-emerald-400/10 text-emerald-300",
-                    button:
-                      "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600",
-                    check: "text-emerald-400",
-                  },
-                },
-                {
-                  name: "Solo",
-                  price: "15",
-                  features: [
-                    "1 user",
-                    "5 workspaces",
-                    "Unlimited projects",
-                    "5GB storage",
-                    "Community support",
-                  ],
-                  popular: false,
-                  colors: {
-                    card: "from-blue-600/20 to-cyan-600/20",
-                    ring: "ring-blue-500/30",
-                    badge: "bg-blue-400/10 text-blue-300",
-                    button:
-                      "bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600",
-                    check: "text-blue-400",
-                  },
-                },
-                {
-                  name: "Team",
-                  price: "50",
-                  features: [
-                    "15 users",
-                    "15 workspaces",
-                    "Unlimited projects",
-                    "15GB storage",
-                    "Priority support",
-                    "Advanced features",
-                  ],
-                  popular: true,
-                  colors: {
-                    card: "from-purple-600/20 to-pink-600/20",
-                    ring: "ring-purple-500/30",
-                    badge: "bg-purple-400/10 text-purple-300",
-                    button:
-                      "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
-                    check: "text-purple-400",
-                  },
-                },
-                {
-                  name: "Organisation",
-                  price: "150",
-                  features: [
-                    "30 users",
-                    "30 workspaces",
-                    "Unlimited projects",
-                    "20GB storage",
-                    "24/7 support",
-                    "Custom integrations",
-                    "Advanced security",
-                  ],
-                  popular: false,
-                  colors: {
-                    card: "from-orange-600/20 to-red-600/20",
-                    ring: "ring-orange-500/30",
-                    badge: "bg-orange-400/10 text-orange-300",
-                    button:
-                      "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600",
-                    check: "text-orange-400",
-                  },
-                },
-              ].map((plan, index) => (
-                <div
-                  key={index}
-                  className={`relative flex flex-col justify-between rounded-3xl p-8 xl:p-10 w-80
-                    bg-gradient-to-b ${plan.colors.card} backdrop-blur-sm ${plan.colors.ring}
-                    ring-1 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-x-4">
-                      <h3 className="text-lg font-semibold leading-8 text-white">
-                        {plan.name}
-                      </h3>
-                      {plan.popular && (
-                        <p
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold leading-5 ${plan.colors.badge}`}
-                        >
-                          Most popular
-                        </p>
-                      )}
-                    </div>
-                    <p className="mt-6 flex items-baseline gap-x-1 text-white">
-                      <span className="text-4xl font-bold tracking-tight">
-                        ${plan.price}
-                      </span>
-                      <span className="text-sm font-semibold leading-6 text-gray-300">
-                        /month
-                      </span>
-                    </p>
-                    <ul
-                      role="list"
-                      className="mt-8 space-y-3 text-sm leading-6"
-                    >
-                      {plan.features.map((feature) => (
-                        <li key={feature} className="flex gap-x-3">
-                          <Check
-                            className={`h-6 w-5 flex-none ${plan.colors.check}`}
-                          />
-                          <span className="text-gray-300">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <a
-                    href={`mailto:hello@enmeshed.dev?subject=Interest in ${plan.name} Plan&body=Hi, I'm interested in learning more about the ${plan.name} plan for GridWalk.`}
-                    className="mt-8 block"
-                  >
-                    <Button
-                      className={`w-full rounded-xl h-12 text-white ${plan.colors.button}`}
-                    >
-                      Contact Us
-                    </Button>
-                  </a>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Register Interest Form */}
+        <RegisterInterestForm />
 
         {/* Footer */}
         <footer className="py-12">
@@ -301,8 +136,6 @@ export default function Home() {
                   href: "mailto:hello@enmeshed.dev",
                   icon: Mail,
                 },
-                { name: "Terms", href: "#" },
-                { name: "Privacy", href: "#" },
               ].map((item) => (
                 <a
                   key={item.name}
