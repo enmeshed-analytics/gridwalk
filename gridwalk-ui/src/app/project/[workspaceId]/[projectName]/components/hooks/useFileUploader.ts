@@ -37,7 +37,7 @@ export const useFileUploader = () => {
       _workspaceId: string,
       onProgress?: (progress: number) => void,
       onSuccess?: (data: UploadResponse) => void,
-      onError?: (error: string) => void,
+      onError?: (error: string) => void
     ): Promise<void> => {
       const currentWorkspaceId = getWorkspaceIdFromUrl();
       try {
@@ -80,11 +80,14 @@ export const useFileUploader = () => {
             "X-File-Size": file.size.toString(),
           };
 
-          const response = await fetch("http://localhost:3001/upload_layer", {
-            method: "POST",
-            headers,
-            body: formData,
-          });
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_GRIDWALK_API}/upload_layer`,
+            {
+              method: "POST",
+              headers,
+              body: formData,
+            }
+          );
 
           if (!response.ok) {
             const errorText = await response.text();
@@ -93,7 +96,7 @@ export const useFileUploader = () => {
                 error: errorText,
                 chunkInfo,
                 status: response.status,
-              }),
+              })
             );
           }
 
@@ -108,13 +111,15 @@ export const useFileUploader = () => {
         }
 
         if (finalResponse) {
-          console.log("Upload completed, calling success callback", finalResponse);
+          console.log(
+            "Upload completed, calling success callback",
+            finalResponse
+          );
           onSuccess?.({
             success: true,
-            data: finalResponse
+            data: finalResponse,
           });
         }
-
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error";
@@ -122,7 +127,7 @@ export const useFileUploader = () => {
         console.error("Upload error:", err);
       }
     },
-    [],
+    []
   );
 
   return { uploadFile };
