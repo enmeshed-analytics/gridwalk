@@ -16,7 +16,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "GridWalk",
-  description: "Geospatial insights",
+  description: "Geospatial Insights",
 };
 
 export default function RootLayout({

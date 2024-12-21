@@ -18,6 +18,7 @@ import { getWorkspaceMembers } from "@/app/workspace/[workspaceId]/actions/works
 import { HelpSupportModal } from "./supportModal";
 import { useWorkspaces } from "./workspaceContext";
 
+// Stat cards for the user
 interface StatCardProps {
   title: string;
   value: string | number;
@@ -25,6 +26,7 @@ interface StatCardProps {
   description?: string;
 }
 
+// Workspace details
 interface WorkspaceWithDetails {
   id: string;
   name: string;
@@ -34,6 +36,11 @@ interface WorkspaceWithDetails {
   readOnlyCount: number;
 }
 
+// Plan card value
+// TODO need this to refelct the actual plans people will have
+const currentPlan = "Private Beta";
+
+// Create statcard
 const StatCard = ({ title, value, icon: Icon, description }: StatCardProps) => (
   <div className="bg-white p-6 rounded-xl border border-gray-500 shadow-sm">
     <div className="flex items-center gap-4">
@@ -52,6 +59,7 @@ const StatCard = ({ title, value, icon: Icon, description }: StatCardProps) => (
 );
 
 export default function WorkspacePage() {
+  // Set state variables
   const { workspaces } = useWorkspaces();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHelpSupportModalOpen, setIsHelpSupportModalOpen] = useState(false);
@@ -62,6 +70,7 @@ export default function WorkspacePage() {
   const [totalMembers, setTotalMembers] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Fetch workspace and project data
   useEffect(() => {
     const fetchWorkspaceDetails = async () => {
       setLoading(true);
@@ -132,8 +141,6 @@ export default function WorkspacePage() {
       setLoading(false);
     }
   }, [workspaces]);
-
-  const currentPlan = "Private Beta";
 
   return (
     <div className="w-full min-h-screen bg-gray-50">

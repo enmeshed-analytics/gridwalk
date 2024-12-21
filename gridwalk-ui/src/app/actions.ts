@@ -44,6 +44,7 @@ export async function saveEmail(email: string) {
 }
 
 // Register Beta Interest Action
+// TODO have this dump to a Google Sheets as well as email
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,

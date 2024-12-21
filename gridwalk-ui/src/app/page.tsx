@@ -57,8 +57,8 @@ export default function Home() {
               <p className="mt-6 text-xl leading-8 text-gray-300 max-w-2xl mx-auto">
                 GridWalk provides a collaborative environment to manage your
                 location data and turn it into crystal-clear insights. Build
-                beautiful maps, analyse patterns, and share discoveries with
-                your team in minutes.
+                maps, analyse patterns, and share discoveries with your team in
+                minutes.
               </p>
             </div>
           </div>
@@ -73,7 +73,7 @@ export default function Home() {
                 Powerful Features
               </div>
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Everything You Need from a Modern Mapping Application
+                Everything You Need from a Modern Geospatial Mapping Application
               </h2>
             </div>
             <div className="mx-auto mt-16 max-w-7xl">
@@ -98,7 +98,7 @@ export default function Home() {
                     title: "Intuitive Workflows",
                     description:
                       "Intuitive workflows and UI to make sure you have more time to focus on your analysis and stakeholders.",
-                    benefit: "Streamlined experience",
+                    benefit: "Streamlined user experience",
                   },
                 ].map((feature, index) => (
                   <div

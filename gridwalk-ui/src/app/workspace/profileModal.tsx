@@ -64,6 +64,7 @@ const ProfileModal = ({ profileData }: ProfileModalProps) => {
               </div>
             </div>
           </div>
+          {/* TODO implement account settings functionality */}
           <div className="flex space-x-2">
             <Button className="flex-1">
               <Settings className="h-4 w-4 mr-2" />

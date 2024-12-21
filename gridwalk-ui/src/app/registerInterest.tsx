@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useFormStatus } from "react-dom";
 import { sendEmail } from "@/app/actions";
 
+// Create the submit button
 function SubmitButton() {
   const { pending } = useFormStatus();
 
