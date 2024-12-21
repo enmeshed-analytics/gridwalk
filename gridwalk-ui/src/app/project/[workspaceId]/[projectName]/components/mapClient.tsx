@@ -73,7 +73,11 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const [fileName, setFileName] = useState("");
 
   // Map Initialisation
-  const { mapContainer, mapError } = useMapInit({
+  const {
+    mapContainer,
+    map: mapRef,
+    mapError,
+  } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
     apiUrl,
@@ -255,6 +259,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         onFileNameChange={setFileName}
         onCancelSelection={handleCancelSelection}
         workspaceConnections={workspaceConnections}
+        mapRef={mapRef}
       />
       <BaseLayerNavigation
         onBaseItemClick={handleBaseItemClick}

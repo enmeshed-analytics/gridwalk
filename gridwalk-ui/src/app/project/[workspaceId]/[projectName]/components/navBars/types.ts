@@ -35,6 +35,7 @@ export interface ModalProps {
   onFileNameChange: (name: string) => void;
   onCancelSelection: () => void;
   workspaceConnections: WorkspaceConnection[];
+  mapRef: React.RefObject<maplibregl.Map | null>;
 }
 
 /* Map Edit Items */

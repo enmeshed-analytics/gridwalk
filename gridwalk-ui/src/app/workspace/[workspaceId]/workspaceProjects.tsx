@@ -232,7 +232,7 @@ export default function WorkspaceProjectsClient({
           >
             <HelpCircle className="w-6 h-6 text-blue-500 group-hover:text-blue-600" />
             <span className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Help and Support 👋
+              Help & Support 👋
             </span>
           </button>
         </div>

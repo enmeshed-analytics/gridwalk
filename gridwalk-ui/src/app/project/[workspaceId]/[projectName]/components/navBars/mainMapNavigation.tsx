@@ -4,9 +4,12 @@ import { Layers, File, X, Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModalProps, MainMapNav, WorkspaceConnection } from "./types";
 import { useRouter } from "next/navigation";
+import MapLayerControl from "./mapLayerComponent";
+import maplibregl from "maplibre-gl";
 
 interface LayersTableProps {
   connections: WorkspaceConnection[];
+  mapRef: React.RefObject<maplibregl.Map | null>;
   onLayerClick?: (connection: WorkspaceConnection) => void;
 }
 
@@ -22,6 +25,7 @@ const LoadingDots = () => (
 // Table to the available layers
 const LayersTable: React.FC<LayersTableProps> = ({
   connections,
+  mapRef,
   onLayerClick,
 }) => {
   const [selectedButtons, setSelectedButtons] = useState<{
@@ -38,6 +42,11 @@ const LayersTable: React.FC<LayersTableProps> = ({
 
   return (
     <div className="overflow-x-auto">
+      <MapLayerControl
+        mapRef={mapRef}
+        selectedButtons={selectedButtons}
+        connections={connections}
+      />
       <table className="w-full border-collapse">
         <tbody>
           {connections.map((connection, index) => (
@@ -55,7 +64,7 @@ const LayersTable: React.FC<LayersTableProps> = ({
                     size="sm"
                     onClick={() => toggleButton(index, connection)}
                     className={`ml-4 ${
-                      selectedButtons[index] ? "text-green-600" : ""
+                      selectedButtons[index] ? "text-white bg-green-600" : ""
                     }`}
                   >
                     Select
@@ -87,6 +96,7 @@ const MapModal: React.FC<ModalProps> = ({
   onFileNameChange,
   onCancelSelection,
   workspaceConnections,
+  mapRef,
 }) => {
   const router = useRouter();
   const [uploadKey, setUploadKey] = React.useState(0);
@@ -147,7 +157,10 @@ const MapModal: React.FC<ModalProps> = ({
             <h2 className="text-xl font-bold mb-4">Available Layers</h2>
             {workspaceConnections?.length > 0 ? (
               <div className="mb-6">
-                <LayersTable connections={workspaceConnections} />{" "}
+                <LayersTable
+                  connections={workspaceConnections}
+                  mapRef={mapRef}
+                />
               </div>
             ) : (
               <p className="text-gray-600">No layers available.</p>
@@ -283,13 +296,17 @@ const MapModal: React.FC<ModalProps> = ({
         {/* Back Button */}
         <div className="mt-auto mb-6">
           <button
-            onClick={() => router.push("/workspace")}
+            onClick={() => {
+              const pathParts = window.location.pathname.split("/");
+              const workspaceId = pathParts[2];
+              router.push(`/workspace/${workspaceId}`);
+            }}
             className="w-10 h-8 flex items-center justify-center text-white bg-blue-400 hover:text-white hover:bg-blue-500 group relative"
             aria-label="Back to workspace"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Back to Workspaces
+              Back to Workspace
             </span>
           </button>
         </div>
