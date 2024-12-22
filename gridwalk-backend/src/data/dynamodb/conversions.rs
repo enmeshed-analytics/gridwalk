@@ -143,12 +143,16 @@ impl From<HashMap<String, AV>> for ConnectionAccess {
             .skip(1)
             .collect();
         let last_part: Vec<&str> = parts[1].split(':').collect();
+        let accessible_workspace_id = last_part[0];
+        let access_level = last_part[1];
+        let access_config =
+            ConnectionAccessConfig::from_str(access_level, accessible_workspace_id.to_string())
+                .unwrap();
 
         ConnectionAccess {
             workspace_id: split_at_hash(value.get("PK").unwrap().as_s().unwrap()).to_string(),
             connection_id: parts[0].to_string(),
-            access_config: ConnectionAccessConfig::from_str(last_part[1], last_part[0].to_string())
-                .unwrap(),
+            access_config,
         }
     }
 }

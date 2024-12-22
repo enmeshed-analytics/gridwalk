@@ -54,8 +54,8 @@ impl ConnectionAccessConfig {
     pub fn from_str(variant: &str, path: String) -> Result<Self, String> {
         match variant.to_lowercase().as_str() {
             "admin" => Ok(ConnectionAccessConfig::Admin(path)),
-            "readwrite" | "read_write" => Ok(ConnectionAccessConfig::ReadWrite(path)),
-            "readonly" | "read_only" => Ok(ConnectionAccessConfig::ReadOnly(path)),
+            "readwrite" => Ok(ConnectionAccessConfig::ReadWrite(path)),
+            "readonly" => Ok(ConnectionAccessConfig::ReadOnly(path)),
             _ => Err(format!("Invalid variant name: {}", variant)),
         }
     }
@@ -202,10 +202,6 @@ impl GeoConnector for PostgisConnector {
             .await
             .map_err(|e| anyhow!("Failed to execute query to list sources: {}", e))?;
         let sources: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
-        let test_tile = self
-            .get_tile("f57e7ba0-a30f-47bd-b641-11d5e25b9978", "test", 0, 0, 0)
-            .await;
-        println!("{:?}", test_tile);
         Ok(sources)
     }
 
@@ -217,7 +213,6 @@ impl GeoConnector for PostgisConnector {
         x: u32,
         y: u32,
     ) -> Result<Vec<u8>> {
-        println!("Fetching MVT for tile z:{} x:{} y:{}", z, x, y);
         let pool = self.pool.as_ref();
         let client = pool.get().await?;
         let _geom_column = "geom";
@@ -245,7 +240,7 @@ mvt_data AS (
   WHERE
     ST_Intersects(t.geom, bounds.geom)
 )
-SELECT ST_AsMVT(mvt_data.*, 'blah', 4096, 'geom') AS mvt
+SELECT ST_AsMVT(mvt_data.*, '{source_name}', 4096, 'geom') AS mvt
 FROM mvt_data;
 ",
             table = format!("\"{}\".\"{}\"", namespace, source_name),
@@ -254,7 +249,6 @@ FROM mvt_data;
             y = y,
         );
         let row = client.query_one(&query, &[]).await?;
-        //println!("{row:?}"); // Debugging
         let mvt_data: Vec<u8> = row.get(0);
         Ok(mvt_data)
     }

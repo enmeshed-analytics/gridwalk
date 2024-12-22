@@ -1,18 +1,19 @@
 use crate::app_state::AppState;
-use crate::auth::AuthUser;
-use crate::core::{ConnectionAccess, Workspace};
+use crate::core::{ConnectionAccess, Session, User, Workspace};
 use axum::{
-    extract::{Extension, Path, State},
+    extract::{Path, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
-//use martin_tile_utils::TileCoord;
 use std::sync::Arc;
+use tower_cookies::Cookies;
+
+// TODO: Create cache for tile source/session to prevent repeated requests to DB
 
 pub async fn tiles(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-    Path((workspace_id, source_name, connection_id, z, x, y)): Path<(
+    cookies: Cookies,
+    Path((workspace_id, connection_id, source_name, z, x, y)): Path<(
         String,
         String,
         String,
@@ -21,10 +22,24 @@ pub async fn tiles(
         u32,
     )>,
 ) -> impl IntoResponse {
-    let _user = auth_user
-        .user
-        .as_ref()
-        .ok_or_else(|| (StatusCode::UNAUTHORIZED, ""));
+    let token = cookies.get("sid").unwrap().value().to_string();
+
+    let session = match Session::from_id(&state.app_data, &token).await {
+        Ok(session) => session,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "").into_response(),
+    };
+
+    // Do not allow unauthenticated users for now
+    if session.user_id.is_none() {
+        return (StatusCode::UNAUTHORIZED, "").into_response();
+    }
+
+    // TODO: Get user and workspace in a single transaction
+    // Get the user
+    let user = match User::from_id(&state.app_data, &session.user_id.unwrap()).await {
+        Ok(user) => user,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "").into_response(),
+    };
 
     // Get the workspace
     let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
@@ -32,12 +47,14 @@ pub async fn tiles(
         Err(_) => return "workspace not found".into_response(),
     };
 
+    // TODO: Optimise this to remove need for workspace query
     // Check if user is a member of the workspace
     let _workspace_member = workspace
-        .get_member(&state.app_data, &auth_user.user.unwrap())
+        .get_member(&state.app_data, &user)
         .await
         .map_err(|_| (StatusCode::FORBIDDEN, ""));
 
+    // TODO: Add to same transaction as above
     // Check if workspace has access to the connection namespace
     let _connection_access = ConnectionAccess::get(&state.app_data, &workspace, &connection_id)
         .await
@@ -54,9 +71,6 @@ pub async fn tiles(
         .await
         .unwrap();
 
-    //println!("tile");
-    //println!("{tile:?}");
-
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/x-protobuf")
@@ -70,30 +84,4 @@ pub async fn tiles(
         .body(axum::body::Body::from(tile))
         .unwrap()
         .into_response()
-
-    //if let Some(tile_info_source) = state.geospatial_config.get("pois") {
-    //    let xyz = TileCoord {
-    //        x,
-    //        y,
-    //        z: z.try_into().unwrap(),
-    //    };
-    //    match tile_info_source.get_tile(xyz, None).await {
-    //        Ok(tile_data) => (
-    //            StatusCode::OK,
-    //            [
-    //                (header::CONTENT_TYPE, "application/vnd.mapbox-vector-tile"),
-    //                (header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"),
-    //            ],
-    //            tile_data,
-    //        )
-    //            .into_response(),
-    //        Err(_) => (StatusCode::NOT_FOUND, "Tile not found".to_string()).into_response(),
-    //    }
-    //} else {
-    //    (
-    //        StatusCode::NOT_FOUND,
-    //        "Tile info source not found".to_string(),
-    //    )
-    //        .into_response()
-    //}
 }
