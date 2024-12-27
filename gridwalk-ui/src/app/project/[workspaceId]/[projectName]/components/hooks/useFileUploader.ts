@@ -72,7 +72,7 @@ export const useFileUploader = () => {
 
           // Headers matching backend expectations
           const headers = {
-            ...baseHeaders,
+            Authorization: baseHeaders.Authorization,
             "X-File-Type": extension,
             "X-Workspace-Id": currentWorkspaceId,
             "X-Chunk-Number": currentChunk.toString(),
@@ -80,12 +80,15 @@ export const useFileUploader = () => {
             "X-File-Size": file.size.toString(),
           };
 
+          console.log(headers);
+
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_GRIDWALK_API}/upload_layer`,
             {
               method: "POST",
               headers,
               body: formData,
+              credentials: "include",
             }
           );
 

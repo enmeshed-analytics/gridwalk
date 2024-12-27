@@ -11,6 +11,5 @@ export async function getUploadHeaders() {
 
   return {
     Authorization: `Bearer ${sid.value}`,
-    Accept: "application/json",
   };
 }

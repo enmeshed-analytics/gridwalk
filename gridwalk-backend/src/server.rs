@@ -7,7 +7,7 @@ use axum::{
     routing::{delete, get, post},
     Router,
 };
-use http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
+use http::{header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE}, HeaderName};
 use http::Method;
 use std::sync::Arc;
 use tower_cookies::CookieManagerLayer;
@@ -33,7 +33,23 @@ fn create_dynamic_cors() -> CorsLayer {
     CorsLayer::new()
         .allow_credentials(true)
         .allow_methods([Method::GET, Method::OPTIONS, Method::POST])
-        .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE])
+        .allow_headers([
+            AUTHORIZATION, 
+            ACCEPT, 
+            CONTENT_TYPE,
+            HeaderName::from_static("x-file-type"),        
+            HeaderName::from_static("x-workspace-id"),    
+            HeaderName::from_static("x-chunk-number"),    
+            HeaderName::from_static("x-total-chunks"),    
+            HeaderName::from_static("x-file-size"),   
+            ])
+            .expose_headers([
+                HeaderName::from_static("x-file-type"),
+                HeaderName::from_static("x-workspace-id"), 
+                HeaderName::from_static("x-chunk-number"),
+                HeaderName::from_static("x-total-chunks"),
+                HeaderName::from_static("x-file-size")
+            ])
         .allow_origin(origins)
 }
 
@@ -44,6 +60,18 @@ pub fn create_app(app_state: AppState) -> Router {
         .allow_headers(Any);
 
     let shared_state = Arc::new(app_state);
+
+
+    let upload_router = Router::new()
+        .route("/upload_layer", post(upload_layer))
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
+        .layer(create_dynamic_cors()) 
+        .layer(middleware::from_fn_with_state(
+            shared_state.clone(),
+            auth_middleware,
+        ))
+        .with_state(shared_state.clone());
 
     let main_router = Router::new()
         .route("/projects", get(get_projects))
@@ -72,7 +100,6 @@ pub fn create_app(app_state: AppState) -> Router {
             get(list_sources),
         )
         .route("/create_project", post(create_project))
-        .route("/upload_layer", post(upload_layer))
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
         .layer(middleware::from_fn_with_state(
@@ -100,6 +127,7 @@ pub fn create_app(app_state: AppState) -> Router {
     // Merge all routers and apply global middleware
     Router::new()
         .merge(main_router)
+        .merge(upload_router)
         .nest(
             "/workspaces/:workspace_id/connections/:connection_id/sources/:source_name/tiles",
             tiles_router,

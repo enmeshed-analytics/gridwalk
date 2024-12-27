@@ -21,6 +21,16 @@ pub async fn upload_layer(
     headers: HeaderMap,
     mut multipart: Multipart,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    
+    // Ensure that the user has auth to upload layer
+    let user = auth_user.user.as_ref().ok_or_else(|| {
+        let error = json!({
+            "error": "Unauthorized request",
+            "details": null
+        });
+        (StatusCode::UNAUTHORIZED, Json(error))
+    })?;
+    
     // Extract chunk information sent from frontend
     // Total chunks to be processed
     let total_chunks = headers
@@ -53,15 +63,6 @@ pub async fn upload_layer(
             });
             (StatusCode::BAD_REQUEST, Json(error))
         })?;
-
-    // Ensure that the user has auth to upload layer
-    let user = auth_user.user.as_ref().ok_or_else(|| {
-        let error = json!({
-            "error": "Unauthorized request",
-            "details": null
-        });
-        (StatusCode::UNAUTHORIZED, Json(error))
-    })?;
 
     // Create layer info (layer name and workspace id holder) + holder for final file path
     let mut layer_info: Option<CreateLayer> = None;
@@ -306,7 +307,7 @@ async fn process_layer(
         return Err((StatusCode::FORBIDDEN, Json(error)));
     }
 
-    // Check permissions - WE NEED TO RENAME THIS TO SOMETHING OTHER THAN CREATE
+    // TODO Check permissions - WE NEED TO RENAME THIS TO SOMETHING OTHER THAN CREATE
     layer
         .create(&state.app_data, user, &workspace)
         .await
