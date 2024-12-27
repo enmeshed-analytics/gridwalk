@@ -7,11 +7,13 @@ export interface MainMapNav {
   children?: React.ReactNode;
 }
 
-interface Source {
+export interface Source {
   name: string;
 }
 
 export type WorkspaceConnection = {
+  id: string;
+  layer: string;
   sources: Source[];
 };
 

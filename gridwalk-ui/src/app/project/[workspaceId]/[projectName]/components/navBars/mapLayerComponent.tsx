@@ -1,26 +1,45 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import maplibregl from "maplibre-gl";
-import type { Feature, Polygon } from "geojson";
-import { WorkspaceConnection } from "./types";
 
 interface LayerProps {
   mapRef: React.RefObject<maplibregl.Map | null>;
   selectedButtons: Record<number, boolean>;
-  connections: WorkspaceConnection[];
+  connections: string[]; // Array of layer names
+  workspaceId: string;
 }
 
-const LONDON_COORDS = [-0.1278, 51.5074];
+// Helper function to get cookie value
+function getCookie(name: string): string | null {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop()?.split(";").shift() || null;
+  }
+  return null;
+}
 
 const MapLayerControl: React.FC<LayerProps> = ({
   mapRef,
   selectedButtons,
   connections,
+  workspaceId,
 }) => {
   const activeLayerIds = useRef<string[]>([]);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  // Get auth token on mount
+  useEffect(() => {
+    const token = getCookie("sid");
+    console.log("Retrieved auth token:", token);
+    setAuthToken(token);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !authToken) return;
+
+    console.log("Current connections:", connections);
+    console.log("Selected buttons:", selectedButtons);
 
     // Clean up old layers first
     activeLayerIds.current.forEach((id) => {
@@ -38,41 +57,59 @@ const MapLayerControl: React.FC<LayerProps> = ({
       if (!isSelected) return;
 
       const index = parseInt(indexStr);
-      const connection = connections[index];
-      if (!connection) return;
+      const layerName = connections[index];
 
-      const layerId = `box-${String(connection)}`;
+      if (!layerName) {
+        console.error(`No layer found for index ${index}`);
+        return;
+      }
 
-      // Create the GeoJSON data for the box
-      const geojsonData: Feature<Polygon> = {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [LONDON_COORDS[0] - 0.1, LONDON_COORDS[1] - 0.1],
-              [LONDON_COORDS[0] + 0.1, LONDON_COORDS[1] - 0.1],
-              [LONDON_COORDS[0] + 0.1, LONDON_COORDS[1] + 0.1],
-              [LONDON_COORDS[0] - 0.1, LONDON_COORDS[1] + 0.1],
-              [LONDON_COORDS[0] - 0.1, LONDON_COORDS[1] - 0.1],
-            ],
-          ],
-        },
-      };
+      // Generate unique layer ID
+      const layerId = `layer-${workspaceId}-${layerName}`;
+      console.log("Adding layer:", layerId);
 
       try {
-        // Add source
-        map.addSource(layerId, {
-          type: "geojson",
-          data: geojsonData,
+        // Strip file extensions for the source-layer name
+        const sourceLayerName = layerName
+          .replace(".gpkg", "")
+          .replace(".json", "");
+
+        // Add vector tile source
+        // Log workspace ID to debug
+        console.log("Using workspace ID:", workspaceId);
+        const url = new URL(window.location.href);
+        const pathParts = url.pathname.split("/");
+        const workspaceIdFromUrl = pathParts[2]; // Get workspace ID from URL path
+        console.log("Workspace ID from URL:", workspaceIdFromUrl);
+
+        const sourceUrl = `/workspaces/${workspaceIdFromUrl}/connections/primary/sources/${layerName}/tiles/{z}/{x}/{y}`;
+        console.log("Source URL:", sourceUrl);
+
+        // Set up transform function for the map
+        map.setTransformRequest((url: string) => {
+          console.log("Making request with token:", authToken);
+          return {
+            url,
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          };
         });
 
-        // Add box layer
+        // Add the source
+        map.addSource(layerId, {
+          type: "vector",
+          tiles: [sourceUrl],
+          minzoom: 0,
+          maxzoom: 22,
+        });
+
+        // Add layer using the vector tile source
         map.addLayer({
           id: layerId,
           type: "fill",
           source: layerId,
+          "source-layer": sourceLayerName,
           paint: {
             "fill-color": "#0080ff",
             "fill-opacity": 0.5,
@@ -83,6 +120,11 @@ const MapLayerControl: React.FC<LayerProps> = ({
         activeLayerIds.current.push(layerId);
       } catch (err) {
         console.error("Error adding layer:", err);
+        console.error("Layer details:", {
+          layerId,
+          layerName,
+          workspaceId,
+        });
       }
     });
 
@@ -90,7 +132,6 @@ const MapLayerControl: React.FC<LayerProps> = ({
     return () => {
       if (!map) return;
       const currentIds = [...activeLayerIds.current];
-
       currentIds.forEach((id) => {
         try {
           if (map.getLayer(id)) {
@@ -104,26 +145,7 @@ const MapLayerControl: React.FC<LayerProps> = ({
         }
       });
     };
-  }, [mapRef, selectedButtons, connections]);
-
-  // Handle style changes
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const handleStyleLoad = () => {
-      // Re-render after style change
-      map.once("style.load", () => {
-        // Force re-render after style load
-        activeLayerIds.current = [];
-      });
-    };
-
-    map.on("style.load", handleStyleLoad);
-    return () => {
-      map.off("style.load", handleStyleLoad);
-    };
-  }, [mapRef]);
+  }, [mapRef, selectedButtons, connections, workspaceId, authToken]);
 
   return null;
 };
