@@ -7,8 +7,11 @@ use axum::{
     routing::{delete, get, post},
     Router,
 };
-use http::{header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE}, HeaderName};
 use http::Method;
+use http::{
+    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+    HeaderName,
+};
 use std::sync::Arc;
 use tower_cookies::CookieManagerLayer;
 use tower_http::{
@@ -34,22 +37,22 @@ fn create_dynamic_cors() -> CorsLayer {
         .allow_credentials(true)
         .allow_methods([Method::GET, Method::OPTIONS, Method::POST])
         .allow_headers([
-            AUTHORIZATION, 
-            ACCEPT, 
+            AUTHORIZATION,
+            ACCEPT,
             CONTENT_TYPE,
-            HeaderName::from_static("x-file-type"),        
-            HeaderName::from_static("x-workspace-id"),    
-            HeaderName::from_static("x-chunk-number"),    
-            HeaderName::from_static("x-total-chunks"),    
-            HeaderName::from_static("x-file-size"),   
-            ])
-            .expose_headers([
-                HeaderName::from_static("x-file-type"),
-                HeaderName::from_static("x-workspace-id"), 
-                HeaderName::from_static("x-chunk-number"),
-                HeaderName::from_static("x-total-chunks"),
-                HeaderName::from_static("x-file-size")
-            ])
+            HeaderName::from_static("x-file-type"),
+            HeaderName::from_static("x-workspace-id"),
+            HeaderName::from_static("x-chunk-number"),
+            HeaderName::from_static("x-total-chunks"),
+            HeaderName::from_static("x-file-size"),
+        ])
+        .expose_headers([
+            HeaderName::from_static("x-file-type"),
+            HeaderName::from_static("x-workspace-id"),
+            HeaderName::from_static("x-chunk-number"),
+            HeaderName::from_static("x-total-chunks"),
+            HeaderName::from_static("x-file-size"),
+        ])
         .allow_origin(origins)
 }
 
@@ -61,12 +64,11 @@ pub fn create_app(app_state: AppState) -> Router {
 
     let shared_state = Arc::new(app_state);
 
-
     let upload_router = Router::new()
         .route("/upload_layer", post(upload_layer))
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
-        .layer(create_dynamic_cors()) 
+        .layer(create_dynamic_cors())
         .layer(middleware::from_fn_with_state(
             shared_state.clone(),
             auth_middleware,

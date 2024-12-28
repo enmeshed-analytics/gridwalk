@@ -103,6 +103,14 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
                   "Content-Type": "application/json",
                 },
               };
+            } else if (url.includes("http://localhost:3001")) {
+              return {
+                url: url,
+                headers: {
+                  'Accept': 'application/x-protobuf'
+                },
+                credentials: 'include'
+              };
             } else if (url.startsWith(window.location.origin)) {
               return {
                 url: url,
@@ -117,7 +125,33 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
 
         mapInstance.on("load", () => {
           console.log("Map loaded successfully");
-        });
+
+           // Configure the map with vector tiles
+           mapInstance.addSource("local-tiles", {
+             type: "vector",
+             tiles: [
+               "http://localhost:3001/workspaces/f57e7ba0-a30f-47bd-b641-11d5e25b9978/connections/primary/sources/london/tiles/{z}/{x}/{y}"
+             ],
+             minzoom: 0,
+             maxzoom: 14,
+           });
+
+
+           // Add a layer for each vector tile layer you want to display
+           // You'll need to know the source layer names from your vector tiles
+           mapInstance.addLayer({
+             id: "local-tile-layer",
+             type: "fill",  // or "line", "symbol", etc. depending on your data
+             source: "local-tiles",
+             "source-layer": "london",  // Replace with actual source layer name
+             paint: {
+               "fill-color": "#888888",
+               "fill-opacity": 0.8
+             }
+           });
+
+
+          });
       } catch (error) {
         console.error("Error initializing map:", error);
         setMapError(
