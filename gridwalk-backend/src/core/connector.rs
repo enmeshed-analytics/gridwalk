@@ -215,36 +215,52 @@ impl GeoConnector for PostgisConnector {
     ) -> Result<Vec<u8>> {
         let pool = self.pool.as_ref();
         let client = pool.get().await?;
-        let _geom_column = "geom";
-        let query = format!(
-            "
-        WITH bounds AS (
-          SELECT ST_Transform(ST_TileEnvelope({z}, {x}, {y}), 4326) AS geom
-        ),
-        mvt_data AS (
-          SELECT ST_AsMVTGeom(
-              t.geom,
-              bounds.geom,
-              4096,
-              256,
-              true
-            ) AS geom
-          FROM {table} t,
-            bounds
-          WHERE ST_Intersects(t.geom, bounds.geom)
-        )
-        SELECT ST_AsMVT(mvt_data.*, '{source_name}') AS mvt
-        FROM mvt_data;
-        ",
-            table = format!("\"{}\".\"{}\"", namespace, source_name),
-            z = z,
-            x = x,
-            y = y,
+        
+        // First, check which geometry column exists
+        let check_column_query = format!(
+            "SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = $1 
+            AND table_name = $2 
+            AND column_name IN ('geom', 'geometry')",
         );
-        let row = client.query_one(&query, &[]).await?;
-        let mvt_data: Vec<u8> = row.get(0);
-        Ok(mvt_data)
-    }
+        
+        let geom_column: String = client
+            .query_one(&check_column_query, &[&namespace, &source_name])
+            .await?
+            .get(0);
+
+            let query = format!(
+                "
+                WITH bounds AS (
+                    SELECT ST_Transform(ST_TileEnvelope({z}, {x}, {y}), 4326) AS geom
+                ),
+                mvt_data AS (
+                    SELECT ST_AsMVTGeom(
+                        t.{source_geom_column},
+                        bounds.geom,
+                        4096,
+                        256,
+                        true
+                    ) AS geom
+                    FROM {table} t,
+                    bounds
+                    WHERE ST_Intersects(t.{source_geom_column}, bounds.geom)
+                )
+                SELECT ST_AsMVT(mvt_data.*, '{source_name}') AS mvt
+                FROM mvt_data;
+                ",
+                table = format!("\"{}\".\"{}\"", namespace, source_name),
+                source_geom_column = geom_column,
+                z = z,
+                x = x,
+                y = y,
+            );
+        
+            let row = client.query_one(&query, &[]).await?;
+            let mvt_data: Vec<u8> = row.get(0);
+            Ok(mvt_data)
+        }     
 }
 
 // The GeospatialConnections struct and its impl block are used to manage live connections

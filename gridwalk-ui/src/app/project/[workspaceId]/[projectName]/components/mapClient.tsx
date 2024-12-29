@@ -251,12 +251,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
       map.addLayer({
         id: layerId,
-        type: "fill",
+        type: "line",
         source: layerId,
         "source-layer": sourceLayerName,
         paint: {
-          "fill-color": "#0080ff",
-          "fill-opacity": 0.5,
+          "line-color": "#0080ff",
+          "line-opacity": 1,
         },
       });
     },
