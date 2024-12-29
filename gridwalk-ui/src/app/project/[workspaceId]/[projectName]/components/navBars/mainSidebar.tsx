@@ -175,7 +175,7 @@ const MapModal: React.FC<ModalProps> = ({
                     type="file"
                     className="hidden"
                     onChange={handleFileChange}
-                    accept=".geojson,.json,.gpkg"
+                    accept=".geojson,.json,.gpkg,.parquet,.xlsx"
                     disabled={isUploading}
                   />
                 </label>
