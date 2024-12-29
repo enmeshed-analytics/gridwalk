@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Menu, LogOut, ChevronDown, Plus, Briefcase } from "lucide-react";
 import { ProfileData, Workspaces, logout, createWorkspace } from "./actions";
-import { CreateWorkspaceSidebar } from "./modal";
+import { CreateWorkspaceSidebar } from "./createWorkspaceModal";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import ProfileModal from "./profileModal";

@@ -1,10 +1,10 @@
 "use client";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useMapInit } from "./mapInit";
-import MainMapNavigation from "./navBars/mainMapNavigation";
-import MapEditNavigation from "./navBars/mapEditNavigation";
-import BaseLayerNavigation from "./navBars/baseLayerNavigation";
-import { useFileUploader } from "./hooks/useFileUploader";
+import MainMapNavigation from "./navBars/mainSidebar";
+import MapEditNavigation from "./navBars/mapEditSidebar";
+import BaseLayerNavigation from "./navBars/baseLayerSidebar";
+import { useFileUploader } from "./hooks/fileUpload";
 import { MainMapNav, MapEditNav, BaseEditNav } from "./navBars/types";
 import { useParams } from "next/navigation";
 import {
@@ -72,6 +72,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
 
+  // Active Layers State
+  const activeLayerIds = useRef<string[]>([]);
+  const [selectedLayers, setSelectedLayers] = useState<{
+    [key: number]: boolean;
+  }>({});
+
   // Map Initialisation
   const {
     mapContainer,
@@ -83,14 +89,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
     apiUrl,
   });
 
-  // File Upload Hook Integration
-  const { uploadFile } = useFileUploader();
-
   // File Selection Handler
   const handleFileSelection = useCallback((file: File) => {
     setSelectedFile(file);
     setUploadError(null);
   }, []);
+
+  // File Upload Hook Integration
+  const { uploadFile } = useFileUploader();
 
   // File Upload Handler
   const handleUpload = useCallback(
@@ -226,6 +232,119 @@ export function MapClient({ apiUrl }: MapClientProps) {
     fetchWorkspaceConnections();
   }, [workspaceId]);
 
+  // Layer management handler
+  const addMapLayer = useCallback(
+    (
+      map: maplibregl.Map,
+      layerId: string,
+      sourceUrl: string,
+      sourceLayerName: string
+    ) => {
+      if (!map.getSource(layerId)) {
+        map.addSource(layerId, {
+          type: "vector",
+          tiles: [sourceUrl],
+          minzoom: 0,
+          maxzoom: 22,
+        });
+      }
+
+      map.addLayer({
+        id: layerId,
+        type: "fill",
+        source: layerId,
+        "source-layer": sourceLayerName,
+        paint: {
+          "fill-color": "#0080ff",
+          "fill-opacity": 0.5,
+        },
+      });
+    },
+    []
+  );
+
+  const removeMapLayer = useCallback((map: maplibregl.Map, layerId: string) => {
+    if (map.getLayer(layerId)) {
+      map.removeLayer(layerId);
+    }
+    if (map.getSource(layerId)) {
+      map.removeSource(layerId);
+    }
+  }, []);
+
+  const handleLayerToggle = useCallback(
+    (index: number, connection: WorkspaceConnection) => {
+      if (!mapRef?.current) return;
+      const map = mapRef.current;
+      const layerName = String(connection);
+      const layerId = `layer-${workspaceId}-${layerName}`;
+      const willBeEnabled = !selectedLayers[index];
+
+      setSelectedLayers((prev) => ({
+        ...prev,
+        [index]: willBeEnabled,
+      }));
+
+      if (willBeEnabled) {
+        try {
+          const sourceLayerName = layerName;
+          console.log("Source layer name:", sourceLayerName);
+
+          const url = new URL(window.location.href);
+          const pathParts = url.pathname.split("/");
+          const workspaceIdFromUrl = pathParts[2];
+
+          const sourceUrl = `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceIdFromUrl}/connections/primary/sources/${layerName}/tiles/{z}/{x}/{y}`;
+
+          addMapLayer(map, layerId, sourceUrl, sourceLayerName);
+          activeLayerIds.current.push(layerId);
+        } catch (err) {
+          setSelectedLayers((prev) => ({
+            ...prev,
+            [index]: false,
+          }));
+          console.error("Error adding layer:", err);
+        }
+      } else {
+        try {
+          removeMapLayer(map, layerId);
+          activeLayerIds.current = activeLayerIds.current.filter(
+            (id) => id !== layerId
+          );
+        } catch (err) {
+          console.error("Error removing layer:", err);
+        }
+      }
+    },
+    [mapRef, workspaceId, selectedLayers, addMapLayer, removeMapLayer]
+  );
+
+  // Cleanup effect for layers
+  useEffect(() => {
+    // Capture the ref value when the effect starts
+    const currentMap = mapRef?.current;
+
+    return () => {
+      // Use the captured value in cleanup
+      if (!currentMap) return;
+
+      const layerIdsToCleanup = [...activeLayerIds.current];
+
+      layerIdsToCleanup.forEach((layerId: string) => {
+        try {
+          if (currentMap.getLayer(layerId)) {
+            currentMap.removeLayer(layerId);
+          }
+          if (currentMap.getSource(layerId)) {
+            currentMap.removeSource(layerId);
+          }
+        } catch (err) {
+          console.error("Error cleaning up layer:", err);
+        }
+      });
+    };
+  }, [mapRef]); // mapRef is still in deps
+
   return (
     <div className="w-full h-screen relative">
       {mapError && (
@@ -260,6 +379,8 @@ export function MapClient({ apiUrl }: MapClientProps) {
         onCancelSelection={handleCancelSelection}
         workspaceConnections={workspaceConnections}
         mapRef={mapRef}
+        selectedLayers={selectedLayers}
+        onLayerToggle={handleLayerToggle}
       />
       <BaseLayerNavigation
         onBaseItemClick={handleBaseItemClick}

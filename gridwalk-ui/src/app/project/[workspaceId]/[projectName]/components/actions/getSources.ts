@@ -18,6 +18,8 @@ export type Source = {
 };
 
 export type WorkspaceConnection = {
+  id: string;
+  layer: string;
   sources: Source[];
 };
 

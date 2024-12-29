@@ -11,7 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CreateWorkspaceModal } from "./modal";
+import { CreateWorkspaceModal } from "./createWorkspaceModal";
 import { createWorkspace } from "./actions";
 import { getProjects } from "@/app/workspace/[workspaceId]/actions/projects/get";
 import { getWorkspaceMembers } from "@/app/workspace/[workspaceId]/actions/workspace/get_members";

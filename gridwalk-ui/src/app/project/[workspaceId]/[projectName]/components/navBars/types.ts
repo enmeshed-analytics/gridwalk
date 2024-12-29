@@ -23,14 +23,14 @@ export interface ModalProps {
   onClose: () => void;
   onNavItemClick: (item: MainMapNav) => void;
   selectedItem: MainMapNav | null;
-  layers: LayerUpload[];
-  onLayerUpload: (file: File) => Promise<void>;
-  onLayerDelete: (layerId: string) => void;
+  onLayerUpload: (file: File) => void;
+  onLayerDelete: (id: string) => void;
   isUploading: boolean;
   error: string | null;
   uploadSuccess: boolean;
   uploadProgress: number;
   onAbortUpload: () => void;
+  layers: LayerUpload[];
   selectedFile: File | null;
   fileName: string;
   onFileSelection: (file: File) => void;
@@ -38,6 +38,8 @@ export interface ModalProps {
   onCancelSelection: () => void;
   workspaceConnections: WorkspaceConnection[];
   mapRef: React.RefObject<maplibregl.Map | null>;
+  selectedLayers: { [key: number]: boolean };
+  onLayerToggle: (index: number, connection: WorkspaceConnection) => void;
 }
 
 /* Map Edit Items */

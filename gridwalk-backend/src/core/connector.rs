@@ -218,31 +218,24 @@ impl GeoConnector for PostgisConnector {
         let _geom_column = "geom";
         let query = format!(
             "
-WITH
-bounds AS (
-  -- Get tile envelope in EPSG:4326
-  SELECT ST_Transform(ST_TileEnvelope({z}, {x}, {y}), 4326) AS geom
-),
-mvt_data AS (
-  SELECT
-    -- Use the geometry directly in 4326 and prepare for MVT
-    ST_AsMVTGeom(
-      t.geom,
-      bounds.geom,
-      4096,
-      256,
-      true
-    ) AS geom,
-    t.name
-  FROM
-  {table} t,
-    bounds
-  WHERE
-    ST_Intersects(t.geom, bounds.geom)
-)
-SELECT ST_AsMVT(mvt_data.*, '{source_name}', 4096, 'geom') AS mvt
-FROM mvt_data;
-",
+        WITH bounds AS (
+          SELECT ST_Transform(ST_TileEnvelope({z}, {x}, {y}), 4326) AS geom
+        ),
+        mvt_data AS (
+          SELECT ST_AsMVTGeom(
+              t.geom,
+              bounds.geom,
+              4096,
+              256,
+              true
+            ) AS geom
+          FROM {table} t,
+            bounds
+          WHERE ST_Intersects(t.geom, bounds.geom)
+        )
+        SELECT ST_AsMVT(mvt_data.*, '{source_name}') AS mvt
+        FROM mvt_data;
+        ",
             table = format!("\"{}\".\"{}\"", namespace, source_name),
             z = z,
             x = x,

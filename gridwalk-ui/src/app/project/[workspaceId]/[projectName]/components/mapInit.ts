@@ -1,7 +1,7 @@
-'use client'
-import { useEffect, useRef, useState } from "react"
-import maplibregl from "maplibre-gl"
-import "maplibre-gl/dist/maplibre-gl.css"
+"use client";
+import { useEffect, useRef, useState } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 // Constants
 const REFRESH_THRESHOLD = 30;
@@ -21,7 +21,7 @@ export interface MapConfig {
   center?: [number, number];
   zoom?: number;
   styleUrl?: string;
-  apiUrl: string
+  apiUrl: string;
 }
 
 export interface UseMapInitResult {
@@ -32,15 +32,15 @@ export interface UseMapInitResult {
 
 // Fetch api tokens in order to load OS maps
 const getToken = (apiUrl: string): TokenData => {
-  const xhr = new XMLHttpRequest()
-  xhr.open("GET", `${apiUrl}/os-token`, false)
-  xhr.setRequestHeader("Content-Type", "application/json")
-  xhr.send()
+  const xhr = new XMLHttpRequest();
+  xhr.open("GET", `${apiUrl}/os-token`, false);
+  xhr.setRequestHeader("Content-Type", "application/json");
+  xhr.send();
   if (xhr.status !== 200) {
-    throw new Error(`HTTP error! status: ${xhr.status}`)
+    throw new Error(`HTTP error! status: ${xhr.status}`);
   }
-  return JSON.parse(xhr.responseText)
-}
+  return JSON.parse(xhr.responseText);
+};
 
 const isTokenValid = (tokenData: TokenData | null): boolean => {
   if (!tokenData) return false;
@@ -107,9 +107,9 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
               return {
                 url: url,
                 headers: {
-                  'Accept': 'application/x-protobuf'
+                  Accept: "application/x-protobuf",
                 },
-                credentials: 'include'
+                credentials: "include",
               };
             } else if (url.startsWith(window.location.origin)) {
               return {
@@ -125,39 +125,13 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
 
         mapInstance.on("load", () => {
           console.log("Map loaded successfully");
-
-           // Configure the map with vector tiles
-           mapInstance.addSource("local-tiles", {
-             type: "vector",
-             tiles: [
-               "http://localhost:3001/workspaces/f57e7ba0-a30f-47bd-b641-11d5e25b9978/connections/primary/sources/london/tiles/{z}/{x}/{y}"
-             ],
-             minzoom: 0,
-             maxzoom: 14,
-           });
-
-
-           // Add a layer for each vector tile layer you want to display
-           // You'll need to know the source layer names from your vector tiles
-           mapInstance.addLayer({
-             id: "local-tile-layer",
-             type: "fill",  // or "line", "symbol", etc. depending on your data
-             source: "local-tiles",
-             "source-layer": "london",  // Replace with actual source layer name
-             paint: {
-               "fill-color": "#888888",
-               "fill-opacity": 0.8
-             }
-           });
-
-
-          });
+        });
       } catch (error) {
         console.error("Error initializing map:", error);
         setMapError(
           error instanceof Error
             ? error.message
-            : "Unknown error initializing map",
+            : "Unknown error initializing map"
         );
       }
     };
@@ -169,7 +143,7 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
         map.current.remove();
       }
     };
-      // eslint-disable-next-line
+    // eslint-disable-next-line
   }, [config?.center, config?.zoom]);
 
   // Handle style changes - changing between different basemaps
@@ -189,7 +163,7 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
         setMapError(
           error instanceof Error
             ? error.message
-            : "Unknown error updating map style",
+            : "Unknown error updating map style"
         );
       }
     };

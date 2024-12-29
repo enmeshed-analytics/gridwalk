@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { getUploadHeaders } from "../actions/uploadFile";
+import { getUploadHeaders } from "../actions/auth";
 import { ChunkInfo, LayerInfo } from "./types";
 
 const CHUNK_SIZE = 15 * 1024 * 1024; // 15MB chunks

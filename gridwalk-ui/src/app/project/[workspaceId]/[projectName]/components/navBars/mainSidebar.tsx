@@ -1,17 +1,10 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import { Layers, File, X, Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModalProps, MainMapNav, WorkspaceConnection } from "./types";
 import { useRouter } from "next/navigation";
-import MapLayerControl from "./mapLayerComponent";
 import maplibregl from "maplibre-gl";
-
-interface LayersTableProps {
-  connections: WorkspaceConnection[];
-  mapRef: React.RefObject<maplibregl.Map | null>;
-  onLayerClick?: (connection: WorkspaceConnection) => void;
-}
 
 // Loading dots for file upload
 const LoadingDots = () => (
@@ -22,31 +15,21 @@ const LoadingDots = () => (
   </div>
 );
 
-// Table to the available layers
+// Table for the available layers
+interface LayersTableProps {
+  connections: WorkspaceConnection[];
+  mapRef: React.RefObject<maplibregl.Map | null>;
+  selectedLayers: { [key: number]: boolean };
+  onLayerToggle: (index: number, connection: WorkspaceConnection) => void;
+}
+
 const LayersTable: React.FC<LayersTableProps> = ({
   connections,
-  mapRef,
-  onLayerClick,
+  selectedLayers,
+  onLayerToggle,
 }) => {
-  const [selectedButtons, setSelectedButtons] = useState<{
-    [key: number]: boolean;
-  }>({});
-
-  const toggleButton = (index: number, connection: WorkspaceConnection) => {
-    setSelectedButtons((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
-    onLayerClick?.(connection);
-  };
-
   return (
     <div className="overflow-x-auto">
-      <MapLayerControl
-        mapRef={mapRef}
-        selectedButtons={selectedButtons}
-        connections={connections}
-      />
       <table className="w-full border-collapse">
         <tbody>
           {connections.map((connection, index) => (
@@ -62,12 +45,12 @@ const LayersTable: React.FC<LayersTableProps> = ({
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => toggleButton(index, connection)}
+                    onClick={() => onLayerToggle(index, connection)}
                     className={`ml-4 ${
-                      selectedButtons[index] ? "text-white bg-green-600" : ""
+                      selectedLayers[index] ? "text-white bg-green-600" : ""
                     }`}
                   >
-                    Select
+                    {selectedLayers[index] ? "Active" : "Select"}
                   </Button>
                 </div>
               </td>
@@ -97,6 +80,8 @@ const MapModal: React.FC<ModalProps> = ({
   onCancelSelection,
   workspaceConnections,
   mapRef,
+  selectedLayers,
+  onLayerToggle,
 }) => {
   const router = useRouter();
   const [uploadKey, setUploadKey] = React.useState(0);
@@ -160,6 +145,8 @@ const MapModal: React.FC<ModalProps> = ({
                 <LayersTable
                   connections={workspaceConnections}
                   mapRef={mapRef}
+                  selectedLayers={selectedLayers}
+                  onLayerToggle={onLayerToggle}
                 />
               </div>
             ) : (
