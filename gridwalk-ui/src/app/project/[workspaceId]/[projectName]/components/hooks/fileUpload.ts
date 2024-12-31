@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { getUploadHeaders } from "../actions/auth";
-import { ChunkInfo, LayerInfo } from "./types";
+import { LayerInfo } from "./types";
 
 const CHUNK_SIZE = 15 * 1024 * 1024; // 15MB chunks
 
@@ -49,38 +49,28 @@ export const useFileUploader = () => {
           const start = currentChunk * CHUNK_SIZE;
           const end = Math.min(start + CHUNK_SIZE, file.size);
           const chunk = file.slice(start, end);
-          const extension = "." + file.name.split(".").pop()?.toLowerCase();
-
-          // Create layer info object matching backend expectations
-          const layerInfo: LayerInfo = {
-            workspace_id: currentWorkspaceId,
-            name: file.name,
-            file_type: file.name.split(".").pop()?.toLowerCase(),
-          };
-
-          // Create chunk info object matching backend expectations
-          const chunkInfo: ChunkInfo = {
-            currentChunk,
-            totalChunks,
-            fileSize: file.size,
-          };
 
           const formData = new FormData();
           formData.append("file", chunk, file.name);
-          formData.append("layer_info", JSON.stringify(layerInfo));
-          formData.append("chunk_info", JSON.stringify(chunkInfo));
 
-          // Headers matching backend expectations
+          // Only send layer_info with the final chunk
+          if (currentChunk === totalChunks - 1) {
+            const layerInfo: LayerInfo = {
+              workspace_id: currentWorkspaceId,
+              name: file.name,
+              file_type: file.name.split(".").pop()?.toLowerCase(),
+            };
+            formData.append("layer_info", JSON.stringify(layerInfo));
+          }
+
           const headers = {
             Authorization: baseHeaders.Authorization,
-            "X-File-Type": extension,
+            "X-File-Type": "." + file.name.split(".").pop()?.toLowerCase(),
             "X-Workspace-Id": currentWorkspaceId,
             "X-Chunk-Number": currentChunk.toString(),
             "X-Total-Chunks": totalChunks.toString(),
             "X-File-Size": file.size.toString(),
           };
-
-          console.log(headers);
 
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_GRIDWALK_API}/upload_layer`,
@@ -93,20 +83,11 @@ export const useFileUploader = () => {
           );
 
           if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(
-              JSON.stringify({
-                error: errorText,
-                chunkInfo,
-                status: response.status,
-              })
-            );
+            throw new Error(await response.text());
           }
 
           const data = await response.json();
-
-          const progress = Math.round(((currentChunk + 1) / totalChunks) * 100);
-          onProgress?.(progress);
+          onProgress?.(Math.round(((currentChunk + 1) / totalChunks) * 100));
 
           if (currentChunk === totalChunks - 1) {
             finalResponse = data;
@@ -114,24 +95,17 @@ export const useFileUploader = () => {
         }
 
         if (finalResponse) {
-          console.log(
-            "Upload completed, calling success callback",
-            finalResponse
-          );
           onSuccess?.({
             success: true,
             data: finalResponse,
           });
         }
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error";
-        onError?.(errorMessage);
+        onError?.(err instanceof Error ? err.message : "Unknown error");
         console.error("Upload error:", err);
       }
     },
     []
   );
-
   return { uploadFile };
 };
