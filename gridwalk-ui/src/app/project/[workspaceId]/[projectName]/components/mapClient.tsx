@@ -24,7 +24,7 @@ const defaultBaseLayer: BaseEditNav = {
   id: "light",
   title: "Light Mode",
   icon: "light",
-  description: "Light blue base map style",
+  description: "Light base map style",
 };
 
 const MAP_STYLES = {
@@ -45,6 +45,7 @@ interface MapClientProps {
 }
 
 export function MapClient({ apiUrl }: MapClientProps) {
+  // Connections state
   const [workspaceConnections, setWorkspaceConnections] = useState<
     WorkspaceConnection[]
   >([]);
@@ -77,12 +78,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const [selectedLayers, setSelectedLayers] = useState<{
     [key: number]: boolean;
   }>({});
+  const initialLoadComplete = useRef(false);
 
   // Map Initialisation
   const {
     mapContainer,
     map: mapRef,
     mapError,
+    isMapReady,
   } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
@@ -192,16 +195,18 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setLayers((prev) => prev.filter((layer) => layer.id !== layerId));
   }, []);
 
-  // Navigation Handlers
+  // MAIN SIDEBAR
   const handleNavItemClick = useCallback((item: MainMapNav) => {
     setSelectedItem(item);
     setIsModalOpen(true);
   }, []);
 
+  // TOP SIDEBAR
   const handleEditItemClick = useCallback((item: MapEditNav) => {
     setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
   }, []);
 
+  // BASE LAYER SIDEBAR BOTTOM RIGHT
   const handleBaseItemClick = useCallback((item: BaseEditNav) => {
     setSelectedBaseItem(item);
     const styleKey = item.id as MapStyleKey;
@@ -251,12 +256,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
       map.addLayer({
         id: layerId,
-        type: "line",
+        type: "circle",
         source: layerId,
         "source-layer": sourceLayerName,
         paint: {
-          "line-color": "#0080ff",
-          "line-opacity": 1,
+          "circle-color": "#0080ff",
+          "circle-opacity": 0.5,
         },
       });
     },
@@ -284,6 +289,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
         ...prev,
         [index]: willBeEnabled,
       }));
+
+      localStorage.setItem(
+        "selectedLayers",
+        JSON.stringify({
+          ...selectedLayers,
+          [index]: willBeEnabled,
+        })
+      );
 
       if (willBeEnabled) {
         try {
@@ -319,6 +332,37 @@ export function MapClient({ apiUrl }: MapClientProps) {
     [mapRef, workspaceId, selectedLayers, addMapLayer, removeMapLayer]
   );
 
+  // Effect to load active layers back onto the map after page refresh
+  useEffect(() => {
+    if (!initialLoadComplete.current && isMapReady && mapRef.current) {
+      const savedLayers = localStorage.getItem("selectedLayers");
+      if (savedLayers) {
+        try {
+          const parsed = JSON.parse(savedLayers);
+          setSelectedLayers(parsed);
+
+          Object.entries(parsed).forEach(([index, isSelected]) => {
+            if (isSelected && workspaceConnections[Number(index)]) {
+              handleLayerToggle(
+                Number(index),
+                workspaceConnections[Number(index)]
+              );
+            }
+          });
+        } catch (error) {
+          console.error("Error restoring saved layers:", error);
+        }
+      }
+      initialLoadComplete.current = true;
+    }
+  }, [
+    workspaceConnections,
+    handleLayerToggle,
+    selectedLayers,
+    isMapReady,
+    mapRef,
+  ]);
+
   // Cleanup effect for layers
   useEffect(() => {
     // Capture the ref value when the effect starts
@@ -343,7 +387,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         }
       });
     };
-  }, [mapRef]); // mapRef is still in deps
+  }, [mapRef]);
 
   return (
     <div className="w-full h-screen relative">

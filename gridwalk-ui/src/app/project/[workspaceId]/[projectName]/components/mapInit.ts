@@ -28,6 +28,7 @@ export interface UseMapInitResult {
   mapContainer: React.RefObject<HTMLDivElement>;
   map: React.RefObject<maplibregl.Map | null>;
   mapError: string | null;
+  isMapReady: boolean;
 }
 
 // Fetch api tokens in order to load OS maps
@@ -55,6 +56,7 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
   const tokenRef = useRef<TokenData | null>(null);
 
   // Initial map setup
@@ -125,6 +127,7 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
 
         mapInstance.on("load", () => {
           console.log("Map loaded successfully");
+          setIsMapReady(true);
         });
       } catch (error) {
         console.error("Error initializing map:", error);
@@ -141,6 +144,7 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
     return () => {
       if (map.current) {
         map.current.remove();
+        setIsMapReady(false);
       }
     };
     // eslint-disable-next-line
@@ -171,5 +175,5 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
     updateMapStyle();
   }, [config?.styleUrl]);
 
-  return { mapContainer, map, mapError };
+  return { mapContainer, map, mapError, isMapReady };
 };
