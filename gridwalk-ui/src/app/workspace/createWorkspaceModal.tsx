@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-// Sidebar for the initial workspace page - appears on righthand side of the page
+// Sidebar for the initial workspace page - appears on righthand side of the main workspaces page
 interface CreateWorkspaceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,10 +24,12 @@ export function CreateWorkspaceModal({
   onClose,
   onCreate,
 }: CreateWorkspaceModalProps) {
+  // Define state
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
 
+  // Define what happens when creating new workspace submission
   const handleSubmit = async () => {
     if (!workspaceName.trim()) return;
 
@@ -82,21 +84,24 @@ export function CreateWorkspaceModal({
   );
 }
 
-// Sidebar for the sidebar - appears as a "+" next to the sidebar title
+// Create worksapce modal for the sidebar - appears as a "+" next to the sidebar title
 interface CreateWorkspaceSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (name: string) => Promise<void>;
 }
 
+// THIS WORKS THE SAME WAY AS THE MODAL ABOVE
 export function CreateWorkspaceSidebar({
   isOpen,
   onClose,
   onCreate,
 }: CreateWorkspaceSidebarProps) {
+  // Set state
   const [workspaceName, setWorkspaceName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
+  // Define what happens when creating new workspace submission
   const handleSubmit = async () => {
     if (!workspaceName.trim()) return;
     try {

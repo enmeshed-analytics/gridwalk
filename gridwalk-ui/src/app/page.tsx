@@ -125,7 +125,6 @@ export default function Home() {
 
         {/* Register Interest Form */}
         <RegisterInterestForm />
-
         {/* Footer */}
         <footer className="py-12">
           <div className="mx-auto max-w-7xl px-6 md:flex md:items-center md:justify-between">

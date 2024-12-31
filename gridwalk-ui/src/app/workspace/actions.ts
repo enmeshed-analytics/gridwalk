@@ -1,18 +1,20 @@
-'use server'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+"use server";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
+// Define profile data to be returned
 export type ProfileData = {
   first_name: string;
   last_name: string;
   email: string;
-}
+};
 
+// Fetch profile data
 export async function getProfile(): Promise<ProfileData> {
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get("sid");
-    
+
     if (!sessionCookie?.value) {
       throw new Error("No session cookie found");
     }
@@ -43,66 +45,68 @@ export async function getProfile(): Promise<ProfileData> {
   }
 }
 
+// create workspace action
 export async function createWorkspace(name: string) {
-  const cookieStore = await cookies()
-  const sid = cookieStore.get('sid')
-  
+  const cookieStore = await cookies();
+  const sid = cookieStore.get("sid");
+
   const response = await fetch(`${process.env.GRIDWALK_API}/workspace`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${sid?.value}`,
-      'Content-Type': 'application/json'
+      Authorization: `Bearer ${sid?.value}`,
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name })
-  })
+    body: JSON.stringify({ name }),
+  });
 
   if (!response.ok) {
-    throw new Error(`Failed to create workspace: ${response.statusText}`)
+    throw new Error(`Failed to create workspace: ${response.statusText}`);
   }
 }
 
+// Define types in order to read in created / available workspaces
 export type Workspace = {
   id: string;
   name: string;
-}
+};
 
 export type Workspaces = Workspace[];
 
 export async function getWorkspaces(): Promise<Workspaces> {
-  const cookieStore = await cookies()
-  const sid = cookieStore.get('sid')
+  const cookieStore = await cookies();
+  const sid = cookieStore.get("sid");
   const response = await fetch(`${process.env.GRIDWALK_API}/workspaces`, {
     headers: {
-      Authorization: `Bearer ${sid?.value}`
-    }
-  })
-  const data = await response.json()
-
-  return data
+      Authorization: `Bearer ${sid?.value}`,
+    },
+  });
+  const data = await response.json();
+  return data;
 }
 
+// Logout action
 export async function logout() {
-  const cookieStore = await cookies()
-  const sid = cookieStore.get('sid')
-  
+  const cookieStore = await cookies();
+  const sid = cookieStore.get("sid");
+
   if (sid) {
     try {
       const response = await fetch(`${process.env.GRIDWALK_API}/logout`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${sid.value}`,
+          Authorization: `Bearer ${sid.value}`,
         },
-      })
+      });
       if (!response.ok) {
-        throw new Error('Logout failed')
+        throw new Error("Logout failed");
       }
     } catch (error) {
-      console.error('Logout error:', error)
+      console.error("Logout error:", error);
     }
     // Remove the sid cookie regardless of API call success
-    cookieStore.delete('sid')
+    cookieStore.delete("sid");
   }
-  
+
   // Use redirect() after all operations are complete
-  redirect('/')
+  redirect("/");
 }
