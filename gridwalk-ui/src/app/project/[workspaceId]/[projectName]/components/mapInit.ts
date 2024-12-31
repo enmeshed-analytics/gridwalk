@@ -161,7 +161,7 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
           throw new Error(`Failed to load style: ${response.status}`);
         }
         const styleJson = await response.json();
-        map.current?.setStyle(styleJson);
+        map.current?.setStyle(styleJson, { diff: true });
       } catch (error) {
         console.error("Error updating map style:", error);
         setMapError(

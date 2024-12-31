@@ -58,7 +58,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     null
   );
   const [selectedBaseItem, setSelectedBaseItem] =
-    useState<BaseEditNav>(defaultBaseLayer); // Initialize with defaultBaseLayer
+    useState<BaseEditNav>(defaultBaseLayer);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
 
@@ -190,7 +190,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setUploadError(null);
   }, []);
 
-  // Layer Management
+  // Layer Delete
   const handleLayerDelete = useCallback((layerId: string) => {
     setLayers((prev) => prev.filter((layer) => layer.id !== layerId));
   }, []);
@@ -204,15 +204,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
   // TOP SIDEBAR
   const handleEditItemClick = useCallback((item: MapEditNav) => {
     setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
-  }, []);
-
-  // BASE LAYER SIDEBAR BOTTOM RIGHT
-  const handleBaseItemClick = useCallback((item: BaseEditNav) => {
-    setSelectedBaseItem(item);
-    const styleKey = item.id as MapStyleKey;
-    if (styleKey in MAP_STYLES) {
-      setCurrentStyle(MAP_STYLES[styleKey]);
-    }
   }, []);
 
   const handleModalClose = useCallback(() => {
@@ -266,6 +257,87 @@ export function MapClient({ apiUrl }: MapClientProps) {
       });
     },
     []
+  );
+
+  // BASE LAYER SIDEBAR BOTTOM RIGHT
+  const handleBaseItemClick = useCallback(
+    (item: BaseEditNav) => {
+      if (!mapRef.current) return;
+      console.log("Active layers before style change:", activeLayerIds.current);
+
+      // GET CURRENT ACTIVE LAYERS
+      const currentLayerConfigs = activeLayerIds.current.map((layerId) => {
+        const layerName = layerId.replace(`layer-${workspaceId}-`, "");
+        return {
+          layerId,
+          layerName,
+          sourceUrl: `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceId}/connections/primary/sources/${layerName}/tiles/{z}/{x}/{y}`,
+        };
+      });
+
+      setSelectedBaseItem(item);
+      const styleKey = item.id as MapStyleKey;
+
+      if (styleKey in MAP_STYLES) {
+        const map = mapRef.current;
+        let hasRestoredLayers = false;
+
+        // SET UP EVENT LISTENERS
+        // THIS BASICALLY WAITS FOR MAP TO BE IN IDLE STATE AFTER STYLE CHANGE TO THEN RELOAD THE LAYERS
+        const setupStyleLoadHandlers = () => {
+          console.log("Setting up style load handlers");
+
+          const handleIdle = () => {
+            if (map.isStyleLoaded() && !hasRestoredLayers) {
+              console.log("Style is loaded, restoring layers");
+              restoreLayers();
+              hasRestoredLayers = true;
+
+              map.off("idle", handleIdle);
+            }
+          };
+
+          map.on("idle", handleIdle);
+
+          // Cleanup after timeout just in case
+          setTimeout(() => {
+            map.off("idle", handleIdle);
+          }, 5000);
+        };
+
+        // RESTORE LAYER FUNCTION
+        // TRIGGERRED BY IDLE
+        const restoreLayers = () => {
+          currentLayerConfigs.forEach(({ layerId, layerName, sourceUrl }) => {
+            try {
+              console.log(`Adding layer: ${layerName}`);
+              if (!map.getSource(layerId)) {
+                addMapLayer(map, layerId, sourceUrl, layerName);
+                console.log(`Layer ${layerName} added successfully`);
+              }
+            } catch (error) {
+              console.error(`Error adding layer ${layerName}:`, error);
+            }
+          });
+        };
+
+        // SET UP LISTENERS
+        setupStyleLoadHandlers();
+
+        // FETCH THE STYLES TO BE CHANGED
+        fetch(MAP_STYLES[styleKey])
+          .then((response) => response.json())
+          .then((styleJson) => {
+            console.log("Fetched new style, applying...");
+            map.setStyle(styleJson);
+            setCurrentStyle(MAP_STYLES[styleKey]);
+          })
+          .catch((error) => {
+            console.error("Error loading style:", error);
+          });
+      }
+    },
+    [addMapLayer, workspaceId, mapRef]
   );
 
   const removeMapLayer = useCallback((map: maplibregl.Map, layerId: string) => {
