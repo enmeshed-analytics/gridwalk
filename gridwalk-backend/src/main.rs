@@ -10,19 +10,17 @@ use crate::core::{GeoConnections, PostgisConnector};
 use crate::data::Dynamodb;
 
 use anyhow::Result;
-use std::env;
+use dotenvy::dotenv;
 use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialise tracing
     tracing_subscriber::fmt::init();
+    // Load environment variables from .env file
+    dotenv().ok();
 
-    // Create DynamoDB client
-    let table_name = env::var("DYNAMODB_TABLE").unwrap_or_else(|_| "gridwalk".to_string());
-    // let app_db = Dynamodb::new(false, &table_name).await.unwrap();
-    // FOR LOCAL DB DEV
-    let app_db = Dynamodb::new(true, &table_name).await.unwrap();
+    let app_db = Dynamodb::new().await.unwrap();
 
     // Create GeospatialConnections
     let geo_connections = GeoConnections::new();

@@ -13,6 +13,7 @@ axum = { version = "0.7", features = ["macros", "multipart"] }
 axum-extra = { version = "0.9.4", features = ["typed-header"] }
 base64 = "0.22.1"
 deadpool-postgres = "0.14.0"
+dotenvy = "0.15.7"
 duckdb-postgis = "0.1.6"
 futures = "0.3"
 geozero = { version = "0.14.0", features = [
