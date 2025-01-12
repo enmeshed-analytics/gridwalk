@@ -1,6 +1,6 @@
 use crate::core::{
-    Connection, ConnectionAccess, CreateUser, Email, GlobalRole, Layer, Project, User, Workspace,
-    WorkspaceMember, WorkspaceRole,
+    Connection, ConnectionAccess, CreateUser, Email, GlobalRole, Layer, PostgresConnection,
+    Project, User, Workspace, WorkspaceMember, WorkspaceRole,
 };
 use crate::data::{Database, UserStore};
 use anyhow::{anyhow, Result};
@@ -25,8 +25,72 @@ pub struct Dynamodb {
 impl Database for Dynamodb {}
 
 impl Dynamodb {
-    pub async fn new(local: bool, table_name: &str) -> Result<Arc<dyn Database>> {
+    pub async fn new() -> Result<Arc<dyn Database>> {
+        let dynamodb_table =
+            std::env::var("GW_DYNAMODB_TABLE").expect("GW_DYNAMODB_TABLE must be set");
+
+        let postgres_host =
+            std::env::var("GW_POSTGRES_HOST").expect("GW_POSTGRES_HOST must be set");
+        // Default to 5432 if not set
+        let postgres_port = std::env::var("GW_POSTGRES_PORT")
+            .unwrap_or_else(|_| "5432".to_string())
+            .parse::<u16>()
+            .expect("GW_POSTGRES_PORT must be a number");
+
+        let postgres_db = std::env::var("GW_POSTGRES_DB").expect("GW_POSTGRES_DB must be set");
+        let postgres_username =
+            std::env::var("GW_POSTGRES_USERNAME").expect("GW_POSTGRES_USERNAME must be set");
+        let postgres_password =
+            std::env::var("GW_POSTGRES_PASSWORD").expect("GW_POSTGRES_PASSWORD must be set");
+
+        let gw_user_email = std::env::var("GW_USER_EMAIL").expect("GW_USER_EMAIL must be set");
+
+        let gw_user_password =
+            std::env::var("GW_USER_PASSWORD").expect("GW_USER_PASSWORD must be set");
+
+        let local = std::env::var("GW_LOCAL")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse::<bool>()
+            .expect("GW_LOCAL must be a boolean");
+
+        Self::new_with_config(
+            local,
+            &dynamodb_table,
+            PostgresConnection {
+                host: postgres_host,
+                port: postgres_port,
+                database: postgres_db,
+                schema: None,
+                username: postgres_username,
+                password: postgres_password,
+            },
+            CreateUser {
+                email: gw_user_email,
+                first_name: "Initial".to_string(),
+                last_name: "User".to_string(),
+                global_role: Some(GlobalRole::Super),
+                password: gw_user_password,
+            },
+        )
+        .await
+    }
+
+    pub async fn new_with_config(
+        local: bool,
+        app_db_table_name: &str,
+        geoconnection: PostgresConnection,
+        initial_user: CreateUser,
+    ) -> Result<Arc<dyn Database>> {
         let region_provider = RegionProviderChain::default_provider().or_else("eu-west-2");
+
+        if local {
+            info!("Running in local mode");
+        }
+
+        // If inital user type is not super, return error
+        if initial_user.global_role != Some(GlobalRole::Super) {
+            return Err(anyhow!("Initial user must be of type Super"));
+        }
 
         // Set endpoint url to localhost to run locally
         let config = match local {
@@ -50,13 +114,41 @@ impl Dynamodb {
 
         let client = Client::from_conf(config);
         // Check if table exists, create if it doesn't
-        Self::ensure_table_exists(&client, table_name).await?;
+        Self::ensure_table_exists(&client, app_db_table_name).await?;
         let dynamodb = Arc::new(Dynamodb {
             client: client.clone(),
-            table_name: table_name.into(),
+            table_name: app_db_table_name.into(),
         }) as Arc<dyn Database>;
-        Self::ensure_admin_user_exists(&dynamodb).await?;
 
+        // Get initial user
+        let user = User::from_email(&dynamodb, &initial_user.email).await;
+        match user {
+            Ok(_) => {
+                info!("db init: admin user exists.");
+            }
+            Err(_) => {
+                info!("db init: creating admin user.");
+                User::create(&dynamodb, &initial_user).await?;
+                info!("db init: admin user created.");
+            }
+        }
+
+        // Check if primary connection exists, create if it doesn't
+        match dynamodb.get_connection("primary").await {
+            Ok(_) => {
+                info!("db init: primary connection exists.");
+            }
+            Err(_) => {
+                info!("db init: creating primary connection.");
+                let primary_connection = Connection {
+                    id: "primary".to_string(),
+                    name: "Primary".to_string(),
+                    connector_type: "Postgres".to_string(),
+                    config: geoconnection,
+                };
+                primary_connection.create_record(&dynamodb).await?;
+            }
+        }
         Ok(dynamodb)
     }
 
@@ -101,7 +193,7 @@ impl Dynamodb {
                 )
                 .global_secondary_indexes(
                     GlobalSecondaryIndex::builder()
-                        .index_name("GSI_USER")
+                        .index_name("user")
                         .key_schema(
                             KeySchemaElement::builder()
                                 .attribute_name("user_id")
@@ -131,28 +223,6 @@ impl Dynamodb {
                 .await?;
 
             info!("Table created successfully.");
-        }
-        Ok(())
-    }
-
-    async fn ensure_admin_user_exists(dynamodb: &Arc<dyn Database>) -> Result<()> {
-        let admin_user = User::from_email(&dynamodb, "test@example.com").await;
-        match admin_user {
-            Ok(_) => {
-                info!("db init: admin user exists.");
-            }
-            Err(_) => {
-                info!("db init: creating admin user.");
-                let admin_user = CreateUser {
-                    email: String::from("test@example.com"),
-                    first_name: String::from("Admin"),
-                    last_name: String::from("Istrator"),
-                    global_role: Some(GlobalRole::Super),
-                    password: String::from("admin"),
-                };
-                User::create(&dynamodb, &admin_user).await?;
-                info!("db init: admin user created.");
-            }
         }
         Ok(())
     }
@@ -314,7 +384,7 @@ impl UserStore for Dynamodb {
             .client
             .query()
             .table_name(&self.table_name)
-            .index_name("GSI_USER")
+            .index_name("user")
             .key_condition_expression("#user_id = :user_id")
             .filter_expression("begins_with(#pk, :prefix)")
             .expression_attribute_names("#user_id", "user_id")
