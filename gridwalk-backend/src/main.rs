@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
                 .add_connection("primary".to_string(), postgis_connector)
                 .await;
         }
-        Err(_) => info!("Primary connection not found. Skipping..."),
+        Err(_) => return Err(anyhow::anyhow!("Primary connection not found")),
     }
 
     // Run app
