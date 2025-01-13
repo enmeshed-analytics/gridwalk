@@ -75,6 +75,17 @@ pub fn create_app(app_state: AppState) -> Router {
         ))
         .with_state(shared_state.clone());
 
+    let upload_router_new = Router::new()
+        .route("/upload_layer_v2", post(upload_layer_v2))
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
+        .layer(create_dynamic_cors())
+        .layer(middleware::from_fn_with_state(
+            shared_state.clone(),
+            auth_middleware,
+        ))
+        .with_state(shared_state.clone());
+
     let main_router = Router::new()
         .route("/projects", get(get_projects))
         .route("/projects", delete(delete_project))
@@ -131,6 +142,7 @@ pub fn create_app(app_state: AppState) -> Router {
     Router::new()
         .merge(main_router)
         .merge(upload_router)
+        .merge(upload_router_new)
         .nest(
             "/workspaces/:workspace_id/connections/:connection_id/sources/:source_name/tiles",
             tiles_router,
