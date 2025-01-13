@@ -30,6 +30,7 @@ impl Layer {
         }
     }
 
+    // TODO this should not be named CREATE but something else as it is jsut used to check permissions.
     pub async fn create(
         &self,
         database: &Arc<dyn Database>,
@@ -44,23 +45,24 @@ impl Layer {
         Ok(())
     }
 
+    // TODO should the uri be something different now for the prob postgres instance?
     pub async fn send_to_postgis(&self, file_path: &str) -> Result<()> {
         let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk";
-        let schema = duckdb_postgis::duckdb_load::launch_process_file(
+        let layer_data = duckdb_postgis::duckdb_load::launch_process_file(
             file_path,
             &self.name,
             &postgis_uri,
             &self.workspace_id,
         )
         .map_err(|e| anyhow!("Failed to send file to PostGIS: {:?}", e))?;
-        println!("{:?}", schema);
+        println!("{:?}", layer_data);
         println!("Uploaded to POSTGIS BABY!");
         Ok(())
     }
 
     // Change this to match the pattern used elsewhere
     pub async fn write_record(&self, database: &Arc<dyn Database>) -> Result<()> {
-        database.create_layer(self).await?;
+        database.create_layer_record(self).await?;
         Ok(())
     }
 }

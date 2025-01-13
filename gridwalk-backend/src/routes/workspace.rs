@@ -84,6 +84,31 @@ pub async fn create_workspace(
     }
 }
 
+pub async fn delete_workspace(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(workspace_id): Path<String>,
+) -> Response {
+    if let Some(req_user) = auth_user.user {
+        // Retrieve the workspace to ensure it exists and check permissions
+        if let Ok(workspace) = Workspace::from_id(&state.app_data, &workspace_id).await {
+            if workspace.owner == req_user.id {
+                // Ensure the user is the owner
+                match Workspace::delete(&state.app_data, &workspace_id).await {
+                    Ok(_) => "workspace deleted successfully".into_response(),
+                    Err(_) => "failed to delete workspace".into_response(),
+                }
+            } else {
+                "unauthorised to delete this workspace".into_response()
+            }
+        } else {
+            "workspace not found".into_response()
+        }
+    } else {
+        "unauthorised".into_response()
+    }
+}
+
 pub async fn add_workspace_member(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,

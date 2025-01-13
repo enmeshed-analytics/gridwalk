@@ -360,6 +360,23 @@ impl UserStore for Dynamodb {
         Ok(())
     }
 
+    async fn delete_workspace(&self, wsp: &Workspace) -> Result<()> {
+        let key = format!("{}{}", "WSP#", wsp.id);
+        let mut key_map = std::collections::HashMap::new();
+        key_map.insert(String::from("PK"), AV::S(key.clone()));
+        key_map.insert(String::from("SK"), AV::S(key.clone()));
+
+        // Call delete_item on the DynamoDB client
+        self.client
+            .delete_item()
+            .table_name(&self.table_name)
+            .set_key(Some(key_map))
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
     async fn get_workspace_by_id(&self, id: &str) -> Result<Workspace> {
         let key = format!("WSP#{id}");
         match self
@@ -714,7 +731,7 @@ impl UserStore for Dynamodb {
         Ok(connections[0].clone())
     }
 
-    async fn create_layer(&self, layer: &Layer) -> Result<()> {
+    async fn create_layer_record(&self, layer: &Layer) -> Result<()> {
         let mut item = std::collections::HashMap::new();
 
         item.insert(

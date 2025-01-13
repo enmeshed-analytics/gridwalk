@@ -93,6 +93,18 @@ impl Workspace {
         }
     }
 
+    pub async fn delete(database: &Arc<dyn Database>, workspace_id: &str) -> Result<()> {
+        database
+            .delete_workspace(&Workspace {
+                id: workspace_id.to_string(),
+                name: String::new(),
+                owner: String::new(),
+                created_at: 0,
+                active: false,
+            })
+            .await
+    }
+
     pub async fn add_member(
         self,
         database: &Arc<dyn Database>,

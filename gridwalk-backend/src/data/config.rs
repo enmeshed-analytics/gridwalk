@@ -8,12 +8,14 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait Database: Send + Sync + UserStore + SessionStore + 'static {}
 
+// TODO need to add in DELETE WORKSPACE
 #[async_trait]
 pub trait UserStore: Send + Sync + 'static {
     async fn create_user(&self, user: &User) -> Result<()>;
     async fn get_user_by_email(&self, email: &str) -> Result<User>;
     async fn get_user_by_id(&self, id: &str) -> Result<User>;
     async fn create_workspace(&self, wsp: &Workspace) -> Result<()>;
+    async fn delete_workspace(&self, wsp: &Workspace) -> Result<()>;
     async fn get_workspace_by_id(&self, id: &str) -> Result<Workspace>;
     async fn add_workspace_member(
         &self,
@@ -34,7 +36,7 @@ pub trait UserStore: Send + Sync + 'static {
         wsp: &Workspace,
         con_id: &str,
     ) -> Result<ConnectionAccess>;
-    async fn create_layer(&self, layer: &Layer) -> Result<()>;
+    async fn create_layer_record(&self, layer: &Layer) -> Result<()>;
     async fn create_project(&self, project: &Project) -> Result<()>;
     async fn get_workspaces(&self, user: &User) -> Result<Vec<String>>;
     async fn get_projects(&self, workspace_id: &str) -> Result<Vec<Project>>;

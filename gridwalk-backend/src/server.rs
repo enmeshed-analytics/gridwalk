@@ -83,6 +83,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/profile", get(profile))
         .route("/password_reset", post(reset_password))
         .route("/workspace", post(create_workspace))
+        .route("/workspace/:workspace_id", delete(delete_workspace))
         .route("/workspace/members", post(add_workspace_member))
         .route(
             "/workspace/:workspace_id/members",
