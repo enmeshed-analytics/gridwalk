@@ -109,66 +109,77 @@ export function MapClient({ apiUrl }: MapClientProps) {
         return;
       }
 
-      setIsUploading(true);
-      setUploadError(null);
-      setUploadSuccess(false);
-      setUploadProgress(0);
+      const extension = fileToUpload.name.split(".").pop();
 
-      try {
-        // Create a new File object with the custom name while preserving the extension
-        const extension = fileToUpload.name.split(".").pop();
-        const renamedFile = new File(
-          [fileToUpload],
-          `${fileName}${extension ? `.${extension}` : ""}`,
-          { type: fileToUpload.type }
-        );
+      switch (extension) {
+        case "zip":
+          console.log("ZIP file detected:", fileToUpload.name);
+          setUploadError("Detected ZIP file - currently in development");
+          return;
 
-        await uploadFile(
-          renamedFile,
-          "",
-          (progress) => {
-            setUploadProgress(progress);
-          },
-          async (response) => {
-            if (response.success && response.data) {
-              setLayers((prev) => [
-                ...prev,
-                {
-                  id: response.data!.id,
-                  name: response.data!.name,
-                  type: "vector",
-                  visible: true,
-                  workspace_id: response.data!.workspace_id,
-                },
-              ]);
+        default:
+          setIsUploading(true);
+          setUploadError(null);
+          setUploadSuccess(false);
+          setUploadProgress(0);
 
-              // Refresh workspace layers upon successfull upload
-              try {
-                const connections = await getWorkspaceConnections(workspaceId);
-                setWorkspaceConnections(connections);
-              } catch (error) {
-                console.error(
-                  "Failed to refresh workspace connections:",
-                  error
-                );
+          try {
+            // Create a new File object with the custom name while preserving the extension
+            const renamedFile = new File(
+              [fileToUpload],
+              `${fileName}${extension ? `.${extension}` : ""}`,
+              { type: fileToUpload.type }
+            );
+
+            await uploadFile(
+              renamedFile,
+              "",
+              (progress) => {
+                setUploadProgress(progress);
+              },
+              async (response) => {
+                if (response.success && response.data) {
+                  setLayers((prev) => [
+                    ...prev,
+                    {
+                      id: response.data!.id,
+                      name: response.data!.name,
+                      type: "vector",
+                      visible: true,
+                      workspace_id: response.data!.workspace_id,
+                    },
+                  ]);
+
+                  // Refresh workspace layers upon successfull upload
+                  try {
+                    const connections = await getWorkspaceConnections(
+                      workspaceId
+                    );
+                    setWorkspaceConnections(connections);
+                  } catch (error) {
+                    console.error(
+                      "Failed to refresh workspace connections:",
+                      error
+                    );
+                  }
+
+                  setUploadSuccess(true);
+                  setIsUploading(false);
+                  setSelectedFile(null);
+                  setFileName("");
+
+                  setTimeout(() => {
+                    setUploadSuccess(false);
+                  }, 2000);
+                }
+              },
+              (error) => {
+                setUploadError(error);
               }
-
-              setUploadSuccess(true);
-              setIsUploading(false);
-              setSelectedFile(null);
-              setFileName("");
-
-              setTimeout(() => {
-                setUploadSuccess(false);
-              }, 2000);
-            }
-          },
-          (error) => {
-            setUploadError(error);
+            );
+          } finally {
+            setIsUploading(false);
           }
-        );
-      } finally {
-        setIsUploading(false);
       }
     },
     [uploadFile, fileName, workspaceId]

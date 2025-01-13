@@ -37,8 +37,8 @@ export function CreateWorkspaceModal({
       setIsCreating(true);
       await onCreate(workspaceName);
       setWorkspaceName("");
-      router.refresh();
       onClose();
+      router.refresh();
     } catch (error) {
       console.error("Error creating workspace:", error);
     } finally {
