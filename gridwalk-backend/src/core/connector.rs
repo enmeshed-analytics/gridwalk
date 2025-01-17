@@ -195,9 +195,9 @@ impl GeoConnector for PostgisConnector {
         let rows = client
             .query(
                 "SELECT table_name 
-                 FROM information_schema.tables 
-                 WHERE table_schema = $1",
-                &[&namespace], // Remove the format! and quotes
+                FROM information_schema.tables 
+                WHERE table_schema = $1",
+                &[&namespace],
             )
             .await
             .map_err(|e| anyhow!("Failed to execute query to list sources: {}", e))?;

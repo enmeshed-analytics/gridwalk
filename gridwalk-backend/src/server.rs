@@ -45,6 +45,7 @@ fn create_dynamic_cors() -> CorsLayer {
             HeaderName::from_static("x-chunk-number"),
             HeaderName::from_static("x-total-chunks"),
             HeaderName::from_static("x-file-size"),
+            HeaderName::from_static("x-checksum"),
         ])
         .expose_headers([
             HeaderName::from_static("x-file-type"),
@@ -52,6 +53,7 @@ fn create_dynamic_cors() -> CorsLayer {
             HeaderName::from_static("x-chunk-number"),
             HeaderName::from_static("x-total-chunks"),
             HeaderName::from_static("x-file-size"),
+            HeaderName::from_static("x-checksum"),
         ])
         .allow_origin(origins)
 }

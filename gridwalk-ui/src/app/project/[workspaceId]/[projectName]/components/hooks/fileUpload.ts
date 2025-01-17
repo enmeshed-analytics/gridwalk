@@ -3,8 +3,9 @@
 import { useCallback } from "react";
 import { getUploadHeaders } from "../actions/auth";
 import { LayerInfo } from "./types";
+import JSZip from "jszip";
 
-const CHUNK_SIZE = 15 * 1024 * 1024; // 15MB chunks
+const CHUNK_SIZE = 10 * 1024 * 1024;
 
 interface UploadResponse {
   success: boolean;
@@ -20,18 +21,18 @@ interface UploadResponse {
   };
 }
 
-export const useFileUploader = () => {
-  const getWorkspaceIdFromUrl = () => {
-    const path = window.location.pathname;
-    const parts = path.split("/");
-    const projectIndex = parts.indexOf("project");
-    if (projectIndex === -1 || !parts[projectIndex + 1]) {
-      throw new Error("Project ID is required but missing from URL");
-    }
-    return parts[projectIndex + 1];
-  };
+const getWorkspaceIdFromUrl = () => {
+  const path = window.location.pathname;
+  const parts = path.split("/");
+  const projectIndex = parts.indexOf("project");
+  if (projectIndex === -1 || !parts[projectIndex + 1]) {
+    throw new Error("Workspace ID is required but missing from URL");
+  }
+  return parts[projectIndex + 1];
+};
 
-  const uploadFile = useCallback(
+export const useSingleFileUploader = () => {
+  const uploadSingleFile = useCallback(
     async (
       file: File,
       _workspaceId: string,
@@ -48,7 +49,10 @@ export const useFileUploader = () => {
         for (let currentChunk = 0; currentChunk < totalChunks; currentChunk++) {
           const start = currentChunk * CHUNK_SIZE;
           const end = Math.min(start + CHUNK_SIZE, file.size);
-          const chunk = file.slice(start, end);
+
+          const chunk = new Blob([file.slice(start, end)], {
+            type: file.type || "application/octet-stream",
+          });
 
           const formData = new FormData();
           formData.append("file", chunk, file.name);
@@ -73,7 +77,7 @@ export const useFileUploader = () => {
           };
 
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_GRIDWALK_API}/upload_layer`,
+            `${process.env.NEXT_PUBLIC_GRIDWALK_API}/upload_layer_v2`,
             {
               method: "POST",
               headers,
@@ -107,5 +111,73 @@ export const useFileUploader = () => {
     },
     []
   );
-  return { uploadFile };
+  return { uploadSingleFile };
+};
+
+export const useShapefileUploader = () => {
+  const uploadShapefile = useCallback(
+    async (
+      file: File,
+      _workspaceId: string,
+      onProgress?: (progress: number) => void,
+      onSuccess?: (data: UploadResponse) => void,
+      onError?: (error: string) => void
+    ): Promise<void> => {
+      if (!file.name.toLowerCase().endsWith(".zip")) {
+        onError?.("Please upload a ZIP file containing shapefile components");
+        return;
+      }
+
+      try {
+        // Read the zip file
+        const zip = new JSZip();
+        const zipContents = await zip.loadAsync(file);
+
+        // Log the contents of the zip file
+        const shapefileComponents: string[] = [];
+
+        zipContents.forEach((relativePath) => {
+          const extension = relativePath.split(".").pop()?.toLowerCase();
+          console.log(
+            `Found file: ${relativePath} with extension: ${extension}`
+          );
+          shapefileComponents.push(relativePath);
+
+          // Log specific shapefile components
+          switch (extension) {
+            case "shp":
+              console.log("Found main shapefile");
+              break;
+            case "dbf":
+              console.log("Found dBASE file");
+              break;
+            case "shx":
+              console.log("Found shape index file");
+              break;
+            case "prj":
+              console.log("Found projection file");
+              break;
+          }
+        });
+
+        // For now, just simulate success
+        onSuccess?.({
+          success: true,
+          data: {
+            id: "temp-id",
+            name: file.name,
+            workspace_id: _workspaceId,
+          },
+        });
+      } catch (err) {
+        onError?.(
+          err instanceof Error ? err.message : "Error processing ZIP file"
+        );
+        console.error("Upload error:", err);
+      }
+    },
+    []
+  );
+
+  return { uploadShapefile };
 };

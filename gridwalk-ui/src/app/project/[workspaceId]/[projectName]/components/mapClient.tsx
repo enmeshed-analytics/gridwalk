@@ -1,24 +1,28 @@
 "use client";
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { useMapInit } from "./mapInit";
-import MainMapNavigation from "./navBars/mainSidebar";
-import MapEditNavigation from "./navBars/mapEditSidebar";
-import BaseLayerNavigation from "./navBars/baseLayerSidebar";
-import { useFileUploader } from "./hooks/fileUpload";
-import { MainMapNav, MapEditNav, BaseEditNav } from "./navBars/types";
 import { useParams } from "next/navigation";
+import MainMapNavigation from "./sideBars/mainSidebar";
+import MapEditNavigation from "./sideBars/mapEditSidebar";
+import BaseLayerNavigation from "./sideBars/baseLayerSidebar";
+import { MainMapNav, MapEditNav, BaseEditNav } from "./sideBars/types";
+import { useMapInit } from "./mapInit";
+import {
+  useSingleFileUploader,
+  useShapefileUploader,
+} from "./hooks/fileUpload";
 import {
   getWorkspaceConnections,
   WorkspaceConnection,
 } from "./actions/getSources";
-
-export interface LayerUpload {
-  id: string;
-  name: string;
-  type: string;
-  visible: boolean;
-  workspace_id?: string;
-}
+import {
+  MAP_STYLES,
+  MapStyleKey,
+  INITIAL_MAP_CONFIG,
+  MapClientProps,
+  LayerUpload,
+  SupportedFileTypes,
+  FileHandlerResponse,
+} from "./types";
 
 const defaultBaseLayer: BaseEditNav = {
   id: "light",
@@ -27,25 +31,8 @@ const defaultBaseLayer: BaseEditNav = {
   description: "Light base map style",
 };
 
-const MAP_STYLES = {
-  light: "/OS_VTS_3857_Light.json",
-  dark: "/OS_VTS_3857_Dark.json",
-  car: "/OS_VTS_3857_Road.json",
-} as const;
-
-type MapStyleKey = keyof typeof MAP_STYLES;
-
-const INITIAL_MAP_CONFIG = {
-  center: [-0.1278, 51.5074] as [number, number],
-  zoom: 11,
-} as const;
-
-interface MapClientProps {
-  apiUrl: string;
-}
-
 export function MapClient({ apiUrl }: MapClientProps) {
-  // Connections state
+  // Connections State
   const [workspaceConnections, setWorkspaceConnections] = useState<
     WorkspaceConnection[]
   >([]);
@@ -62,8 +49,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
 
-  // Layer Management States
-  const [layers, setLayers] = useState<LayerUpload[]>([]);
+  // File Upload States
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -74,6 +60,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const [fileName, setFileName] = useState("");
 
   // Active Layers State
+  const [layers, setLayers] = useState<LayerUpload[]>([]);
   const activeLayerIds = useRef<string[]>([]);
   const [selectedLayers, setSelectedLayers] = useState<{
     [key: number]: boolean;
@@ -92,6 +79,16 @@ export function MapClient({ apiUrl }: MapClientProps) {
     apiUrl,
   });
 
+  // Close an open modal
+  const handleModalClose = useCallback(() => {
+    setIsModalOpen(false);
+    setSelectedItem(null);
+    setUploadSuccess(false);
+    setUploadError(null);
+    setSelectedFile(null);
+    setFileName("");
+  }, []);
+
   // File Selection Handler
   const handleFileSelection = useCallback((file: File) => {
     setSelectedFile(file);
@@ -99,9 +96,8 @@ export function MapClient({ apiUrl }: MapClientProps) {
   }, []);
 
   // File Upload Hook Integration
-  const { uploadFile } = useFileUploader();
-
-  // File Upload Handler
+  const { uploadSingleFile } = useSingleFileUploader();
+  const { uploadShapefile } = useShapefileUploader();
   const handleUpload = useCallback(
     async (fileToUpload: File) => {
       if (!fileToUpload || !fileName.trim()) {
@@ -109,80 +105,196 @@ export function MapClient({ apiUrl }: MapClientProps) {
         return;
       }
 
-      const extension = fileToUpload.name.split(".").pop();
+      const extension = fileToUpload.name
+        .split(".")
+        .pop()
+        ?.toLowerCase() as SupportedFileTypes;
 
-      switch (extension) {
-        case "zip":
-          console.log("ZIP file detected:", fileToUpload.name);
-          setUploadError("Detected ZIP file - currently in development");
-          return;
+      setIsUploading(true);
+      setUploadError(null);
+      setUploadSuccess(false);
+      setUploadProgress(0);
 
-        default:
-          setIsUploading(true);
-          setUploadError(null);
-          setUploadSuccess(false);
-          setUploadProgress(0);
-
-          try {
-            // Create a new File object with the custom name while preserving the extension
-            const renamedFile = new File(
-              [fileToUpload],
-              `${fileName}${extension ? `.${extension}` : ""}`,
-              { type: fileToUpload.type }
-            );
-
-            await uploadFile(
-              renamedFile,
+      const fileTypeHandlers: Record<
+        string,
+        (file: File) => Promise<FileHandlerResponse>
+      > = {
+        gpkg: async (file: File): Promise<FileHandlerResponse> => {
+          return new Promise((resolve, reject) => {
+            uploadSingleFile(
+              file,
               "",
-              (progress) => {
-                setUploadProgress(progress);
+              (progress) => setUploadProgress(progress),
+              (response) => {
+                setUploadSuccess(true);
+                setTimeout(() => {
+                  setUploadSuccess(false);
+                  handleModalClose();
+                }, 1500);
+                resolve(response);
               },
-              async (response) => {
-                if (response.success && response.data) {
-                  setLayers((prev) => [
-                    ...prev,
-                    {
-                      id: response.data!.id,
-                      name: response.data!.name,
-                      type: "vector",
-                      visible: true,
-                      workspace_id: response.data!.workspace_id,
-                    },
-                  ]);
-
-                  // Refresh workspace layers upon successfull upload
-                  try {
-                    const connections = await getWorkspaceConnections(
-                      workspaceId
-                    );
-                    setWorkspaceConnections(connections);
-                  } catch (error) {
-                    console.error(
-                      "Failed to refresh workspace connections:",
-                      error
-                    );
-                  }
-
-                  setUploadSuccess(true);
-                  setIsUploading(false);
-                  setSelectedFile(null);
-                  setFileName("");
-
-                  setTimeout(() => {
-                    setUploadSuccess(false);
-                  }, 2000);
-                }
+              reject
+            );
+          });
+        },
+        zip: async (file: File): Promise<FileHandlerResponse> => {
+          return new Promise((resolve, reject) => {
+            uploadShapefile(
+              file,
+              "",
+              (progress) => setUploadProgress(progress),
+              (response) => {
+                setUploadSuccess(true);
+                setTimeout(() => {
+                  setUploadSuccess(false);
+                  handleModalClose();
+                }, 1500);
+                resolve(response);
               },
               (error) => {
                 setUploadError(error);
+                reject(error);
               }
             );
-          } finally {
-            setIsUploading(false);
-          }
+          });
+        },
+        xlsx: async (file: File): Promise<FileHandlerResponse> => {
+          return new Promise((resolve, reject) => {
+            uploadSingleFile(
+              file,
+              "",
+              (progress) => setUploadProgress(progress),
+              (response) => {
+                setUploadSuccess(true);
+                setTimeout(() => {
+                  setUploadSuccess(false);
+                  handleModalClose();
+                }, 1500);
+                resolve(response);
+              },
+              reject
+            );
+          });
+        },
+        csv: async (file: File): Promise<FileHandlerResponse> => {
+          return new Promise((resolve, reject) => {
+            uploadSingleFile(
+              file,
+              "",
+              (progress) => setUploadProgress(progress),
+              (response) => {
+                setUploadSuccess(true);
+                setTimeout(() => {
+                  setUploadSuccess(false);
+                  handleModalClose();
+                }, 1500);
+                resolve(response);
+              },
+              reject
+            );
+          });
+        },
+        parquet: async (file: File): Promise<FileHandlerResponse> => {
+          return new Promise((resolve, reject) => {
+            uploadSingleFile(
+              file,
+              "",
+              (progress) => setUploadProgress(progress),
+              (response) => {
+                setUploadSuccess(true);
+                setTimeout(() => {
+                  setUploadSuccess(false);
+                  handleModalClose();
+                }, 1500);
+                resolve(response);
+              },
+              reject
+            );
+          });
+        },
+        json: async (file: File): Promise<FileHandlerResponse> => {
+          return new Promise((resolve, reject) => {
+            uploadSingleFile(
+              file,
+              "",
+              (progress) => setUploadProgress(progress),
+              (response) => {
+                setUploadSuccess(true);
+                setTimeout(() => {
+                  setUploadSuccess(false);
+                  handleModalClose();
+                }, 1500);
+                resolve(response);
+              },
+              reject
+            );
+          });
+        },
+        geojson: async (file: File): Promise<FileHandlerResponse> => {
+          return new Promise((resolve, reject) => {
+            uploadSingleFile(
+              file,
+              "",
+              (progress) => setUploadProgress(progress),
+              (response) => {
+                setUploadSuccess(true);
+                setTimeout(() => {
+                  setUploadSuccess(false);
+                  handleModalClose();
+                }, 1500);
+                resolve(response);
+              },
+              reject
+            );
+          });
+        },
+      };
+
+      try {
+        const renamedFile = new File(
+          [fileToUpload],
+          `${fileName}${extension ? `.${extension}` : ""}`,
+          { type: fileToUpload.type }
+        );
+
+        const handler = fileTypeHandlers[extension];
+        if (!handler) {
+          throw new Error(`Unsupported file type: ${extension}`);
+        }
+        await handler(renamedFile);
+        // Add delay for error messages
+        if (!uploadSuccess) {
+          setTimeout(() => {
+            handleModalClose();
+          }, 1500);
+        }
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          setUploadError(error.message);
+          console.log(`Upload Error: ${error.message}`);
+          setTimeout(() => {
+            handleModalClose();
+          }, 1500);
+        } else {
+          setUploadError("An unknown error occurred");
+          console.log("Unknown upload error:", error);
+          setTimeout(() => {
+            handleModalClose();
+          }, 1500);
+        }
+      } finally {
+        setIsUploading(false);
       }
     },
-    [uploadFile, fileName, workspaceId]
+    [
+      fileName,
+      uploadSingleFile,
+      uploadShapefile,
+      handleModalClose,
+      setUploadSuccess,
+      setUploadError,
+      uploadSuccess,
+    ]
   );
 
   // Abort Upload Handler
@@ -217,26 +329,27 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
   }, []);
 
-  const handleModalClose = useCallback(() => {
-    setIsModalOpen(false);
-    setSelectedItem(null);
-    setUploadSuccess(false);
-    setUploadError(null);
-    setSelectedFile(null);
-    setFileName("");
-  }, []);
-
   useEffect(() => {
-    const fetchWorkspaceConnections = async () => {
+    const fetchWorkspaceSources = async () => {
       try {
+        console.log("Fetching connections for workspace:", workspaceId);
         const connections = await getWorkspaceConnections(workspaceId);
+        console.log("Received connections:", connections);
         setWorkspaceConnections(connections);
       } catch (error) {
-        console.error("Failed to fetch workspace connections:", error);
+        console.error("Failed to fetch workspace connections:", {
+          workspaceId,
+          error: error instanceof Error ? error.message : error,
+          fullError: error,
+        });
       }
     };
 
-    fetchWorkspaceConnections();
+    if (workspaceId) {
+      fetchWorkspaceSources();
+    } else {
+      console.warn("No workspaceId provided");
+    }
   }, [workspaceId]);
 
   // Layer management handler

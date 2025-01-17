@@ -80,7 +80,7 @@ pub async fn upload_layer(
     // Create upload id - which is the workspace id that is sent through
     // This is what is used to create the temp file path
     // "temp_{upload_id}_{filename}"
-    // this is only temporary to ensure that the chunks are appended to the same temp file
+    // This is only temporary to ensure that the chunks are appended to the same temp file
     let upload_id = format!("{}_upload", workspace_id);
 
     // Logging info
@@ -241,16 +241,6 @@ pub async fn upload_layer(
         (StatusCode::BAD_REQUEST, Json(error))
     })?;
 
-    if final_path.extension().and_then(|e| e.to_str()) == Some("shp") {
-        if let Err(e) = validate_shapefile_components(&final_path).await {
-            let error = json!({
-                "error": "Invalid shapefile upload",
-                "details": e
-            });
-            return Err((StatusCode::BAD_REQUEST, Json(error)));
-        }
-    }
-
     let layer = Layer::from_req(layer_info, user);
 
     match process_layer(&state, &layer, user, &final_path).await {
@@ -356,58 +346,4 @@ async fn process_layer(
             "message": "Layer created successfully"
         })
     }))
-}
-
-async fn validate_shapefile_components(file_path: &Path) -> Result<(), String> {
-    // Extract the actual filename from temp_workspaceId_filename.shp pattern
-    let full_name = file_path
-        .file_name()
-        .and_then(|s| s.to_str())
-        .ok_or("Invalid shapefile path")?;
-
-    // Split by underscore to handle temp_workspaceId_filename pattern
-    let parts: Vec<&str> = full_name.split('_').collect();
-    if parts.len() < 3 {
-        return Err("Invalid temp file name pattern".to_string());
-    }
-
-    // Reconstruct the base filename without extension
-    let actual_file_stem = parts[2..].join("_");
-    let file_stem = actual_file_stem.trim_end_matches(".shp");
-
-    let parent_dir = file_path.parent().ok_or("Couldn't get parent directory")?;
-
-    let required_files = [".shp", ".dbf", ".shx"];
-
-    // Now check for temp_{workspace_id}_{filename}.{ext} pattern
-    for ext in required_files {
-        let temp_prefix = format!("temp_{}_{}", parts[1], file_stem);
-        let component_path = parent_dir.join(format!("{}{}", temp_prefix, ext));
-
-        tracing::info!("Checking for component: {}", component_path.display());
-
-        if !component_path.exists() {
-            return Err(format!("Missing required shapefile component: {}", ext));
-        }
-
-        // Check if file is empty
-        let metadata = fs::metadata(&component_path)
-            .await
-            .map_err(|e| format!("Failed to read {} metadata: {}", ext, e))?;
-
-        if metadata.len() == 0 {
-            return Err(format!("Shapefile component {} is empty", ext));
-        }
-    }
-
-    // Handle optional .prj similarly
-    let temp_prefix = format!("temp_{}_{}", parts[1], file_stem);
-    let prj_path = parent_dir.join(format!("{}.prj", temp_prefix));
-    if prj_path.exists() {
-        tracing::info!("Optional .prj file is present");
-    } else {
-        tracing::warn!("Optional .prj file is missing");
-    }
-
-    Ok(())
 }
