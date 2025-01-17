@@ -131,7 +131,8 @@ export const useShapefileUploader = () => {
       try {
         // Read the zip file
         const zip = new JSZip();
-        const zipContents = await zip.loadAsync(file);
+        const arrayBuffer = await file.arrayBuffer();
+        const zipContents = await zip.loadAsync(arrayBuffer);
 
         // Log the contents of the zip file
         const shapefileComponents: string[] = [];

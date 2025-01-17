@@ -80,6 +80,16 @@ pub async fn upload_layer_v2(
     let mut layer_info: Option<CreateLayer> = None;
     let mut file_path = None;
 
+    // Add file type check from headers
+    let file_type = headers
+        .get("x-file-type")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_lowercase());
+
+    // Add file type check from headers
+    let is_shapefile = file_type.as_deref() == Some(".zip");
+    let shapefile_path = None;
+
     // Create uploads directory
     let dir_path = Path::new("uploads");
     fs::create_dir_all(dir_path).await.map_err(|e| {
@@ -259,18 +269,24 @@ pub async fn upload_layer_v2(
         }
     }
 
-    // Get final path and layer info
-    // At this point, we know:
-    // 1. We have processed the final chunk (checked during file processing)
-    // 2. We have a complete file and temp file path
-    // 3. We can proceed with final processing to PostGIS
-    let final_path = file_path.ok_or_else(|| {
-        let error = json!({
-            "error": "No file was uploaded",
-            "details": null
-        });
-        (StatusCode::BAD_REQUEST, Json(error))
-    })?;
+    // Get final path - use shapefile path if it's a shapefile upload
+    let final_path = if is_shapefile {
+        shapefile_path.ok_or_else(|| {
+            let error = json!({
+                "error": "No .shp file found in shapefile upload",
+                "details": null
+            });
+            (StatusCode::BAD_REQUEST, Json(error))
+        })?
+    } else {
+        file_path.ok_or_else(|| {
+            let error = json!({
+                "error": "No file was uploaded",
+                "details": null
+            });
+            (StatusCode::BAD_REQUEST, Json(error))
+        })?
+    };
 
     let layer_info = layer_info.ok_or_else(|| {
         let error = json!({
@@ -386,7 +402,6 @@ async fn process_layer(
         })
     }))
 }
-
 
 async fn validate_first_chunk(chunk: &[u8]) -> Result<FileType, (StatusCode, Json<serde_json::Value>)> {
     match determine_file_type(chunk) {
