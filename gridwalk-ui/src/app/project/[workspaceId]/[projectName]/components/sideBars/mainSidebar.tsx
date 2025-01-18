@@ -8,10 +8,10 @@ import maplibregl from "maplibre-gl";
 
 // Loading dots for file upload
 const LoadingDots = () => (
-  <div className="flex gap-1">
-    <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_infinite]"></div>
-    <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_0.2s_infinite]"></div>
-    <div className="h-2 w-2 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_0.4s_infinite]"></div>
+  <div className="flex gap-0.5">
+    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_infinite]"></div>
+    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_0.2s_infinite]"></div>
+    <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-[bounce_1s_ease-in-out_0.4s_infinite]"></div>
   </div>
 );
 
@@ -183,60 +183,51 @@ const MapModal: React.FC<ModalProps> = ({
                 </label>
               </div>
             ) : (
-              <div className="mb-6 space-y-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-2">
+              <div className="mb-4 space-y-2">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-2">
                     Selected file: {selectedFile.name}
                   </p>
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-xs font-medium text-gray-700">
                       Enter layer name:
                     </label>
                     <input
                       type="text"
                       value={fileName}
                       onChange={(e) => onFileNameChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="Enter layer name"
                     />
 
-                    {/* Added Public/Private Toggle */}
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-sm font-medium text-gray-700">
+                    {/* Public/Private Toggle with reduced spacing */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs font-medium text-gray-700">
                         Visibility:
                       </span>
                       <button
                         type="button"
-                        className={`
-                          relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent 
-                          transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 
-                          bg-green-500
-                        `}
+                        className="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-blue-500 bg-green-500"
                         role="switch"
                         aria-checked="true"
                       >
                         <span className="sr-only">Use setting</span>
-                        <span
-                          className={`
-                            pointer-events-none inline-block h-5 w-5 transform rounded-full 
-                            bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5
-                          `}
-                        />
+                        <span className="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-4" />
                       </button>
-                      <span className="text-sm text-gray-500 ml-2">Public</span>
+                      <span className="text-xs text-gray-500">Public</span>
                     </div>
                   </div>
-                  <div className="mt-4 flex space-x-2">
+                  <div className="mt-3 flex gap-2">
                     <button
                       onClick={handleUploadClick}
                       disabled={!fileName.trim() || isUploading}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Upload
                     </button>
                     <button
                       onClick={onCancelSelection}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                      className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                     >
                       Cancel
                     </button>
@@ -246,22 +237,22 @@ const MapModal: React.FC<ModalProps> = ({
             )}
 
             {isUploading && (
-              <div className="flex items-center justify-center space-x-2 text-blue-500 mb-4">
+              <div className="flex items-center justify-center space-x-1 text-blue-500 mb-2 text-xs">
                 <LoadingDots />
-                <span className="ml-2">Uploading file ({uploadProgress}%)</span>
+                <span className="ml-1">Uploading ({uploadProgress}%)</span>
               </div>
             )}
 
             {uploadSuccess && !isUploading && (
-              <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md flex items-center">
-                <CheckCircle2 className="w-5 h-5 text-green-500 mr-2" />
-                <span>File uploaded successfully!</span>
+              <div className="mb-2 p-2 bg-green-50 text-green-700 rounded-md flex items-center text-xs">
+                <CheckCircle2 className="w-4 h-4 text-green-500 mr-1" />
+                <span>Upload complete!</span>
               </div>
             )}
 
             {error && (
-              <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-start">
-                <span className="text-red-500 mr-2">❌</span>
+              <div className="mb-2 p-2 bg-red-50 text-red-700 rounded-md flex items-center text-xs">
+                <span className="text-red-500 mr-1">❌</span>
                 <span>{error}</span>
               </div>
             )}
