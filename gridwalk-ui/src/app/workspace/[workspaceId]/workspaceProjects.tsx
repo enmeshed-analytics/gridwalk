@@ -9,6 +9,7 @@ import {
   Trash2,
   HelpCircle,
   Database,
+  DeleteIcon,
 } from "lucide-react";
 import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
 import { HelpSupportModal } from "../supportModal";
@@ -123,11 +124,11 @@ export default function WorkspaceProjectsClient({
             </h1>
             <button
               onClick={() => setIsActionsOpen(!isActionsOpen)}
-              className="flex border border-gray-500 items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors bg-white px-3 py-1.5 rounded-lg shadow-sm"
+              className="flex border border-gray-500 items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors bg-white px-3 py-1.5 rounded-lg shadow hover:shadow-black"
             >
-              Settings
+              Workspace Settings
               <div
-                className={`rounded-full p-1 transition-colors duration-200 ${
+                className={`rounded-full p-1 transition-colors duration-200 shadow hover:shadow-black ${
                   isActionsOpen ? "bg-green-500" : "bg-black"
                 }`}
               >
@@ -170,7 +171,11 @@ export default function WorkspaceProjectsClient({
                   className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left"
                 >
                   <Database size={16} />
-                  View Connections
+                  View DB Connections
+                </button>
+                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left">
+                  <DeleteIcon size={16} />
+                  Delete Workspace
                 </button>
               </div>
             </div>
@@ -180,7 +185,7 @@ export default function WorkspaceProjectsClient({
         {/* Projects grid */}
         <div className="mt-8">
           {initialProjects.length === 0 ? (
-            <div className="text-center p-8 text-gray-500">
+            <div className="text-center p-4 text-gray-500">
               No projects found. Create your first project!
             </div>
           ) : (
@@ -189,7 +194,7 @@ export default function WorkspaceProjectsClient({
                 <div
                   key={project.id}
                   onClick={() => handleProjectClick(project)}
-                  className="p-4 bg-white border border-gray-500 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer group relative"
+                  className="p-3 bg-white border border-gray-500 rounded-lg shadow hover:shadow-black transition-shadow cursor-pointer group relative"
                 >
                   <h3 className="font-medium text-gray-900">{project.name}</h3>
                   <button
@@ -209,7 +214,7 @@ export default function WorkspaceProjectsClient({
         <div className="fixed bottom-0 left-29 p-8">
           <button
             onClick={() => router.push("/workspace")}
-            className="bg-white border text-black hover:text-white border-gray-700 rounded-full shadow-lg hover:shadow-l hover:bg-blue-400 transition-all duration-200 group p-1 relative"
+            className="bg-white border text-black border-gray-700 rounded-full shadow-lg hover:shadow-l transition-all duration-200 group p-1 relative hover:shadow-black"
           >
             ←{/* Tooltip */}
             <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-1 text-sm text-white bg-gray-900 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
@@ -222,12 +227,12 @@ export default function WorkspaceProjectsClient({
         <div className="fixed bottom-0 right-0 p-6">
           <button
             onClick={() => setIsHelpSupportModalOpen(true)}
-            className="bg-white border border-gray-700 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group p-4 relative"
+            className="bg-white border border-gray-700 rounded-full hover:shadow-lg transition-all duration-200 group p-4 relative hover:shadow-black"
             aria-label="Help and Support"
           >
             <HelpCircle className="w-6 h-6 text-blue-500 group-hover:text-blue-600" />
             <span className="absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-gray-800 text-white px-2 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Help & Support 👋
+              Help & Support
             </span>
           </button>
         </div>
