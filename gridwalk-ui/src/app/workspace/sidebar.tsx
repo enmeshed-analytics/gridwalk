@@ -33,7 +33,7 @@ const LogoutButton = () => {
   return (
     <Button
       variant="ghost"
-      className="w-full justify-start text-red-500 hover:text-white hover:bg-red-50 dark:hover:bg-red-950"
+      className="w-full justify-start text-blue-500 hover:text-white hover:bg-blue-500 dark:hover:bg-blue-500"
       onClick={handleLogout}
     >
       <LogOut className="mr-2 h-4 w-4" />
