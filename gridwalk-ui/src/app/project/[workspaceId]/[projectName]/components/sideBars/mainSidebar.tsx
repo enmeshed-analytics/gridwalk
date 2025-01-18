@@ -39,14 +39,14 @@ const LayersTable: React.FC<LayersTableProps> = ({
                 index % 2 === 0 ? "bg-white" : "bg-blue-50"
               }`}
             >
-              <td className="px-4 py-3 text-sm text-gray-900">
+              <td className="px-4 py-2 text-xs text-gray-900">
                 <div className="flex items-center justify-between">
                   <span>{String(connection)}</span>
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => onLayerToggle(index, connection)}
-                    className={`ml-4 ${
+                    className={`ml-2 px-4 py-0.5 text-xs h-6 min-h-0${
                       selectedLayers[index] ? "text-white bg-green-600" : ""
                     }`}
                   >
@@ -138,10 +138,12 @@ const MapModal: React.FC<ModalProps> = ({
     switch (selectedItem.id) {
       case "layers":
         return (
-          <div className="p-4">
-            <h2 className="text-xl font-bold mb-4">Available Layers</h2>
+          <div className="p-1">
+            <h2 className="text-l font-bold mb-4 text-blue-500 ">
+              Available Public Layers
+            </h2>
             {workspaceConnections?.length > 0 ? (
-              <div className="mb-6">
+              <div className="mb-3">
                 <LayersTable
                   connections={workspaceConnections}
                   mapRef={mapRef}
@@ -157,8 +159,8 @@ const MapModal: React.FC<ModalProps> = ({
 
       case "upload":
         return (
-          <div className="p-4">
-            <h2 className="text-xl font-bold mb-4">Upload</h2>
+          <div className="p-2">
+            <h2 className="text-l font-bold mb-4 text-blue-500">File Upload</h2>
 
             {/* Upload Section */}
             {!selectedFile ? (
@@ -167,8 +169,8 @@ const MapModal: React.FC<ModalProps> = ({
                   key={uploadKey}
                   className="flex flex-col items-center px-4 py-6 bg-white rounded-lg shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer transition-colors"
                 >
-                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-500">
+                  <Upload className="w-4 h-4 text-gray-400 mb-2" />
+                  <span className="text-xs text-gray-500">
                     Click to upload a file
                   </span>
                   <input

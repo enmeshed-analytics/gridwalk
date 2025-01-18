@@ -281,6 +281,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
           throw new Error(`Unsupported file type: ${extension}`);
         }
         await handler(renamedFile);
+
+        try {
+          const connections = await getWorkspaceConnections(workspaceId);
+          setWorkspaceConnections(connections);
+        } catch (error) {
+          console.error("Failed to refresh workspace connections:", error);
+        }
+
         // Add delay for error messages
         if (!uploadSuccess) {
           setTimeout(() => {
@@ -313,6 +321,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
       setUploadSuccess,
       setUploadError,
       uploadSuccess,
+      workspaceId,
     ]
   );
 
