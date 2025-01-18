@@ -38,7 +38,7 @@ export const useSingleFileUploader = () => {
       _workspaceId: string,
       onProgress?: (progress: number) => void,
       onSuccess?: (data: UploadResponse) => void,
-      onError?: (error: string) => void
+      onError?: (error: string) => void,
     ): Promise<void> => {
       const currentWorkspaceId = getWorkspaceIdFromUrl();
       try {
@@ -83,7 +83,7 @@ export const useSingleFileUploader = () => {
               headers,
               body: formData,
               credentials: "include",
-            }
+            },
           );
 
           if (!response.ok) {
@@ -109,7 +109,7 @@ export const useSingleFileUploader = () => {
         console.error("Upload error:", err);
       }
     },
-    []
+    [],
   );
   return { uploadSingleFile };
 };
@@ -121,7 +121,7 @@ export const useShapefileUploader = () => {
       _workspaceId: string,
       onProgress?: (progress: number) => void,
       onSuccess?: (data: UploadResponse) => void,
-      onError?: (error: string) => void
+      onError?: (error: string) => void,
     ): Promise<void> => {
       if (!file.name.toLowerCase().endsWith(".zip")) {
         onError?.("Please upload a ZIP file containing shapefile components");
@@ -140,7 +140,7 @@ export const useShapefileUploader = () => {
         zipContents.forEach((relativePath) => {
           const extension = relativePath.split(".").pop()?.toLowerCase();
           console.log(
-            `Found file: ${relativePath} with extension: ${extension}`
+            `Found file: ${relativePath} with extension: ${extension}`,
           );
           shapefileComponents.push(relativePath);
 
@@ -172,12 +172,12 @@ export const useShapefileUploader = () => {
         });
       } catch (err) {
         onError?.(
-          err instanceof Error ? err.message : "Error processing ZIP file"
+          err instanceof Error ? err.message : "Error processing ZIP file",
         );
         console.error("Upload error:", err);
       }
     },
-    []
+    [],
   );
 
   return { uploadShapefile };
