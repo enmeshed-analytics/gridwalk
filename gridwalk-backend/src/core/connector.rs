@@ -20,6 +20,17 @@ pub struct Connection {
     pub config: PostgresConnection,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum GeometryType {
+    Point,
+    LineString,
+    Polygon,
+    MultiPoint,
+    MultiLineString,
+    MultiPolygon,
+    GeometryCollection,
+}
+
 impl Connection {
     pub async fn create_record(self, database: &Arc<dyn Database>) -> Result<()> {
         database.create_connection(&self).await?;
@@ -100,6 +111,7 @@ impl ConnectionAccess {
 #[async_trait]
 pub trait GeoConnector: Send + Sync {
     async fn connect(&mut self) -> Result<()>;
+    async fn get_geometry_type(&self, namespace: &str, source_name: &str) -> Result<GeometryType>;
     async fn disconnect(&mut self) -> Result<()>;
     async fn create_namespace(&self, name: &str) -> Result<()>;
     async fn list_sources(&self, namespace: &str) -> Result<Vec<String>>;
@@ -260,7 +272,52 @@ impl GeoConnector for PostgisConnector {
             let row = client.query_one(&query, &[]).await?;
             let mvt_data: Vec<u8> = row.get(0);
             Ok(mvt_data)
-        }     
+        }
+
+    async fn get_geometry_type(&self, namespace: &str, source_name: &str) -> Result<GeometryType> {
+        let client = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
+        
+        // First, get the geometry column name
+        let check_column_query = format!(
+            "SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = $1 
+            AND table_name = $2 
+            AND column_name IN ('geom', 'geometry')",
+        );
+        
+        let geom_column: String = client
+            .query_one(&check_column_query, &[&namespace, &source_name])
+            .await?
+            .get(0);
+
+        // Query to get the geometry type
+        let query = format!(
+            "SELECT DISTINCT ST_GeometryType({}) 
+            FROM \"{}\".\"{}\" 
+            LIMIT 1",
+            geom_column, namespace, source_name
+        );
+
+        let row = client.query_one(&query, &[]).await?;
+        let geom_type: String = row.get(0);
+
+        // Map PostGIS geometry type to our GeometryType enum
+        match geom_type.to_uppercase().as_str() {
+            "ST_POINT" => Ok(GeometryType::Point),
+            "ST_LINESTRING" => Ok(GeometryType::LineString),
+            "ST_POLYGON" => Ok(GeometryType::Polygon),
+            "ST_MULTIPOINT" => Ok(GeometryType::MultiPoint),
+            "ST_MULTILINESTRING" => Ok(GeometryType::MultiLineString),
+            "ST_MULTIPOLYGON" => Ok(GeometryType::MultiPolygon),
+            "ST_GEOMETRYCOLLECTION" => Ok(GeometryType::GeometryCollection),
+            _ => Err(anyhow!("Unsupported geometry type: {}", geom_type)),
+        }
+    }    
 }
 
 // The GeospatialConnections struct and its impl block are used to manage live connections

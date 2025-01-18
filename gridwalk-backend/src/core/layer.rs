@@ -30,7 +30,7 @@ impl Layer {
         }
     }
 
-    // TODO this should not be named CREATE but something else as it is jsut used to check permissions.
+    // TODO this should not be named CREATE but something else as it is just used to check permissions.
     pub async fn create(
         &self,
         database: &Arc<dyn Database>,

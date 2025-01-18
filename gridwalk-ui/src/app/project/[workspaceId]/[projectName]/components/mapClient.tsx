@@ -533,6 +533,9 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
           const sourceUrl = `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceIdFromUrl}/connections/primary/sources/${layerName}/tiles/{z}/{x}/{y}`;
 
+          // TODO THIS IS WHERE WE WOULD PUT CONST 'GEOMTYPE' - NEED TO IMPLEMENT A ROUTE FOR THIS IN THE BACKEND
+          // THIS WOULD BE PASSED TO THE ADD MAP LAYER FUCNTION AS AN ARGUMENT
+
           addMapLayer(map, layerId, sourceUrl, sourceLayerName);
           activeLayerIds.current.push(layerId);
         } catch (err) {
