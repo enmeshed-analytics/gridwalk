@@ -410,7 +410,6 @@ async fn validate_first_chunk(
         Ok(file_type) => {
             // Add detailed logging
             tracing::info!("🔍 Detected file type: {:?}", file_type);
-            println!("🔍 Detected file type: {:?}", file_type);
 
             if matches!(file_type, FileType::Unknown) {
                 return Err((
@@ -439,72 +438,60 @@ async fn validate_first_chunk(
     }
 }
 
-fn determine_file_type(file_bytes: &[u8]) -> Result<FileType, Box<dyn Error>> {
-    let file_type = match_magic_numbers(file_bytes);
-    if file_type != FileType::Unknown {
-        return Ok(file_type);
-    } else {
-        let file_type = detect_content_based_type(file_bytes)?;
-        return Ok(file_type);
+fn determine_file_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> {
+    // Early return if buffer is too small
+    if buffer.is_empty() {
+        return Err("Empty buffer".into());
     }
-}
 
-fn match_magic_numbers(header: &[u8]) -> FileType {
-    match header {
+    // Check magic numbers first
+    let file_type = match buffer {
+        // Binary formats
         [0x50, 0x4B, 0x03, 0x04, ..] => FileType::Excel,
         [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, ..] => FileType::Excel,
         [0x50, 0x41, 0x52, 0x31, ..] => FileType::Parquet,
-        [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00, ..] => {
-            FileType::Geopackage
-        }
+        [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00, ..] => FileType::Geopackage,
         [0x00, 0x00, 0x27, 0x0A, ..] => FileType::Shapefile,
-        _ => FileType::Unknown,
-    }
-}
-
-fn detect_content_based_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> {
-    // Check for GeoJSON magic numbers/patterns
-    if buffer.len() > 20 {
-        // Look for {"type":"Feature" pattern
-        if let Some(window) = buffer.windows(17).next() {
-            if window == b"{\"type\":\"Feature" {
-                return Ok(FileType::GeoJson);
+        
+        // Text-based formats
+        _ if buffer.len() > 20 => {
+            // GeoJSON checks
+            if buffer.windows(17).next().map_or(false, |w| w == b"{\"type\":\"Feature") {
+                FileType::GeoJson
+            } else if buffer.windows(26).next().map_or(false, |w| w == b"{\"type\":\"FeatureCollection") {
+                FileType::GeoJson
+            }
+            // Generic JSON check
+            else if buffer[0] == b'{' {
+                FileType::Json
+            }
+            // CSV check
+            else if let Ok(text) = String::from_utf8(buffer.to_vec()) {
+                if is_csv_like(&text) {
+                    FileType::Csv
+                } else {
+                    FileType::Unknown
+                }
+            } else {
+                FileType::Unknown
             }
         }
+        _ => FileType::Unknown
+    };
 
-        // Look for {"type":"FeatureCollection" pattern
-        if let Some(window) = buffer.windows(26).next() {
-            if window == b"{\"type\":\"FeatureCollection" {
-                return Ok(FileType::GeoJson);
-            }
-        }
-
-        // Generic JSON check - look for opening curly brace
-        if buffer[0] == b'{' {
-            return Ok(FileType::Json);
-        }
-    }
-
-    // Convert buffer to string for CSV check
-    if let Ok(text) = String::from_utf8(buffer.to_vec()) {
-        if is_valid_csv(&text) {
-            return Ok(FileType::Csv);
-        }
-    }
-    Err("Unknown or unsupported file type".into())
+    Ok(file_type)
 }
 
-fn is_valid_csv(content: &str) -> bool {
+fn is_csv_like(content: &str) -> bool {
     let lines: Vec<&str> = content.lines().take(5).collect();
-
+    
     if lines.len() < 2 {
         return false;
     }
 
     let first_line_fields = lines[0].split(',').count();
-    first_line_fields >= 2
-        && lines[1..].iter().all(|line| {
-            let fields = line.split(',').count();
-            fields == first_line_fields && line.chars().all(|c| c.is_ascii() || c.is_whitespace())
-        })
+    first_line_fields >= 2 && lines[1..].iter().all(|line| {
+        let fields = line.split(',').count();
+        fields == first_line_fields && line.chars().all(|c| c.is_ascii() || c.is_whitespace())
+    })
 }
