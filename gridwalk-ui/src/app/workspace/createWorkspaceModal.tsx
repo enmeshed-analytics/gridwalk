@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-// Sidebar for the initial workspace page - appears on righthand side of the main workspaces page
+// Sidebar for the initial workspace page -
+// It appears on righthand side of the main workspaces page
 interface CreateWorkspaceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -27,19 +28,45 @@ export function CreateWorkspaceModal({
   // Define state
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
 
   // Define what happens when creating new workspace submission
   const handleSubmit = async () => {
-    if (!workspaceName.trim()) return;
+    const trimmedName = workspaceName.trim();
+    if (!trimmedName) {
+      setError("Workspace name cannot be empty");
+      return;
+    }
+    if (trimmedName.length < 3) {
+      setError("Workspace name must be at least 3 characters long");
+      return;
+    }
 
     try {
       setIsCreating(true);
-      await onCreate(workspaceName);
+      setError("");
+      await onCreate(trimmedName);
       setWorkspaceName("");
+      setSuccess("Workspace created successfully");
+
+      // Use Promise to handle the delay more cleanly
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       onClose();
       router.refresh();
     } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes("duplicate")) {
+          setError("A workspace with this name already exists");
+        } else if (error.message.includes("unauthorized")) {
+          setError("You don't have permission to create workspaces");
+        } else {
+          setError(error.message);
+        }
+      } else {
+        setError("Failed to create workspace. Please try again.");
+      }
       console.error("Error creating workspace:", error);
     } finally {
       setIsCreating(false);
@@ -66,6 +93,8 @@ export function CreateWorkspaceModal({
                 }
               }}
             />
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            {success && <p className="text-sm text-green-500">{success}</p>}
           </div>
         </div>
         <DialogFooter>

@@ -20,7 +20,6 @@ import {
   INITIAL_MAP_CONFIG,
   MapClientProps,
   LayerUpload,
-  SupportedFileTypes,
   FileHandlerResponse,
 } from "./types";
 
@@ -105,10 +104,30 @@ export function MapClient({ apiUrl }: MapClientProps) {
         return;
       }
 
-      const extension = fileToUpload.name
-        .split(".")
-        .pop()
-        ?.toLowerCase() as SupportedFileTypes;
+      const extension = fileToUpload.name.split(".").pop()?.toLowerCase();
+      if (!extension) {
+        setUploadError("File must have an extension");
+        return;
+      }
+
+      // Explicitly check if the file type is supported before proceeding
+      const supportedTypes = [
+        "gpkg",
+        "zip",
+        "xlsx",
+        "csv",
+        "parquet",
+        "json",
+        "geojson",
+      ];
+      if (!supportedTypes.includes(extension)) {
+        setUploadError(
+          `Unsupported file type: ${extension}. Supported types are: ${supportedTypes.join(
+            ", "
+          )}`
+        );
+        return;
+      }
 
       setIsUploading(true);
       setUploadError(null);

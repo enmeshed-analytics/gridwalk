@@ -6,6 +6,7 @@ type Workspace = {
   id: string;
   name: string;
 };
+
 type WorkspaceContextType = {
   workspaces: Workspace[];
 };

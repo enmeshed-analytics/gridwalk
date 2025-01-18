@@ -20,6 +20,7 @@ use std::error::Error;
 #[derive(Debug)]
 enum FileType {
     Geopackage,
+    Json,
     GeoJson,
     Shapefile,
     Excel,
@@ -459,25 +460,37 @@ fn match_magic_numbers(header: &[u8]) -> Option<FileType> {
 }
 
 fn detect_content_based_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> {
-    if let Ok(text) = std::str::from_utf8(buffer) {
-        let text_lower = text.trim_start().to_lowercase();
-
-        if text_lower.starts_with("{")
-            && text_lower.contains("\"type\"")
-            && (text_lower.contains("\"featurecollection\"")
-                || text_lower.contains("\"feature\"")
-                || text_lower.contains("\"geometry\""))
-        {
-            return Ok(FileType::GeoJson);
+    // Check for GeoJSON magic numbers/patterns
+    if buffer.len() > 20 {
+        // Look for {"type":"Feature" pattern
+        if let Some(window) = buffer.windows(17).next() {
+            if window == b"{\"type\":\"Feature" {
+                return Ok(FileType::GeoJson);
+            }
+        }
+        
+        // Look for {"type":"FeatureCollection" pattern
+        if let Some(window) = buffer.windows(26).next() {
+            if window == b"{\"type\":\"FeatureCollection" {
+                return Ok(FileType::GeoJson);
+            }
         }
 
-        if is_valid_csv(text) {
-            return Ok(FileType::Csv);
+        // Generic JSON check - look for opening curly brace
+        if buffer[0] == b'{' {
+            return Ok(FileType::Json);
         }
     }
 
+    // Convert buffer to string for CSV check
+    if let Ok(text) = String::from_utf8(buffer.to_vec()) {
+        if is_valid_csv(&text) {
+            return Ok(FileType::Csv);
+        }
+    }
     Err("Unknown or unsupported file type".into())
 }
+
 
 fn is_valid_csv(content: &str) -> bool {
     let lines: Vec<&str> = content.lines().take(5).collect();
