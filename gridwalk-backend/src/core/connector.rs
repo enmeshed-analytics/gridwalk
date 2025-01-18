@@ -275,38 +275,25 @@ impl GeoConnector for PostgisConnector {
         }
 
     async fn get_geometry_type(&self, namespace: &str, source_name: &str) -> Result<GeometryType> {
+        // Let the client and handle the connection
         let client = self
             .pool
             .get()
             .await
             .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
         
-        // First, get the geometry column name
-        let check_column_query = format!(
-            "SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_schema = $1 
-            AND table_name = $2 
-            AND column_name IN ('geom', 'geometry')",
-        );
-        
-        let geom_column: String = client
-            .query_one(&check_column_query, &[&namespace, &source_name])
-            .await?
-            .get(0);
-
         // Query to get the geometry type
         let query = format!(
-            "SELECT DISTINCT ST_GeometryType({}) 
+            "SELECT DISTINCT ST_GeometryType(geom) 
             FROM \"{}\".\"{}\" 
             LIMIT 1",
-            geom_column, namespace, source_name
+            namespace, source_name
         );
 
         let row = client.query_one(&query, &[]).await?;
         let geom_type: String = row.get(0);
 
-        // Map PostGIS geometry type to our GeometryType enum
+        // Map PostGIS geometry type to our GeometryType enum and return the result
         match geom_type.to_uppercase().as_str() {
             "ST_POINT" => Ok(GeometryType::Point),
             "ST_LINESTRING" => Ok(GeometryType::LineString),
