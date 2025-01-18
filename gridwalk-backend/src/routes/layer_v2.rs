@@ -8,16 +8,15 @@ use axum::{
     Json,
 };
 use serde_json::json;
+use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::{
     fs::{self, OpenOptions},
     io::AsyncWriteExt,
 };
-use std::error::Error;
 
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum FileType {
     Geopackage,
     Json,
@@ -131,7 +130,7 @@ pub async fn upload_layer_v2(
                     if let Some(filename) = field.file_name() {
                         let temp_path = dir_path.join(format!("{upload_id}_{filename}"));
                         tracing::info!("Processing file at path: {}", temp_path.display());
-                        
+
                         let mut file = OpenOptions::new()
                             .create(true)
                             .append(true)
@@ -151,8 +150,8 @@ pub async fn upload_layer_v2(
                             })?;
 
                         let mut chunk_bytes = 0usize;
-                        
-                         // Get first chunk to validate
+
+                        // Get first chunk to validate
                         if chunk_number == 0 {
                             if let Some(first_chunk) = field.chunk().await.map_err(|e| {
                                 let error = json!({
@@ -164,7 +163,7 @@ pub async fn upload_layer_v2(
                                 // Validate the first chunk
                                 tracing::info!("VALIDATING FIRST CHUNK");
                                 validate_first_chunk(&first_chunk).await?;
-                                
+
                                 // Write the first chunk after validation
                                 chunk_bytes += first_chunk.len();
                                 file.write_all(&first_chunk).await.map_err(|e| {
@@ -404,58 +403,62 @@ async fn process_layer(
     }))
 }
 
-async fn validate_first_chunk(chunk: &[u8]) -> Result<FileType, (StatusCode, Json<serde_json::Value>)> {
+async fn validate_first_chunk(
+    chunk: &[u8],
+) -> Result<FileType, (StatusCode, Json<serde_json::Value>)> {
     match determine_file_type(chunk) {
         Ok(file_type) => {
             // Add detailed logging
             tracing::info!("🔍 Detected file type: {:?}", file_type);
             println!("🔍 Detected file type: {:?}", file_type);
-            
+
             if matches!(file_type, FileType::Unknown) {
                 return Err((
                     StatusCode::BAD_REQUEST,
                     Json(json!({
                         "error": "Unsupported file type",
                         "details": "The uploaded file type is not supported"
-                    }))
+                    })),
                 ));
             }
             Ok(file_type)
-        },
+        }
         Err(e) => {
             // Add error logging
             tracing::error!("❌ File type detection failed: {}", e);
             println!("❌ File type detection failed: {}", e);
-            
+
             Err((
                 StatusCode::BAD_REQUEST,
                 Json(json!({
                     "error": "Invalid file type",
                     "details": e.to_string()
-                }))
+                })),
             ))
         }
     }
 }
 
 fn determine_file_type(file_bytes: &[u8]) -> Result<FileType, Box<dyn Error>> {
-    if let Some(file_type) = match_magic_numbers(file_bytes) {
+    let file_type = match_magic_numbers(file_bytes);
+    if file_type != FileType::Unknown {
         return Ok(file_type);
     } else {
-        detect_content_based_type(file_bytes)
+        let file_type = detect_content_based_type(file_bytes)?;
+        return Ok(file_type);
     }
 }
 
-fn match_magic_numbers(header: &[u8]) -> Option<FileType> {
+fn match_magic_numbers(header: &[u8]) -> FileType {
     match header {
-        [0x50, 0x4B, 0x03, 0x04, ..] => Some(FileType::Excel),
-        [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, ..] => Some(FileType::Excel),
-        [0x50, 0x41, 0x52, 0x31, ..] => Some(FileType::Parquet),
+        [0x50, 0x4B, 0x03, 0x04, ..] => FileType::Excel,
+        [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, ..] => FileType::Excel,
+        [0x50, 0x41, 0x52, 0x31, ..] => FileType::Parquet,
         [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00, ..] => {
-            Some(FileType::Geopackage)
+            FileType::Geopackage
         }
-        [0x00, 0x00, 0x27, 0x0A, ..] => Some(FileType::Shapefile),
-        _ => Some(FileType::Unknown),
+        [0x00, 0x00, 0x27, 0x0A, ..] => FileType::Shapefile,
+        _ => FileType::Unknown,
     }
 }
 
@@ -468,7 +471,7 @@ fn detect_content_based_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> 
                 return Ok(FileType::GeoJson);
             }
         }
-        
+
         // Look for {"type":"FeatureCollection" pattern
         if let Some(window) = buffer.windows(26).next() {
             if window == b"{\"type\":\"FeatureCollection" {
@@ -490,7 +493,6 @@ fn detect_content_based_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> 
     }
     Err("Unknown or unsupported file type".into())
 }
-
 
 fn is_valid_csv(content: &str) -> bool {
     let lines: Vec<&str> = content.lines().take(5).collect();
