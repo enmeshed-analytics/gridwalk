@@ -15,9 +15,11 @@ import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
 import { HelpSupportModal } from "../supportModal";
 import { AddWorkspaceMemberModal } from "./addMemberModal";
 import { ViewWorkspaceMemberModal } from "./viewMembersModal";
+import { DeleteWorkspaceModal } from "./deleteWorkspaceModal";
 import { useWorkspaces } from "../workspaceContext";
 import { createProject } from "./actions/projects/create";
 import { deleteProject } from "./actions/projects/delete";
+import { deleteWorkspace } from "./actions/workspace/delete_workspace";
 import { addWorkspaceMember } from "./actions/workspace";
 import { ViewWorkspaceConnectionsModal } from "./viewConnectionsModal";
 import { useRouter } from "next/navigation";
@@ -43,6 +45,8 @@ export default function WorkspaceProjectsClient({
   const { workspaces } = useWorkspaces();
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
+  const [isDeleteWorkspaceDialogOpen, setIsDeleteWorkspaceDialogOpen] =
+    useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isHelpSupportModalOpen, setIsHelpSupportModalOpen] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
@@ -87,6 +91,18 @@ export default function WorkspaceProjectsClient({
         throw new Error(error.message || "Failed to delete project");
       }
       throw new Error("Failed to delete project");
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    try {
+      await deleteWorkspace(workspaceId);
+      router.push("/workspace");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        throw new Error(error.message || "Failed to delete workspace");
+      }
+      throw new Error("Failed to delete workspace");
     }
   };
 
@@ -173,7 +189,10 @@ export default function WorkspaceProjectsClient({
                   <Database size={16} />
                   View DB Connections
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left">
+                <button
+                  onClick={() => setIsDeleteWorkspaceDialogOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors w-full text-left"
+                >
                   <DeleteIcon size={16} />
                   Delete Workspace
                 </button>
@@ -242,6 +261,13 @@ export default function WorkspaceProjectsClient({
           isOpen={isProjectDialogOpen}
           onClose={() => setIsProjectDialogOpen(false)}
           onSubmit={handleCreateProject}
+        />
+
+        <DeleteWorkspaceModal
+          isOpen={isDeleteWorkspaceDialogOpen}
+          onClose={() => setIsDeleteWorkspaceDialogOpen(false)}
+          workspaceName={currentWorkspace?.name || ""}
+          onConfirm={handleDeleteWorkspace}
         />
 
         <DeleteProjectModal
