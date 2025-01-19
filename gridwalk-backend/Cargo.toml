@@ -26,6 +26,8 @@ martin = { git = "https://github.com/enmeshed-analytics/martin.git", features = 
     "postgres",
 ] }
 martin-tile-utils = { git = "https://github.com/enmeshed-analytics/martin.git" }
+native-tls = "0.2"
+postgres-native-tls = "0.5"
 rand = "0.8.5"
 rand_core = { version = "0.6", features = ["std"] }
 reqwest = { version = "0.12", features = ["json"] }

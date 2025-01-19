@@ -1,15 +1,15 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use deadpool_postgres::{Config, Pool, Runtime};
+use native_tls;
+use postgres_native_tls::MakeTlsConnector;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
 
-use crate::data::Database;
-
-use super::Workspace;
+use crate::{core::Workspace, data::Database};
 
 // TODO: Switch connector_type/postgis_uri to enum to support other connectors
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -149,9 +149,23 @@ impl PostgisConnector {
         config.user = Some(connection.username.to_string());
         config.password = Some(connection.password.to_string());
 
-        let pool = config
-            .create_pool(Some(Runtime::Tokio1), NoTls)
-            .map_err(|e| anyhow!("Failed to create connection pool: {}", e))?;
+        let is_local = std::env::var("GW_LOCAL")
+            .map(|val| val == "true")
+            .unwrap_or(false);
+
+        let pool = if is_local {
+            config
+                .create_pool(Some(Runtime::Tokio1), NoTls)
+                .map_err(|e| anyhow!("Failed to create connection pool: {}", e))?
+        } else {
+            let mut builder = native_tls::TlsConnector::builder();
+            // TODO: For testing - remove this line once connection works and replace with proper cert verification
+            builder.danger_accept_invalid_certs(true);
+            let connector = MakeTlsConnector::new(builder.build().unwrap());
+            config
+                .create_pool(Some(Runtime::Tokio1), connector)
+                .map_err(|e| anyhow!("Failed to create connection pool: {}", e))?
+        };
 
         Ok(PostgisConnector {
             pool: Arc::new(pool),
@@ -227,7 +241,7 @@ impl GeoConnector for PostgisConnector {
     ) -> Result<Vec<u8>> {
         let pool = self.pool.as_ref();
         let client = pool.get().await?;
-        
+
         // First, check which geometry column exists
         let check_column_query = format!(
             "SELECT column_name 
@@ -236,14 +250,14 @@ impl GeoConnector for PostgisConnector {
             AND table_name = $2 
             AND column_name IN ('geom', 'geometry')",
         );
-        
+
         let geom_column: String = client
             .query_one(&check_column_query, &[&namespace, &source_name])
             .await?
             .get(0);
 
-            let query = format!(
-                "
+        let query = format!(
+            "
                 WITH bounds AS (
                     SELECT ST_Transform(ST_TileEnvelope({z}, {x}, {y}), 4326) AS geom
                 ),
@@ -262,17 +276,17 @@ impl GeoConnector for PostgisConnector {
                 SELECT ST_AsMVT(mvt_data.*, '{source_name}') AS mvt
                 FROM mvt_data;
                 ",
-                table = format!("\"{}\".\"{}\"", namespace, source_name),
-                source_geom_column = geom_column,
-                z = z,
-                x = x,
-                y = y,
-            );
-        
-            let row = client.query_one(&query, &[]).await?;
-            let mvt_data: Vec<u8> = row.get(0);
-            Ok(mvt_data)
-        }
+            table = format!("\"{}\".\"{}\"", namespace, source_name),
+            source_geom_column = geom_column,
+            z = z,
+            x = x,
+            y = y,
+        );
+
+        let row = client.query_one(&query, &[]).await?;
+        let mvt_data: Vec<u8> = row.get(0);
+        Ok(mvt_data)
+    }
 
     async fn get_geometry_type(&self, namespace: &str, source_name: &str) -> Result<GeometryType> {
         // Let the client and handle the connection
@@ -281,7 +295,7 @@ impl GeoConnector for PostgisConnector {
             .get()
             .await
             .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
-        
+
         // Query to get the geometry type
         let query = format!(
             "SELECT DISTINCT ST_GeometryType(geom) 
@@ -304,7 +318,7 @@ impl GeoConnector for PostgisConnector {
             "ST_GEOMETRYCOLLECTION" => Ok(GeometryType::GeometryCollection),
             _ => Err(anyhow!("Unsupported geometry type: {}", geom_type)),
         }
-    }    
+    }
 }
 
 // The GeospatialConnections struct and its impl block are used to manage live connections
