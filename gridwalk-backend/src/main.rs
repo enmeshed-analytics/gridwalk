@@ -16,7 +16,7 @@ use tracing::info;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialise tracing
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().with_ansi(false).init();
     // Load environment variables from .env file
     dotenv().ok();
 
