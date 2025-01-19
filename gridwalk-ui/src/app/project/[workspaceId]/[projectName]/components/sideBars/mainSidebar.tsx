@@ -140,7 +140,7 @@ const MapModal: React.FC<ModalProps> = ({
         return (
           <div className="p-1">
             <h2 className="text-l font-bold mb-4 text-blue-500 ">
-              Available Public Layers
+              Public Layers
             </h2>
             {workspaceConnections?.length > 0 ? (
               <div className="mb-3">
@@ -152,7 +152,7 @@ const MapModal: React.FC<ModalProps> = ({
                 />
               </div>
             ) : (
-              <p className="text-gray-600">No layers available.</p>
+              <p className=" text-sm text-gray-600">No layers available.</p>
             )}
           </div>
         );

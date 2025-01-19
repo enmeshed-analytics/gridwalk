@@ -382,31 +382,98 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
   // Layer management handler
   const addMapLayer = useCallback(
-    (
+    async (
       map: maplibregl.Map,
       layerId: string,
       sourceUrl: string,
-      sourceLayerName: string
+      sourceLayerName: string,
+      geomTypeUrl: string
     ) => {
-      if (!map.getSource(layerId)) {
-        map.addSource(layerId, {
-          type: "vector",
-          tiles: [sourceUrl],
-          minzoom: 0,
-          maxzoom: 22,
-        });
-      }
+      try {
+        // Fetch the geometry type from the API
+        const response = await fetch(geomTypeUrl);
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch geometry type: ${response.statusText}`
+          );
+        }
+        const geomType = await response.text();
 
-      map.addLayer({
-        id: layerId,
-        type: "circle",
-        source: layerId,
-        "source-layer": sourceLayerName,
-        paint: {
-          "circle-color": "#0080ff",
-          "circle-opacity": 0.5,
-        },
-      });
+        // Add the source if it doesn't exist
+        if (!map.getSource(layerId)) {
+          map.addSource(layerId, {
+            type: "vector",
+            tiles: [sourceUrl],
+            minzoom: 0,
+            maxzoom: 22,
+          });
+        }
+
+        // Configure the layer based on geometry type
+        // TODO ADD PROPER TYPE FOR LAYER CONFIG
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let layerConfig: any;
+        switch (geomType.toLowerCase().trim()) {
+          case "linestring":
+          case "multilinestring":
+            layerConfig = {
+              type: "line",
+              paint: {
+                "line-color": "#0080ff",
+                "line-opacity": 0.8,
+                "line-width": 2,
+              },
+            };
+            break;
+          case "polygon":
+          case "multipolygon":
+            layerConfig = {
+              type: "fill",
+              paint: {
+                "fill-color": "#0080ff",
+                "fill-opacity": 0.5,
+                "fill-outline-color": "#0066cc",
+              },
+            };
+            break;
+          case "point":
+          case "multipoint":
+            layerConfig = {
+              type: "circle",
+              paint: {
+                "circle-color": "#0080ff",
+                "circle-opacity": 0.5,
+                "circle-radius": 6,
+              },
+            };
+            break;
+          default:
+            console.warn(
+              `Unknown geometry type: ${geomType}, defaulting to point`
+            );
+            layerConfig = {
+              type: "circle",
+              paint: {
+                "circle-color": "#0080ff",
+                "circle-opacity": 0.5,
+                "circle-radius": 6,
+              },
+            };
+        }
+
+        // Add the layer to the map
+        map.addLayer({
+          id: layerId,
+          source: layerId,
+          "source-layer": sourceLayerName,
+          ...layerConfig,
+        });
+
+        return geomType;
+      } catch (error) {
+        console.error("Error adding map layer:", error);
+        throw error;
+      }
     },
     []
   );
@@ -417,13 +484,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
       if (!mapRef.current) return;
       console.log("Active layers before style change:", activeLayerIds.current);
 
-      // GET CURRENT ACTIVE LAYERS
+      // Get current active layers
       const currentLayerConfigs = activeLayerIds.current.map((layerId) => {
         const layerName = layerId.replace(`layer-${workspaceId}-`, "");
         return {
           layerId,
           layerName,
           sourceUrl: `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceId}/connections/primary/sources/${layerName}/tiles/{z}/{x}/{y}`,
+          geomTypeUrl: `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceId}/connections/primary/sources/${layerName}/tiles/geometry`,
         };
       });
 
@@ -434,15 +502,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
         const map = mapRef.current;
         let hasRestoredLayers = false;
 
-        // SET UP EVENT LISTENERS
-        // THIS BASICALLY WAITS FOR MAP TO BE IN IDLE STATE AFTER STYLE CHANGE TO THEN RELOAD THE LAYERS
         const setupStyleLoadHandlers = () => {
           console.log("Setting up style load handlers");
 
-          const handleIdle = () => {
+          const handleIdle = async () => {
             if (map.isStyleLoaded() && !hasRestoredLayers) {
               console.log("Style is loaded, restoring layers");
-              restoreLayers();
+              await restoreLayers();
               hasRestoredLayers = true;
 
               map.off("idle", handleIdle);
@@ -451,32 +517,38 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
           map.on("idle", handleIdle);
 
-          // Cleanup after timeout just in case
           setTimeout(() => {
             map.off("idle", handleIdle);
           }, 5000);
         };
 
-        // RESTORE LAYER FUNCTION
-        // TRIGGERRED BY IDLE
-        const restoreLayers = () => {
-          currentLayerConfigs.forEach(({ layerId, layerName, sourceUrl }) => {
+        const restoreLayers = async () => {
+          for (const {
+            layerId,
+            layerName,
+            sourceUrl,
+            geomTypeUrl,
+          } of currentLayerConfigs) {
             try {
               console.log(`Adding layer: ${layerName}`);
               if (!map.getSource(layerId)) {
-                addMapLayer(map, layerId, sourceUrl, layerName);
+                await addMapLayer(
+                  map,
+                  layerId,
+                  sourceUrl,
+                  layerName,
+                  geomTypeUrl
+                );
                 console.log(`Layer ${layerName} added successfully`);
               }
             } catch (error) {
               console.error(`Error adding layer ${layerName}:`, error);
             }
-          });
+          }
         };
 
-        // SET UP LISTENERS
         setupStyleLoadHandlers();
 
-        // FETCH THE STYLES TO BE CHANGED
         fetch(MAP_STYLES[styleKey])
           .then((response) => response.json())
           .then((styleJson) => {
@@ -502,7 +574,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
   }, []);
 
   const handleLayerToggle = useCallback(
-    (index: number, connection: WorkspaceConnection) => {
+    async (index: number, connection: WorkspaceConnection) => {
       if (!mapRef?.current) return;
       const map = mapRef.current;
       const layerName = String(connection);
@@ -525,18 +597,20 @@ export function MapClient({ apiUrl }: MapClientProps) {
       if (willBeEnabled) {
         try {
           const sourceLayerName = layerName;
-          console.log("Source layer name:", sourceLayerName);
-
           const url = new URL(window.location.href);
           const pathParts = url.pathname.split("/");
           const workspaceIdFromUrl = pathParts[2];
 
           const sourceUrl = `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceIdFromUrl}/connections/primary/sources/${layerName}/tiles/{z}/{x}/{y}`;
+          const geomTypeUrl = `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceIdFromUrl}/connections/primary/sources/${layerName}/tiles/geometry`;
 
-          // TODO THIS IS WHERE WE WOULD PUT CONST 'GEOMTYPE' - NEED TO IMPLEMENT A ROUTE FOR THIS IN THE BACKEND
-          // THIS WOULD BE PASSED TO THE ADD MAP LAYER FUCNTION AS AN ARGUMENT
-
-          addMapLayer(map, layerId, sourceUrl, sourceLayerName);
+          await addMapLayer(
+            map,
+            layerId,
+            sourceUrl,
+            sourceLayerName,
+            geomTypeUrl
+          );
           activeLayerIds.current.push(layerId);
         } catch (err) {
           setSelectedLayers((prev) => ({
