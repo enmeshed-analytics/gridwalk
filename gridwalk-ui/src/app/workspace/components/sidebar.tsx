@@ -9,7 +9,12 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, LogOut, ChevronDown, Plus, Briefcase } from "lucide-react";
-import { ProfileData, Workspaces, logout, createWorkspace } from "./actions";
+import {
+  ProfileData,
+  Workspaces,
+  logout,
+  createWorkspace,
+} from "../actions/actions";
 import { CreateWorkspaceSidebar } from "./createWorkspaceModal";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";

@@ -12,7 +12,7 @@ import {
   DeleteIcon,
 } from "lucide-react";
 import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
-import { HelpSupportModal } from "../supportModal";
+import { HelpSupportModal } from "../components/supportModal";
 import { AddWorkspaceMemberModal } from "./addMemberModal";
 import { ViewWorkspaceMemberModal } from "./viewMembersModal";
 import { DeleteWorkspaceModal } from "./deleteWorkspaceModal";

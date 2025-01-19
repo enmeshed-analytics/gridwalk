@@ -11,11 +11,11 @@ import {
   Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CreateWorkspaceModal } from "./createWorkspaceModal";
-import { createWorkspace } from "./actions";
+import { CreateWorkspaceModal } from "./components/createWorkspaceModal";
+import { createWorkspace } from "./actions/actions";
 import { getProjects } from "@/app/workspace/[workspaceId]/actions/projects/get";
 import { getWorkspaceMembers } from "@/app/workspace/[workspaceId]/actions/workspace/get_members";
-import { HelpSupportModal } from "./supportModal";
+import { HelpSupportModal } from "./components/supportModal";
 import { useWorkspaces } from "./workspaceContext";
 
 // Stat cards for the user

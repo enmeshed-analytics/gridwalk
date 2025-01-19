@@ -1,6 +1,6 @@
 import React from "react";
-import { getProfile, getWorkspaces } from "./actions";
-import { Sidebar } from "./sidebar";
+import { getProfile, getWorkspaces } from "./actions/actions";
+import { Sidebar } from "./components/sidebar";
 import { WorkspaceProvider } from "./workspaceContext";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,9 @@ export default async function WorkspaceLayout({
   const profileData = await getProfile();
   const workspaceData = await getWorkspaces();
 
-  const initials =
-    `${profileData.first_name?.[0] || ""}${profileData.last_name?.[0] || ""}`.toUpperCase();
+  const initials = `${profileData.first_name?.[0] || ""}${
+    profileData.last_name?.[0] || ""
+  }`.toUpperCase();
 
   return (
     <WorkspaceProvider workspaces={workspaceData}>
