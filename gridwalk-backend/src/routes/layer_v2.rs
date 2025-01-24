@@ -28,13 +28,34 @@ enum FileType {
     Unknown,
 }
 
-pub async fn upload_layer_v2(
-    State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-    headers: HeaderMap,
-    mut multipart: Multipart,
-) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    // Ensure that the user has auth to upload layer
+#[derive(Debug)]
+struct UploadContext {
+    user: User,
+    total_chunks: u32,
+    chunk_number: u32,
+    _workspace_id: String,
+    upload_id: String,
+    dir_path: std::path::PathBuf,
+    layer_info: Option<CreateLayer>,
+    file_path: Option<std::path::PathBuf>,
+}
+
+impl UploadContext {
+    fn update_upload_id_from_path(&mut self, path: &Path) {
+        if let Some(filename) = path.file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|n| n.split('_').nth(1))
+        {
+            self.upload_id = filename.to_string();
+        }
+    }
+}
+
+async fn initialize_upload_context(
+    auth_user: &AuthUser,
+    headers: &HeaderMap,
+) -> Result<UploadContext, (StatusCode, Json<serde_json::Value>)> {
+    // Validate user authorization
     let user = auth_user.user.as_ref().ok_or_else(|| {
         let error = json!({
             "error": "Unauthorized request",
@@ -43,8 +64,7 @@ pub async fn upload_layer_v2(
         (StatusCode::UNAUTHORIZED, Json(error))
     })?;
 
-    // Extract chunk information sent from the frontend
-    // Total chunks to be processed
+    // Extract and validate chunk information
     let total_chunks = headers
         .get("x-total-chunks")
         .and_then(|v| v.to_str().ok())
@@ -54,7 +74,6 @@ pub async fn upload_layer_v2(
             (StatusCode::BAD_REQUEST, Json(error))
         })?;
 
-    // The current chunk number in the stream
     let chunk_number = headers
         .get("x-chunk-number")
         .and_then(|v| v.to_str().ok())
@@ -64,7 +83,6 @@ pub async fn upload_layer_v2(
             (StatusCode::BAD_REQUEST, Json(error))
         })?;
 
-    // Get workspace id from frontend
     let workspace_id = headers
         .get("x-workspace-id")
         .and_then(|v| v.to_str().ok())
@@ -76,20 +94,6 @@ pub async fn upload_layer_v2(
             (StatusCode::BAD_REQUEST, Json(error))
         })?;
 
-    // Create layer info (layer name and workspace id holder) + holder for final file path
-    let mut layer_info: Option<CreateLayer> = None;
-    let mut file_path = None;
-
-    // Add file type check from headers
-    let file_type = headers
-        .get("x-file-type")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_lowercase());
-
-    // Add file type check from headers
-    let is_shapefile = file_type.as_deref() == Some(".zip");
-    let shapefile_path = None;
-
     // Create uploads directory
     let dir_path = Path::new("uploads");
     fs::create_dir_all(dir_path).await.map_err(|e| {
@@ -100,18 +104,35 @@ pub async fn upload_layer_v2(
         (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
     })?;
 
-    // Create upload id - which is the workspace id that is sent through
-    // This is what is used to create the temp file path
-    // "temp_{upload_id}_{filename}"
-    // This is only temporary to ensure that the chunks are appended to the same temp file
     let upload_id = format!("{}_upload", workspace_id);
+
+    Ok(UploadContext {
+        user: user.clone(),
+        total_chunks,
+        chunk_number,
+        _workspace_id: workspace_id.to_string(),
+        upload_id,
+        dir_path: dir_path.to_path_buf(),
+        layer_info: None,
+        file_path: None,
+    })
+}
+
+pub async fn upload_layer_v2(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    // Ensure that the user has auth to upload layer
+    let mut context = initialize_upload_context(&auth_user, &headers).await?;
 
     // Logging info
     tracing::info!(
         "Processing request: chunk {}/{}, upload_id: {}",
-        chunk_number,
-        total_chunks,
-        upload_id
+        context.chunk_number,
+        context.total_chunks,
+        context.upload_id
     );
 
     // Process multipart form starting point
@@ -128,7 +149,9 @@ pub async fn upload_layer_v2(
             match name {
                 "file" => {
                     if let Some(filename) = field.file_name() {
-                        let temp_path = dir_path.join(format!("{upload_id}_{filename}"));
+                        tracing::info!("Processing filename: {}", filename);
+
+                        let temp_path = context.dir_path.join(format!("{}_{filename}", context.upload_id));
                         tracing::info!("Processing file at path: {}", temp_path.display());
 
                         let mut file = OpenOptions::new()
@@ -152,7 +175,7 @@ pub async fn upload_layer_v2(
                         let mut chunk_bytes = 0usize;
 
                         // Get first chunk to validate
-                        if chunk_number == 0 {
+                        if context.chunk_number == 0 {
                             if let Some(first_chunk) = field.chunk().await.map_err(|e| {
                                 let error = json!({
                                     "error": "Failed to read file chunk",
@@ -203,36 +226,31 @@ pub async fn upload_layer_v2(
 
                         tracing::info!(
                             "Chunk {}/{} written: {} bytes",
-                            chunk_number + 1,
-                            total_chunks,
+                            context.chunk_number + 1,
+                            context.total_chunks,
                             chunk_bytes
                         );
 
-                        if chunk_number < total_chunks - 1 {
+                        if context.chunk_number < context.total_chunks - 1 {
                             tracing::info!("Non-final chunk processed, awaiting more chunks");
-                            let upload_id = if chunk_number == 0 {
-                                temp_path
-                                    .file_name()
-                                    .and_then(|n| n.to_str())
-                                    .and_then(|n| n.split('_').nth(1))
-                                    .unwrap_or("")
-                            } else {
-                                &upload_id
-                            };
-
+                            
+                            if context.chunk_number == 0 {
+                                context.update_upload_id_from_path(&temp_path);
+                            }
+                        
                             return Ok((
                                 StatusCode::OK,
                                 Json(json!({
                                     "status": "chunk_received",
-                                    "chunk": chunk_number,
-                                    "total": total_chunks,
-                                    "upload_id": upload_id,
+                                    "chunk": context.chunk_number,
+                                    "total": context.total_chunks,
+                                    "upload_id": context.upload_id,
                                     "bytes_received": chunk_bytes
                                 })),
                             ));
                         }
                         tracing::info!("Final chunk received, processing complete file");
-                        file_path = Some(temp_path);
+                        context.file_path = Some(temp_path);
                     }
                 }
                 "layer_info" => {
@@ -254,7 +272,7 @@ pub async fn upload_layer_v2(
 
                     tracing::debug!("Received layer info: {}", info_str);
 
-                    layer_info = Some(serde_json::from_str(&info_str).map_err(|e| {
+                    context.layer_info = Some(serde_json::from_str(&info_str).map_err(|e| {
                         let error = json!({
                             "error": "Invalid layer info JSON",
                             "details": e.to_string()
@@ -270,25 +288,15 @@ pub async fn upload_layer_v2(
     }
 
     // Get final path - use shapefile path if it's a shapefile upload
-    let final_path = if is_shapefile {
-        shapefile_path.ok_or_else(|| {
-            let error = json!({
-                "error": "No .shp file found in shapefile upload",
-                "details": null
-            });
-            (StatusCode::BAD_REQUEST, Json(error))
-        })?
-    } else {
-        file_path.ok_or_else(|| {
-            let error = json!({
-                "error": "No file was uploaded",
-                "details": null
-            });
-            (StatusCode::BAD_REQUEST, Json(error))
-        })?
-    };
+    let final_path = context.file_path.ok_or_else(|| {
+        let error = json!({
+            "error": "No file was uploaded",
+            "details": null
+        });
+        (StatusCode::BAD_REQUEST, Json(error))
+    })?;
 
-    let layer_info = layer_info.ok_or_else(|| {
+    let layer_info = context.layer_info.ok_or_else(|| {
         let error = json!({
             "error": "No layer info provided",
             "details": null
@@ -296,9 +304,9 @@ pub async fn upload_layer_v2(
         (StatusCode::BAD_REQUEST, Json(error))
     })?;
 
-    let layer = Layer::from_req(layer_info, user);
+    let layer = Layer::from_req(layer_info, &context.user);
 
-    match process_layer(&state, &layer, user, &final_path).await {
+    match process_layer(&state, &layer, &context.user, &final_path).await {
         Ok(json_response) => {
             // Cleanup file after successful processing
             if let Err(cleanup_err) = fs::remove_file(&final_path).await {
@@ -447,7 +455,17 @@ fn determine_file_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> {
     // Check magic numbers first
     let file_type = match buffer {
         // Binary formats
-        [0x50, 0x4B, 0x03, 0x04, ..] => FileType::Excel,
+        [0x50, 0x4B, 0x03, 0x04, ..] => {
+            // Look for Excel-specific patterns
+            if buffer.windows(30).any(|window| {
+                window.windows(14).any(|w| w == b"[Content_Types]") ||
+                window.windows(11).any(|w| w == b"xl/workbook")
+            }) {
+                FileType::Excel
+            } else {
+                FileType::Shapefile  
+            }
+        },
         [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, ..] => FileType::Excel,
         [0x50, 0x41, 0x52, 0x31, ..] => FileType::Parquet,
         [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00, ..] => FileType::Geopackage,
