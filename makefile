@@ -21,6 +21,7 @@ AVAILABLE_FOLDERS := gridwalk-backend gridwalk-ui gridwalk-product
 
 repo-update:
 	@echo "Available folders: $(AVAILABLE_FOLDERS)"
+	@echo ""
 	@echo "Examples:"
 	@echo "  • Press enter to commit all folders"
 	@echo "  • Type 'gridwalk-backend' to commit only backend"
