@@ -17,9 +17,35 @@ revert:   Reverts a previous commit
 endef
 export COMMIT_TYPES
 
-repo-update: git-add git-commit git-push
-git-add:
+AVAILABLE_FOLDERS := gridwalk-backend gridwalk-ui gridwalk-product
+
+repo-update:
+	@echo "Available folders: $(AVAILABLE_FOLDERS)"
+	@echo "Examples:"
+	@echo "  • Press enter to commit all folders"
+	@echo "  • Type 'gridwalk-backend' to commit only backend"
+	@echo "  • Type 'gridwalk-backend gridwalk-ui' to commit backend and UI"
+	@echo ""
+	@read -p "Enter the names of the folders you wish to update (space-separated, or just hit enter to update all): " folders; \
+	if [ -z "$$folders" ]; then \
+		make git-add-all git-commit git-push; \
+	else \
+		make git-add-selected FOLDERS="$$folders" git-commit git-push; \
+	fi
+
+git-add-all:
 	git add .
+
+git-add-selected:
+	@for folder in $(FOLDERS); do \
+		if [[ " $(AVAILABLE_FOLDERS) " =~ " $$folder " ]]; then \
+			echo "Adding folder: $$folder"; \
+			git add $$folder/.; \
+		else \
+			echo "Warning: $$folder is not a recognized folder"; \
+		fi \
+	done
+
 git-commit:
 	@echo "Available commit types:"
 	@echo "$$COMMIT_TYPES" | sed 's/^/  /'
@@ -46,6 +72,7 @@ git-commit:
 		echo "Invalid commit type. Please use one of the available types."; \
 		exit 1; \
 	fi
+
 git-push:
 	git push
 
