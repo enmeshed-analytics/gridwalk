@@ -11,31 +11,23 @@ import {
   Database,
   DeleteIcon,
 } from "lucide-react";
-import { CreateProjectModal, DeleteProjectModal } from "./projectModal";
+import {
+  CreateProjectModal,
+  DeleteProjectModal,
+} from "./components/projectModal";
 import { HelpSupportModal } from "../components/supportModal";
-import { AddWorkspaceMemberModal } from "./addMemberModal";
-import { ViewWorkspaceMemberModal } from "./viewMembersModal";
-import { DeleteWorkspaceModal } from "./deleteWorkspaceModal";
+import { AddWorkspaceMemberModal } from "./components/addMemberModal";
+import { ViewWorkspaceMemberModal } from "./components/viewMembersModal";
+import { DeleteWorkspaceModal } from "./components/deleteWorkspaceModal";
 import { useWorkspaces } from "../workspaceContext";
 import { createProject } from "./actions/projects/create";
 import { deleteProject } from "./actions/projects/delete";
 import { deleteWorkspace } from "./actions/workspace/delete_workspace";
 import { addWorkspaceMember } from "./actions/workspace";
-import { ViewWorkspaceConnectionsModal } from "./viewConnectionsModal";
+import { ViewWorkspaceConnectionsModal } from "./components/viewConnectionsModal";
+import { WorkspaceProjectsClientProps } from "./types";
+import { Project } from "./types";
 import { useRouter } from "next/navigation";
-
-interface Project {
-  workspace_id: string;
-  id: string;
-  name: string;
-  uploaded_by: string;
-  created_at: number;
-}
-
-interface WorkspaceProjectsClientProps {
-  workspaceId: string;
-  initialProjects: Project[];
-}
 
 export default function WorkspaceProjectsClient({
   workspaceId,
@@ -132,9 +124,9 @@ export default function WorkspaceProjectsClient({
         <div className="relative">
           {/* Header with workspace name and accordion toggle */}
           <div className="flex justify-between items-center mb-8">
-            <h1 className="sm:text-4xl font-bold">
+            <h1 className="text-2xl sm:text-2xl font-bold">
               <span className="text-black">Current Workspace:</span>{" "}
-              <span className="text-gray-900">
+              <span className="text-blue-500">
                 {currentWorkspace?.name || "Loading..."}
               </span>
             </h1>
@@ -237,7 +229,7 @@ export default function WorkspaceProjectsClient({
           >
             ←{/* Tooltip */}
             <span className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-1 text-sm text-white bg-gray-900 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Back to Main Page
+              Back to Workspace Management
             </span>
           </button>
         </div>

@@ -1,12 +1,12 @@
 import React from "react";
 import { Sun, Moon, Car } from "lucide-react";
-import { BaseEditNav, BaseLayerNavProps } from "./types";
+import { BaseLayerSidebarModalOptions, BaseLayerSidebarProps } from "./types";
 
-const BaseLayerNav: React.FC<BaseLayerNavProps> = ({
+const BaseLayerSidebar = ({
   onBaseItemClick,
   selectedBaseItem,
-}) => {
-  const baseItems: BaseEditNav[] = [
+}: BaseLayerSidebarProps) => {
+  const baseItems: BaseLayerSidebarModalOptions[] = [
     {
       id: "light",
       title: "Light Mode",
@@ -52,7 +52,7 @@ const BaseLayerNav: React.FC<BaseLayerNavProps> = ({
               ${
                 selectedBaseItem?.id === item.id
                   ? getSelectedStyle(item.id)
-                  : "text-white hover:bg-blue-400"
+                  : "text-white hover:bg-gray-300"
               }
             `}
             title={item.title}
@@ -79,4 +79,4 @@ const getSelectedStyle = (id: string) => {
   }
 };
 
-export default BaseLayerNav;
+export default BaseLayerSidebar;

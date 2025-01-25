@@ -1,6 +1,6 @@
 import React from "react";
 import { getProfile, getWorkspaces } from "./actions/actions";
-import { Sidebar } from "./components/sidebar";
+import { Sidebar } from "./components/mainWorkspaceSidebar";
 import { WorkspaceProvider } from "./workspaceContext";
 
 export const dynamic = "force-dynamic";

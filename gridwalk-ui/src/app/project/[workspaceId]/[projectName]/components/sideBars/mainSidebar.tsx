@@ -2,7 +2,11 @@
 import React from "react";
 import { Layers, File, X, Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ModalProps, MainMapNav, WorkspaceConnection } from "./types";
+import {
+  MainSidebarProps,
+  MainSidebarModalOptions,
+  WorkspaceConnection,
+} from "./types";
 import { useRouter } from "next/navigation";
 import maplibregl from "maplibre-gl";
 
@@ -23,11 +27,11 @@ interface LayersTableProps {
   onLayerToggle: (index: number, connection: WorkspaceConnection) => void;
 }
 
-const LayersTable: React.FC<LayersTableProps> = ({
+const LayersTable = ({
   connections,
   selectedLayers,
   onLayerToggle,
-}) => {
+}: LayersTableProps) => {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
@@ -63,10 +67,10 @@ const LayersTable: React.FC<LayersTableProps> = ({
 };
 
 // Modals for uploading files, viewing layers etc
-const MapModal: React.FC<ModalProps> = ({
+const MainSidebar = ({
   isOpen,
   onClose,
-  onNavItemClick,
+  onItemClick,
   selectedItem,
   onLayerUpload,
   isUploading,
@@ -82,7 +86,7 @@ const MapModal: React.FC<ModalProps> = ({
   mapRef,
   selectedLayers,
   onLayerToggle,
-}) => {
+}: MainSidebarProps) => {
   const router = useRouter();
   const [uploadKey, setUploadKey] = React.useState(0);
 
@@ -92,7 +96,7 @@ const MapModal: React.FC<ModalProps> = ({
     }
   }, [uploadSuccess]);
 
-  const MainMapNavs: MainMapNav[] = [
+  const MainSidebarModalOptions: MainSidebarModalOptions[] = [
     {
       id: "layers",
       title: "Layers",
@@ -103,8 +107,7 @@ const MapModal: React.FC<ModalProps> = ({
       id: "upload",
       title: "File Upload",
       icon: "file",
-      description:
-        "Upload files and add a layer to the map. Currently accepts .geojson, .json, .gpkg files, .xlsx, and .parquet",
+      description: "Upload files and add a layer to the map.",
     },
   ];
 
@@ -277,10 +280,10 @@ const MapModal: React.FC<ModalProps> = ({
         {/* Separator line */}
         <div className="w-8 h-px bg-gray-600 mb-4"></div>
         {/* Navigation Items */}
-        {MainMapNavs.map((item) => (
+        {MainSidebarModalOptions.map((item) => (
           <button
             key={item.id}
-            onClick={() => onNavItemClick(item)}
+            onClick={() => onItemClick(item)}
             className={`
               w-10 h-8 mb-4 flex items-center justify-center rounded-lg
               transition-colors group relative
@@ -295,6 +298,11 @@ const MapModal: React.FC<ModalProps> = ({
             {getIconComponent(item.icon || "")}
             <span className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
               {item.title}
+              {item.description && (
+                <span className="block text-xs text-gray-300 mt-0.5">
+                  {item.description}
+                </span>
+              )}
             </span>
           </button>
         ))}
@@ -324,7 +332,9 @@ const MapModal: React.FC<ModalProps> = ({
           className="fixed left-12 z-50"
           style={{
             top: `${
-              MainMapNavs.findIndex((item) => item.id === selectedItem.id) *
+              MainSidebarModalOptions.findIndex(
+                (item) => item.id === selectedItem.id
+              ) *
                 32 +
               96
             }px`,
@@ -350,4 +360,4 @@ const MapModal: React.FC<ModalProps> = ({
   );
 };
 
-export default MapModal;
+export default MainSidebar;

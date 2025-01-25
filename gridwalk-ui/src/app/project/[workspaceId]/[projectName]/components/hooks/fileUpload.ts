@@ -2,24 +2,10 @@
 
 import { useCallback } from "react";
 import { getUploadHeaders } from "../actions/auth";
-import { LayerInfo } from "./types";
+import { LayerInfo, UploadResponse } from "./types";
 import JSZip from "jszip";
 
-const CHUNK_SIZE = 10 * 1024 * 1024;
-
-interface UploadResponse {
-  success: boolean;
-  data?: {
-    id: string;
-    name: string;
-    workspace_id: string;
-  };
-  error?: string;
-  chunkInfo?: {
-    currentChunk: number;
-    totalChunks: number;
-  };
-}
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
 
 const getWorkspaceIdFromUrl = () => {
   const path = window.location.pathname;

@@ -15,10 +15,7 @@ type SupportOption = {
   action: () => void;
 };
 
-const HelpSupportModal: React.FC<HelpSupportModalProps> = ({
-  isOpen,
-  onClose,
-}) => {
+const HelpSupportModal = ({ isOpen, onClose }: HelpSupportModalProps) => {
   if (!isOpen) return null;
 
   const handleEmailSupport = () => {

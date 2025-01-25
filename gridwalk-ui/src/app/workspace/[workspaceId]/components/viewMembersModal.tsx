@@ -1,10 +1,10 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { getWorkspaceMembers } from "./actions/workspace/get_members";
+import { getWorkspaceMembers } from "../actions/workspace/get_members";
 import { Shield, Mail, Loader2, X } from "lucide-react";
-import { removeWorkspaceMember } from "./actions/workspace/remove_members";
+import { removeWorkspaceMember } from "../actions/workspace/remove_members";
 import { useRouter } from "next/navigation";
-import { ViewWorkspaceMemberModalProps } from "./types";
+import { ViewWorkspaceMemberModalProps } from "../types";
 
 type WorkspaceMember = {
   email: string;

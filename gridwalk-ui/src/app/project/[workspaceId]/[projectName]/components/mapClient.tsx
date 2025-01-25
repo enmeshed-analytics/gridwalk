@@ -1,10 +1,14 @@
 "use client";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import MainMapNavigation from "./sideBars/mainSidebar";
-import MapEditNavigation from "./sideBars/mapEditSidebar";
-import BaseLayerNavigation from "./sideBars/baseLayerSidebar";
-import { MainMapNav, MapEditNav, BaseEditNav } from "./sideBars/types";
+import MainSidebar from "./sideBars/mainSidebar";
+import MapEditSidebar from "./sideBars/mapEditSidebar";
+import BaseLayerSidebar from "./sideBars/baseLayerSidebar";
+import {
+  MainSidebarModalOptions,
+  MapEditSidebarModalOptions,
+  BaseLayerSidebarModalOptions,
+} from "./sideBars/types";
 import { useMapInit } from "./mapInit";
 import {
   useSingleFileUploader,
@@ -19,11 +23,10 @@ import {
   MapStyleKey,
   INITIAL_MAP_CONFIG,
   MapClientProps,
-  LayerUpload,
   FileHandlerResponse,
 } from "./types";
 
-const defaultBaseLayer: BaseEditNav = {
+const defaultBaseLayer: BaseLayerSidebarModalOptions = {
   id: "light",
   title: "Light Mode",
   icon: "light",
@@ -39,12 +42,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const workspaceId = params.workspaceId as string;
 
   // UI States
-  const [selectedItem, setSelectedItem] = useState<MainMapNav | null>(null);
-  const [selectedEditItem, setSelectedEditItem] = useState<MapEditNav | null>(
-    null
-  );
+  const [selectedItem, setSelectedItem] =
+    useState<MainSidebarModalOptions | null>(null);
+  const [selectedEditItem, setSelectedEditItem] =
+    useState<MapEditSidebarModalOptions | null>(null);
   const [selectedBaseItem, setSelectedBaseItem] =
-    useState<BaseEditNav>(defaultBaseLayer);
+    useState<BaseLayerSidebarModalOptions>(defaultBaseLayer);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
 
@@ -53,20 +56,17 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-
-  // File Upload States
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
 
   // Active Layers State
-  const [layers, setLayers] = useState<LayerUpload[]>([]);
   const activeLayerIds = useRef<string[]>([]);
   const [selectedLayers, setSelectedLayers] = useState<{
     [key: number]: boolean;
   }>({});
   const initialLoadComplete = useRef(false);
 
-  // Map Initialisation
+  // Map Initialisation Config
   const {
     mapContainer,
     map: mapRef,
@@ -78,7 +78,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
     apiUrl,
   });
 
-  // Close an open modal
+  const handleMainSidebarModalOpen = useCallback(
+    (item: MainSidebarModalOptions) => {
+      setSelectedItem(item);
+      setIsModalOpen(true);
+    },
+    []
+  );
+
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
     setSelectedItem(null);
@@ -88,16 +95,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setFileName("");
   }, []);
 
-  // File Selection Handler
   const handleFileSelection = useCallback((file: File) => {
     setSelectedFile(file);
     setUploadError(null);
   }, []);
 
-  // File Upload Hook Integration
   const { uploadSingleFile } = useSingleFileUploader();
   const { uploadShapefile } = useShapefileUploader();
-  const handleUpload = useCallback(
+  const handleFileUpload = useCallback(
     async (fileToUpload: File) => {
       if (!fileToUpload || !fileName.trim()) {
         setUploadError("Please provide a valid file and name");
@@ -120,6 +125,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         "json",
         "geojson",
       ];
+
       if (!supportedTypes.includes(extension)) {
         setUploadError(
           `Unsupported file type: ${extension}. Supported types are: ${supportedTypes.join(
@@ -325,7 +331,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     ]
   );
 
-  // Abort Upload Handler
   const handleAbortUpload = useCallback(() => {
     setIsUploading(false);
     setUploadProgress(0);
@@ -334,28 +339,18 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setFileName("");
   }, []);
 
-  // Cancel File Selection
   const handleCancelSelection = useCallback(() => {
     setSelectedFile(null);
     setFileName("");
     setUploadError(null);
   }, []);
 
-  // Layer Delete
-  const handleLayerDelete = useCallback((layerId: string) => {
-    setLayers((prev) => prev.filter((layer) => layer.id !== layerId));
-  }, []);
-
-  // MAIN SIDEBAR
-  const handleNavItemClick = useCallback((item: MainMapNav) => {
-    setSelectedItem(item);
-    setIsModalOpen(true);
-  }, []);
-
-  // TOP SIDEBAR
-  const handleEditItemClick = useCallback((item: MapEditNav) => {
-    setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
-  }, []);
+  const handleEditMapSidebarClick = useCallback(
+    (item: MapEditSidebarModalOptions) => {
+      setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
+    },
+    []
+  );
 
   useEffect(() => {
     const fetchWorkspaceSources = async () => {
@@ -380,7 +375,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     }
   }, [workspaceId]);
 
-  // Layer management handler
   const addMapLayer = useCallback(
     async (
       map: maplibregl.Map,
@@ -478,9 +472,8 @@ export function MapClient({ apiUrl }: MapClientProps) {
     []
   );
 
-  // BASE LAYER SIDEBAR BOTTOM RIGHT
-  const handleBaseItemClick = useCallback(
-    (item: BaseEditNav) => {
+  const handleBaseLayerSidebarClick = useCallback(
+    (item: BaseLayerSidebarModalOptions) => {
       if (!mapRef.current) return;
       console.log("Active layers before style change:", activeLayerIds.current);
 
@@ -573,7 +566,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     }
   }, []);
 
-  const handleLayerToggle = useCallback(
+  const handleSelectLayer = useCallback(
     async (index: number, connection: WorkspaceConnection) => {
       if (!mapRef?.current) return;
       const map = mapRef.current;
@@ -634,6 +627,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
   );
 
   // Effect to load active layers back onto the map after page refresh
+  // This uses local storage to store the selected layers and then restores them
   useEffect(() => {
     if (!initialLoadComplete.current && isMapReady && mapRef.current) {
       const savedLayers = localStorage.getItem("selectedLayers");
@@ -644,7 +638,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
           Object.entries(parsed).forEach(([index, isSelected]) => {
             if (isSelected && workspaceConnections[Number(index)]) {
-              handleLayerToggle(
+              handleSelectLayer(
                 Number(index),
                 workspaceConnections[Number(index)]
               );
@@ -658,7 +652,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     }
   }, [
     workspaceConnections,
-    handleLayerToggle,
+    handleSelectLayer,
     selectedLayers,
     isMapReady,
     mapRef,
@@ -700,23 +694,21 @@ export function MapClient({ apiUrl }: MapClientProps) {
       <div className="absolute inset-0 pl-10">
         <div ref={mapContainer} className="h-full w-full" />
       </div>
-      <MapEditNavigation
-        onEditItemClick={handleEditItemClick}
+      <MapEditSidebar
+        onEditItemClick={handleEditMapSidebarClick}
         selectedEditItem={selectedEditItem}
       />
-      <MainMapNavigation
+      <MainSidebar
         isOpen={isModalOpen}
         onClose={handleModalClose}
-        onNavItemClick={handleNavItemClick}
+        onItemClick={handleMainSidebarModalOpen}
         selectedItem={selectedItem}
-        onLayerUpload={handleUpload}
-        onLayerDelete={handleLayerDelete}
+        onLayerUpload={handleFileUpload}
         isUploading={isUploading}
         error={uploadError}
         uploadSuccess={uploadSuccess}
         uploadProgress={uploadProgress}
         onAbortUpload={handleAbortUpload}
-        layers={layers}
         selectedFile={selectedFile}
         fileName={fileName}
         onFileSelection={handleFileSelection}
@@ -725,10 +717,10 @@ export function MapClient({ apiUrl }: MapClientProps) {
         workspaceConnections={workspaceConnections}
         mapRef={mapRef}
         selectedLayers={selectedLayers}
-        onLayerToggle={handleLayerToggle}
+        onLayerToggle={handleSelectLayer}
       />
-      <BaseLayerNavigation
-        onBaseItemClick={handleBaseItemClick}
+      <BaseLayerSidebar
+        onBaseItemClick={handleBaseLayerSidebarClick}
         selectedBaseItem={selectedBaseItem}
       />
     </div>

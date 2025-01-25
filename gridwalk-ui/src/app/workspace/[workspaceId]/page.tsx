@@ -1,5 +1,5 @@
 import { getProjects } from "./actions/projects/get";
-import WorkspaceProjectsClient from "./workspaceProjects";
+import WorkspaceProjectsClient from "./workspaceProjectPage";
 
 type PageProps = {
   params: Promise<{ workspaceId: string }>;

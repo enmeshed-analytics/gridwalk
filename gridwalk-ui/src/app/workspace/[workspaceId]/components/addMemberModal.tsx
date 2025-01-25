@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AddWorkspaceMemberModalProps } from "./types";
+import { AddWorkspaceMemberModalProps } from "../types";
 
 export const AddWorkspaceMemberModal: React.FC<
   AddWorkspaceMemberModalProps

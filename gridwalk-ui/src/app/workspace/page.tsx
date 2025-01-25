@@ -150,7 +150,7 @@ export default function WorkspacePage() {
         <div className="flex items-center justify-between mb-8 bg-white p-4 rounded-xl border border-gray-500 shadow-sm">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Welcome to GridWalk
+              Workspace Management
             </h1>
           </div>
           <div className="flex items-center gap-4">

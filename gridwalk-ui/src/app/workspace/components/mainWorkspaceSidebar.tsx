@@ -8,7 +8,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu, LogOut, ChevronDown, Plus, Briefcase } from "lucide-react";
+import { Menu, LogOut, ChevronDown, Plus, ArrowBigRight } from "lucide-react";
 import {
   ProfileData,
   Workspaces,
@@ -115,7 +115,7 @@ const WorkspaceAccordion = ({ workspaces }: { workspaces: Workspaces }) => {
             href={`/workspace/${workspace.id}`}
             className="w-full text-left py-1.5 px-3 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-700 hover:text-white dark:hover:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium group flex items-center gap-2"
           >
-            <Briefcase className="h-4 w-4 text-white dark:text-white" />
+            <ArrowBigRight className="h-4 w-4 text-white dark:text-white" />
             <span className="flex-1 text-xs">{workspace.name}</span>
           </Link>
         ))}

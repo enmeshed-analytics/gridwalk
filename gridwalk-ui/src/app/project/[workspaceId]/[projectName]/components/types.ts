@@ -1,5 +1,5 @@
 // FILE UPLOAD
-export interface LayerUpload {
+export interface LayerProps {
   id: string;
   name: string;
   type: string;

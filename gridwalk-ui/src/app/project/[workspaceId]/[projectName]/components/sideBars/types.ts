@@ -1,36 +1,14 @@
-/* Navigation Bar Items */
-export interface MainMapNav {
-  id: string;
-  title: string;
-  icon?: string;
-  description?: string;
-  children?: React.ReactNode;
-}
-
-export interface Source {
-  name: string;
-}
-
-export type WorkspaceConnection = {
-  id: string;
-  layer: string;
-  sources: Source[];
-};
-
-/* Simple Modal Prop Elements */
-export interface ModalProps {
+export interface MainSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  onNavItemClick: (item: MainMapNav) => void;
-  selectedItem: MainMapNav | null;
+  onItemClick: (item: MainSidebarModalOptions) => void;
+  selectedItem: MainSidebarModalOptions | null;
   onLayerUpload: (file: File) => void;
-  onLayerDelete: (id: string) => void;
   isUploading: boolean;
   error: string | null;
   uploadSuccess: boolean;
   uploadProgress: number;
   onAbortUpload: () => void;
-  layers: LayerUpload[];
   selectedFile: File | null;
   fileName: string;
   onFileSelection: (file: File) => void;
@@ -42,32 +20,44 @@ export interface ModalProps {
   onLayerToggle: (index: number, connection: WorkspaceConnection) => void;
 }
 
-/* Map Edit Items */
-export interface MapEditNav {
+export interface MainSidebarModalOptions {
+  id: string;
+  title: string;
+  icon?: string;
+  description?: string;
+  children?: React.ReactNode;
+}
+
+export interface MapEditSidebarModalOptions {
   id: string;
   title: string;
   icon?: string;
   description: string;
 }
 
-/* Base Layer Items */
-export interface BaseEditNav {
+export interface MapEditsProps {
+  onEditItemClick: (item: MapEditSidebarModalOptions) => void;
+  selectedEditItem: MapEditSidebarModalOptions | null;
+}
+
+export interface BaseLayerSidebarModalOptions {
   id: string;
   title: string;
   icon?: string;
   description: string;
 }
 
-/* Base Layer Nav Props */
-export interface BaseLayerNavProps {
-  onBaseItemClick: (item: BaseEditNav) => void;
-  selectedBaseItem: BaseEditNav | null;
+export interface BaseLayerSidebarProps {
+  onBaseItemClick: (item: BaseLayerSidebarModalOptions) => void;
+  selectedBaseItem: BaseLayerSidebarModalOptions | null;
 }
 
-/* Upload Layer */
-export interface LayerUpload {
-  id: string;
+export interface SourceProps {
   name: string;
-  type: string;
-  visible?: boolean;
 }
+
+export type WorkspaceConnection = {
+  id: string;
+  layer: string;
+  sources: SourceProps[];
+};
