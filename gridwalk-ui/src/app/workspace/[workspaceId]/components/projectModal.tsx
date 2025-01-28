@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { CreateProjectModalProps, DeleteProjectModalProps } from "./types";
+import { CreateProjectModalProps, DeleteProjectModalProps } from "../types";
 
 export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   isOpen,
