@@ -1,4 +1,4 @@
-use crate::core::GeoConnections;
+use crate::connector::GeoConnections;
 use crate::data::Database;
 use std::sync::Arc;
 

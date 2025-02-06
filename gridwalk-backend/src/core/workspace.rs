@@ -6,7 +6,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{ConnectionAccess, ConnectionAccessConfig, GeoConnector};
+use crate::{ConnectionAccess, ConnectionAccessConfig, GeoConnector};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {

@@ -1,4 +1,3 @@
-mod connector;
 mod layer;
 mod layer_v2;
 mod os_token;
@@ -7,7 +6,6 @@ mod tiles;
 mod user;
 mod workspace;
 
-pub use connector::*;
 pub use layer::*;
 pub use layer_v2::*;
 pub use os_token::*;

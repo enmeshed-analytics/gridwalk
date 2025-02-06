@@ -1,5 +1,6 @@
 use crate::app_state::AppState;
-use crate::core::{ConnectionAccess, Session, User, Workspace};
+use crate::connector::ConnectionAccess;
+use crate::core::{Session, User, Workspace};
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
@@ -97,7 +98,10 @@ pub async fn get_geometry_type(
         .unwrap();
 
     // Get the geometry type and convert it to a string
-    match geoconnector.get_geometry_type(&workspace_id, &source_name).await {
+    match geoconnector
+        .get_geometry_type(&workspace_id, &source_name)
+        .await
+    {
         Ok(geom_type) => {
             let geom_type_str = format!("{:?}", geom_type);
             Response::builder()
@@ -113,6 +117,10 @@ pub async fn get_geometry_type(
                 .unwrap()
                 .into_response()
         }
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to get geometry type").into_response(),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to get geometry type",
+        )
+            .into_response(),
     }
 }
