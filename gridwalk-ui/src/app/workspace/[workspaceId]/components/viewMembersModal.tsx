@@ -6,14 +6,22 @@ import { removeWorkspaceMember } from "../actions/workspace/remove_members";
 import { useRouter } from "next/navigation";
 import { ViewWorkspaceMemberModalProps } from "../types";
 
+// TODO create a delete confirmation modal that can be reused for other modals
 type WorkspaceMember = {
   email: string;
   role: "Admin" | "Read";
 };
 
-export const ViewWorkspaceMemberModal: React.FC<
-  ViewWorkspaceMemberModalProps
-> = ({ isOpen, onClose, workspaceId }) => {
+const role_colors = {
+  Admin: "bg-blue-100 text-blue-800",
+  Read: "bg-gray-100 text-gray-800",
+} as const;
+
+export function ViewWorkspaceMemberModal({
+  isOpen,
+  onClose,
+  workspaceId,
+}: ViewWorkspaceMemberModalProps) {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +32,7 @@ export const ViewWorkspaceMemberModal: React.FC<
   );
   const router = useRouter();
 
+  // When modal is opened, fetch members
   useEffect(() => {
     if (isOpen) {
       const fetchMembers = async () => {
@@ -79,16 +88,8 @@ export const ViewWorkspaceMemberModal: React.FC<
 
   if (!isOpen) return null;
 
-  const getRoleColor = (role: "Admin" | "Read") => {
-    switch (role) {
-      case "Admin":
-        return "bg-blue-100 text-blue-800";
-      case "Read":
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   // Delete confirmation modal
+  // TODO move to a seperate component that can be reused for other modals
   const DeleteConfirmation = () => {
     if (!memberToDelete) return null;
 
@@ -219,9 +220,9 @@ export const ViewWorkspaceMemberModal: React.FC<
                           <div className="flex items-center">
                             <Shield className="h-4 w-4 text-gray-400 mr-2" />
                             <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(
-                                member.role
-                              )}`}
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                role_colors[member.role]
+                              }`}
                             >
                               {member.role}
                             </span>
@@ -267,4 +268,4 @@ export const ViewWorkspaceMemberModal: React.FC<
       <DeleteConfirmation />
     </>
   );
-};
+}

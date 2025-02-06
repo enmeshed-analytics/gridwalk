@@ -100,6 +100,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setUploadError(null);
   }, []);
 
+  // TODO move file uploader to a seperate component
   const { uploadSingleFile } = useSingleFileUploader();
   const { uploadShapefile } = useShapefileUploader();
   const handleFileUpload = useCallback(
