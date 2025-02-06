@@ -6,12 +6,14 @@ mod data;
 mod layer;
 mod routes;
 mod server;
+mod session;
 mod user;
 
 use crate::app_state::AppState;
 use crate::connector::*;
 use crate::data::Dynamodb;
 use crate::layer::*;
+use crate::session::*;
 use crate::user::*;
 
 use anyhow::Result;

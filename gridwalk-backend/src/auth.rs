@@ -1,5 +1,5 @@
 use crate::User;
-use crate::{app_state::AppState, core::Session};
+use crate::{app_state::AppState, Session};
 use axum::{
     body::Body,
     extract::{FromRef, State},
@@ -55,4 +55,3 @@ pub async fn auth_middleware(
         Err(_) => Err((StatusCode::UNAUTHORIZED, "Invalid token").into_response()),
     }
 }
-

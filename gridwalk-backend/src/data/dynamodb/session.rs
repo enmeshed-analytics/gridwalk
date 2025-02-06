@@ -1,6 +1,5 @@
-use crate::core::Session;
 use crate::data::{Dynamodb, SessionStore};
-use crate::User;
+use crate::{Session, User};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use aws_sdk_dynamodb::types::AttributeValue as AV;
