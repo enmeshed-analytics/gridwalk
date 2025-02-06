@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback } from "react";
-import { getUploadHeaders } from "../actions/auth";
+import { getUploadHeaders } from "../../actions/auth";
 import { LayerInfo, UploadResponse } from "./types";
 import JSZip from "jszip";
 
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+const CHUNK_SIZE = 10 * 1024 * 1024;
 
 const getWorkspaceIdFromUrl = () => {
   const path = window.location.pathname;
