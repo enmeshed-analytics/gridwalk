@@ -1,8 +1,8 @@
 use crate::core::{
-    Connection, ConnectionAccess, CreateUser, Email, GlobalRole, Layer, PostgresConnection,
-    Project, User, Workspace, WorkspaceMember, WorkspaceRole,
+    CreateUser, Email, GlobalRole, Layer, Project, User, Workspace, WorkspaceMember, WorkspaceRole,
 };
 use crate::data::{Database, UserStore};
+use crate::{Connection, ConnectionAccess, PostgresConnection};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use aws_config::meta::region::RegionProviderChain;

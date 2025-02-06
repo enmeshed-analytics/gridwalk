@@ -1,12 +1,13 @@
 mod app_state;
 mod auth;
+mod connector;
 mod core;
 mod data;
 mod routes;
 mod server;
 
 use crate::app_state::AppState;
-use crate::core::{GeoConnections, PostgisConnector};
+use crate::connector::*;
 use crate::data::Dynamodb;
 
 use anyhow::Result;

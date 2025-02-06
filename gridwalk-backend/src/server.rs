@@ -1,6 +1,7 @@
 use crate::app_state::AppState;
 use crate::auth::auth_middleware;
 use crate::routes::*;
+use crate::{create_connection, list_connections, list_sources};
 use axum::{
     extract::DefaultBodyLimit,
     middleware,
@@ -136,7 +137,7 @@ pub fn create_app(app_state: AppState) -> Router {
     // Create the tiles router with its specific CORS configuration
     let tiles_router = Router::new()
         .route("/:z/:x/:y", get(tiles))
-        .route("/geometry", get(get_geometry_type))  
+        .route("/geometry", get(get_geometry_type))
         .layer(create_dynamic_cors())
         .layer(CookieManagerLayer::new())
         .with_state(shared_state.clone());
