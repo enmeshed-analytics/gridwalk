@@ -1,8 +1,7 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::connector::{Connection, ConnectionAccess, PostgisConnector, PostgresConnection};
-use crate::core::{Workspace, WorkspaceMember};
-use crate::GlobalRole;
+use crate::{GlobalRole, Workspace, WorkspaceMember};
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,

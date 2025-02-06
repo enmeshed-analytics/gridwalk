@@ -1,5 +1,7 @@
-use crate::core::{Project, Workspace, WorkspaceMember, WorkspaceRole};
-use crate::{Connection, ConnectionAccess, Layer, Session, User};
+use crate::core::Project;
+use crate::{
+    Connection, ConnectionAccess, Layer, Session, User, Workspace, WorkspaceMember, WorkspaceRole,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 

@@ -1,6 +1,6 @@
-use super::{get_unix_timestamp, Workspace, WorkspaceRole};
+use super::get_unix_timestamp;
 use crate::data::Database;
-use crate::User;
+use crate::{User, Workspace, WorkspaceRole};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

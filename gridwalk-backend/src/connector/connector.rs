@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio_postgres::NoTls;
 
-use crate::{core::Workspace, data::Database};
+use crate::{data::Database, Workspace};
 
 // TODO: Switch connector_type/postgis_uri to enum to support other connectors
 #[derive(Debug, Clone, Deserialize, Serialize)]

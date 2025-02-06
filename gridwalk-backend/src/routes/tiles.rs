@@ -1,7 +1,6 @@
 use crate::app_state::AppState;
 use crate::connector::ConnectionAccess;
-use crate::core::Workspace;
-use crate::{Session, User};
+use crate::{Session, User, Workspace};
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
