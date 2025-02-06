@@ -1,13 +1,13 @@
 mod app_state;
 mod auth;
 mod connector;
-mod core;
 mod data;
 mod layer;
 mod project;
 mod server;
 mod session;
 mod user;
+mod utils;
 mod workspace;
 
 use crate::app_state::AppState;

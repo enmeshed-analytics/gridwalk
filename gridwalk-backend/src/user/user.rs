@@ -1,5 +1,5 @@
-use crate::core::{create_id, get_unix_timestamp, hash_password};
 use crate::data::Database;
+use crate::utils::{create_id, get_unix_timestamp, hash_password};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

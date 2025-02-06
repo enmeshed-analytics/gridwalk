@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::core::{create_id, verify_password};
+use crate::utils::{create_id, verify_password};
 use crate::{CreateUser, Profile, Session, User};
 use axum::{
     extract::{Extension, State},
