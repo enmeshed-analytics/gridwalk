@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::core::create_id;
-use crate::core::User;
 use crate::data::Database;
+use crate::User;
 use anyhow::Result;
 use async_trait::async_trait;
 use axum::{

@@ -1,5 +1,6 @@
-use crate::core::{get_unix_timestamp, User};
+use crate::core::get_unix_timestamp;
 use crate::data::Database;
+use crate::User;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt;

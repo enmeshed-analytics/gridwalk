@@ -1,4 +1,4 @@
-use crate::core::User;
+use crate::User;
 use crate::{app_state::AppState, core::Session};
 use axum::{
     body::Body,
@@ -18,7 +18,7 @@ pub struct AuthUser {
 
 pub async fn auth_middleware(
     State(state): State<Arc<AppState>>,
-    auth: Option<TypedHeader<Authorization<Bearer>>>,  
+    auth: Option<TypedHeader<Authorization<Bearer>>>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
@@ -39,7 +39,9 @@ pub async fn auth_middleware(
                 match User::from_id(&state.app_data, &user_id).await {
                     Ok(user) => {
                         let mut request = request;
-                        request.extensions_mut().insert(AuthUser { user: Some(user) });
+                        request
+                            .extensions_mut()
+                            .insert(AuthUser { user: Some(user) });
                         Ok(next.run(request).await)
                     }
                     Err(_) => {
@@ -53,3 +55,4 @@ pub async fn auth_middleware(
         Err(_) => Err((StatusCode::UNAUTHORIZED, "Invalid token").into_response()),
     }
 }
+

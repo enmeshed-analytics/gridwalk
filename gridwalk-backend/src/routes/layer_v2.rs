@@ -1,6 +1,7 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::core::{CreateLayer, Layer, User, Workspace, WorkspaceRole};
+use crate::core::{CreateLayer, Layer, Workspace, WorkspaceRole};
+use crate::User;
 use axum::{
     extract::{Extension, Multipart, State},
     http::{HeaderMap, StatusCode},
@@ -42,7 +43,8 @@ struct UploadContext {
 
 impl UploadContext {
     fn update_upload_id_from_path(&mut self, path: &Path) {
-        if let Some(filename) = path.file_name()
+        if let Some(filename) = path
+            .file_name()
             .and_then(|n| n.to_str())
             .and_then(|n| n.split('_').nth(1))
         {
@@ -151,7 +153,9 @@ pub async fn upload_layer_v2(
                     if let Some(filename) = field.file_name() {
                         tracing::info!("Processing filename: {}", filename);
 
-                        let temp_path = context.dir_path.join(format!("{}_{filename}", context.upload_id));
+                        let temp_path = context
+                            .dir_path
+                            .join(format!("{}_{filename}", context.upload_id));
                         tracing::info!("Processing file at path: {}", temp_path.display());
 
                         let mut file = OpenOptions::new()
@@ -233,11 +237,11 @@ pub async fn upload_layer_v2(
 
                         if context.chunk_number < context.total_chunks - 1 {
                             tracing::info!("Non-final chunk processed, awaiting more chunks");
-                            
+
                             if context.chunk_number == 0 {
                                 context.update_upload_id_from_path(&temp_path);
                             }
-                        
+
                             return Ok((
                                 StatusCode::OK,
                                 Json(json!({
@@ -458,25 +462,35 @@ fn determine_file_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> {
         [0x50, 0x4B, 0x03, 0x04, ..] => {
             // Look for Excel-specific patterns
             if buffer.windows(30).any(|window| {
-                window.windows(14).any(|w| w == b"[Content_Types]") ||
-                window.windows(11).any(|w| w == b"xl/workbook")
+                window.windows(14).any(|w| w == b"[Content_Types]")
+                    || window.windows(11).any(|w| w == b"xl/workbook")
             }) {
                 FileType::Excel
             } else {
-                FileType::Shapefile  
+                FileType::Shapefile
             }
-        },
+        }
         [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, ..] => FileType::Excel,
         [0x50, 0x41, 0x52, 0x31, ..] => FileType::Parquet,
-        [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00, ..] => FileType::Geopackage,
+        [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00, ..] => {
+            FileType::Geopackage
+        }
         [0x00, 0x00, 0x27, 0x0A, ..] => FileType::Shapefile,
-        
+
         // Text-based formats
         _ if buffer.len() > 20 => {
             // GeoJSON checks
-            if buffer.windows(17).next().map_or(false, |w| w == b"{\"type\":\"Feature") {
+            if buffer
+                .windows(17)
+                .next()
+                .map_or(false, |w| w == b"{\"type\":\"Feature")
+            {
                 FileType::GeoJson
-            } else if buffer.windows(26).next().map_or(false, |w| w == b"{\"type\":\"FeatureCollection") {
+            } else if buffer
+                .windows(26)
+                .next()
+                .map_or(false, |w| w == b"{\"type\":\"FeatureCollection")
+            {
                 FileType::GeoJson
             }
             // Generic JSON check
@@ -494,7 +508,7 @@ fn determine_file_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> {
                 FileType::Unknown
             }
         }
-        _ => FileType::Unknown
+        _ => FileType::Unknown,
     };
 
     Ok(file_type)
@@ -502,14 +516,16 @@ fn determine_file_type(buffer: &[u8]) -> Result<FileType, Box<dyn Error>> {
 
 fn is_csv_like(content: &str) -> bool {
     let lines: Vec<&str> = content.lines().take(5).collect();
-    
+
     if lines.len() < 2 {
         return false;
     }
 
     let first_line_fields = lines[0].split(',').count();
-    first_line_fields >= 2 && lines[1..].iter().all(|line| {
-        let fields = line.split(',').count();
-        fields == first_line_fields && line.chars().all(|c| c.is_ascii() || c.is_whitespace())
-    })
+    first_line_fields >= 2
+        && lines[1..].iter().all(|line| {
+            let fields = line.split(',').count();
+            fields == first_line_fields && line.chars().all(|c| c.is_ascii() || c.is_whitespace())
+        })
 }
+

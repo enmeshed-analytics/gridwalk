@@ -1,5 +1,6 @@
-use crate::core::{Email, Project, Session, User, Workspace, WorkspaceMember};
+use crate::core::{Project, Session, Workspace, WorkspaceMember};
 use crate::{Connection, ConnectionAccess, ConnectionAccessConfig, PostgresConnection};
+use crate::{Email, User};
 use aws_sdk_dynamodb::types::AttributeValue as AV;
 use std::collections::HashMap;
 

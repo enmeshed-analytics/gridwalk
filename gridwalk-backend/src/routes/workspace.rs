@@ -1,5 +1,6 @@
 use crate::auth::AuthUser;
-use crate::core::{User, Workspace, WorkspaceRole};
+use crate::core::{Workspace, WorkspaceRole};
+use crate::User;
 use crate::{app_state::AppState, core::get_unix_timestamp};
 use axum::{
     extract::{Extension, Path, State},

@@ -2,6 +2,7 @@ use crate::app_state::AppState;
 use crate::auth::auth_middleware;
 use crate::routes::*;
 use crate::{create_connection, list_connections, list_sources};
+use crate::{health_check, login, logout, profile, register, reset_password};
 use axum::{
     extract::DefaultBodyLimit,
     middleware,

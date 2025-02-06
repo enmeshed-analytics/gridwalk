@@ -5,10 +5,12 @@ mod core;
 mod data;
 mod routes;
 mod server;
+mod user;
 
 use crate::app_state::AppState;
 use crate::connector::*;
 use crate::data::Dynamodb;
+use crate::user::*;
 
 use anyhow::Result;
 use dotenvy::dotenv;

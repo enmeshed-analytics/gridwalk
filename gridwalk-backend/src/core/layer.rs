@@ -1,6 +1,6 @@
 use super::{get_unix_timestamp, Workspace, WorkspaceRole};
-use crate::core::User;
 use crate::data::Database;
+use crate::User;
 use anyhow::{anyhow, Result};
 use duckdb_postgis;
 use serde::{Deserialize, Serialize};
