@@ -1,8 +1,7 @@
-use crate::core::Project;
 use crate::data::{Database, UserStore};
 use crate::{
-    Connection, ConnectionAccess, CreateUser, Email, GlobalRole, Layer, PostgresConnection, User,
-    Workspace, WorkspaceMember, WorkspaceRole,
+    Connection, ConnectionAccess, CreateUser, Email, GlobalRole, Layer, PostgresConnection,
+    Project, User, Workspace, WorkspaceMember, WorkspaceRole,
 };
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;

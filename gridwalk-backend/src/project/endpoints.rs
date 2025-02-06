@@ -1,7 +1,6 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::core::{CreateProject, Project};
-use crate::{User, Workspace, WorkspaceRole};
+use crate::{CreateProject, Project, User, Workspace, WorkspaceRole};
 use axum::{
     extract::{Extension, Query, State},
     http::StatusCode,

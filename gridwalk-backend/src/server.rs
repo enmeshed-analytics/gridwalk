@@ -1,10 +1,10 @@
 use crate::app_state::AppState;
 use crate::auth::auth_middleware;
-use crate::routes::*;
 use crate::{
-    add_workspace_member, create_workspace, delete_workspace, get_workspace_members,
-    get_workspaces, health_check, login, logout, profile, register, remove_workspace_member,
-    reset_password, upload_layer, upload_layer_v2,
+    add_workspace_member, create_project, create_workspace, delete_project, delete_workspace,
+    generate_os_token, get_geometry_type, get_projects, get_workspace_members, get_workspaces,
+    health_check, login, logout, profile, register, remove_workspace_member, reset_password, tiles,
+    upload_layer, upload_layer_v2,
 };
 use crate::{create_connection, list_connections, list_sources};
 use axum::{
