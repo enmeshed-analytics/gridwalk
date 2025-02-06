@@ -5,7 +5,7 @@ import { useSingleFileUploader, useShapefileUploader } from "./fileUpload";
 import {
   getWorkspaceConnections,
   WorkspaceConnection,
-} from "../actions/getSources";
+} from "../../actions/getSources";
 
 interface UseFileUploaderProps {
   fileName: string;
@@ -58,8 +58,8 @@ export const useFileUploader = ({
       if (!supportedTypes.includes(extension)) {
         setUploadError(
           `Unsupported file type: ${extension}. Supported types are: ${supportedTypes.join(
-            ", ",
-          )}`,
+            ", "
+          )}`
         );
         return;
       }
@@ -73,7 +73,7 @@ export const useFileUploader = ({
         const renamedFile = new File(
           [fileToUpload],
           `${fileName}${extension ? `.${extension}` : ""}`,
-          { type: fileToUpload.type },
+          { type: fileToUpload.type }
         );
 
         // Handle file upload based on type
@@ -94,7 +94,7 @@ export const useFileUploader = ({
               setTimeout(() => {
                 handleModalClose();
               }, 1500);
-            },
+            }
           );
         } else {
           await uploadSingleFile(
@@ -113,7 +113,7 @@ export const useFileUploader = ({
               setTimeout(() => {
                 handleModalClose();
               }, 1500);
-            },
+            }
           );
         }
 
@@ -150,7 +150,7 @@ export const useFileUploader = ({
       setUploadProgress,
       setIsUploading,
       setWorkspaceConnections,
-    ],
+    ]
   );
 
   return {

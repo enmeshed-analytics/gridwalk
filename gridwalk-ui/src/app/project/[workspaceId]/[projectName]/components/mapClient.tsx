@@ -18,7 +18,7 @@ import {
   getWorkspaceConnections,
   WorkspaceConnection,
 } from "./actions/getSources";
-import { useFileUploader } from "./hooks/useFileUploader";
+import { useFileUploader } from "./hooks/fileUpload/useFileUploader";
 import {
   MAP_STYLES,
   MapStyleKey,
@@ -84,7 +84,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
       setSelectedItem(item);
       setIsModalOpen(true);
     },
-    [],
+    []
   );
 
   const handleModalClose = useCallback(() => {
@@ -363,7 +363,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     (item: MapEditSidebarModalOptions) => {
       setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
     },
-    [],
+    []
   );
 
   useEffect(() => {
@@ -395,14 +395,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
       layerId: string,
       sourceUrl: string,
       sourceLayerName: string,
-      geomTypeUrl: string,
+      geomTypeUrl: string
     ) => {
       try {
         // Fetch the geometry type from the API
         const response = await fetch(geomTypeUrl);
         if (!response.ok) {
           throw new Error(
-            `Failed to fetch geometry type: ${response.statusText}`,
+            `Failed to fetch geometry type: ${response.statusText}`
           );
         }
         const geomType = await response.text();
@@ -457,7 +457,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             break;
           default:
             console.warn(
-              `Unknown geometry type: ${geomType}, defaulting to point`,
+              `Unknown geometry type: ${geomType}, defaulting to point`
             );
             layerConfig = {
               type: "circle",
@@ -483,7 +483,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         throw error;
       }
     },
-    [],
+    []
   );
 
   const handleBaseLayerSidebarClick = useCallback(
@@ -544,7 +544,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
                   layerId,
                   sourceUrl,
                   layerName,
-                  geomTypeUrl,
+                  geomTypeUrl
                 );
                 console.log(`Layer ${layerName} added successfully`);
               }
@@ -568,7 +568,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
           });
       }
     },
-    [addMapLayer, workspaceId, mapRef],
+    [addMapLayer, workspaceId, mapRef]
   );
 
   const removeMapLayer = useCallback((map: maplibregl.Map, layerId: string) => {
@@ -598,7 +598,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         JSON.stringify({
           ...selectedLayers,
           [index]: willBeEnabled,
-        }),
+        })
       );
 
       if (willBeEnabled) {
@@ -616,7 +616,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             layerId,
             sourceUrl,
             sourceLayerName,
-            geomTypeUrl,
+            geomTypeUrl
           );
           activeLayerIds.current.push(layerId);
         } catch (err) {
@@ -630,14 +630,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
         try {
           removeMapLayer(map, layerId);
           activeLayerIds.current = activeLayerIds.current.filter(
-            (id) => id !== layerId,
+            (id) => id !== layerId
           );
         } catch (err) {
           console.error("Error removing layer:", err);
         }
       }
     },
-    [mapRef, workspaceId, selectedLayers, addMapLayer, removeMapLayer],
+    [mapRef, workspaceId, selectedLayers, addMapLayer, removeMapLayer]
   );
 
   // Effect to load active layers back onto the map after page refresh
@@ -654,7 +654,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             if (isSelected && workspaceConnections[Number(index)]) {
               handleSelectLayer(
                 Number(index),
-                workspaceConnections[Number(index)],
+                workspaceConnections[Number(index)]
               );
             }
           });
