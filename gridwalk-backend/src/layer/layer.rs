@@ -1,4 +1,4 @@
-use super::{get_unix_timestamp, Workspace, WorkspaceRole};
+use crate::core::{get_unix_timestamp, Workspace, WorkspaceRole};
 use crate::data::Database;
 use crate::User;
 use anyhow::{anyhow, Result};

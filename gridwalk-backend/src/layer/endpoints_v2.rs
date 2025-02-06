@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::core::{CreateLayer, Layer, Workspace, WorkspaceRole};
-use crate::User;
+use crate::core::{Workspace, WorkspaceRole};
+use crate::{CreateLayer, Layer, User};
 use axum::{
     extract::{Extension, Multipart, State},
     http::{HeaderMap, StatusCode},
@@ -528,4 +528,3 @@ fn is_csv_like(content: &str) -> bool {
             fields == first_line_fields && line.chars().all(|c| c.is_ascii() || c.is_whitespace())
         })
 }
-

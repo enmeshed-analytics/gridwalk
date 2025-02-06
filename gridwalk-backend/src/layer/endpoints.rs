@@ -1,7 +1,7 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::core::{CreateLayer, Layer, Workspace, WorkspaceRole};
-use crate::User;
+use crate::core::{Workspace, WorkspaceRole};
+use crate::{CreateLayer, Layer, User};
 use axum::{
     extract::{Extension, Multipart, State},
     http::{HeaderMap, StatusCode},

@@ -3,6 +3,7 @@ mod auth;
 mod connector;
 mod core;
 mod data;
+mod layer;
 mod routes;
 mod server;
 mod user;
@@ -10,6 +11,7 @@ mod user;
 use crate::app_state::AppState;
 use crate::connector::*;
 use crate::data::Dynamodb;
+use crate::layer::*;
 use crate::user::*;
 
 use anyhow::Result;
