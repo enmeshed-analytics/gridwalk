@@ -1,5 +1,3 @@
-// hooks/useFileUploader.ts
-
 import { useCallback } from "react";
 import { useSingleFileUploader, useShapefileUploader } from "./fileUpload";
 import {
@@ -76,7 +74,6 @@ export const useFileUploader = ({
           { type: fileToUpload.type }
         );
 
-        // Handle file upload based on type
         if (extension === "zip") {
           await uploadShapefile(
             renamedFile,

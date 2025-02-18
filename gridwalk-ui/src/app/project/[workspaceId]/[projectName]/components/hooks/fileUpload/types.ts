@@ -17,3 +17,12 @@ export interface UploadResponse {
     totalChunks: number;
   };
 }
+
+export interface FileHandlerResponse {
+  success: boolean;
+  data?: {
+    id: string;
+    name: string;
+    workspace_id: string;
+  };
+}
