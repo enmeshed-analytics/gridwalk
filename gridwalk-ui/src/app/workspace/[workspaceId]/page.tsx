@@ -1,17 +1,13 @@
-import { getProjects } from "./actions/projects/get";
-import WorkspaceProjectsClient from "./workspaceProjectPage";
+import { redirect } from 'next/navigation';
 
-type PageProps = {
-  params: Promise<{ workspaceId: string }>;
-};
-
-export default async function Page({ params }: PageProps) {
+// Workspace with ID in path, redirect to maps page for that workspace
+export default async function WorkspaceIdPage({ params }) {
   const { workspaceId } = await params;
-  const initialProjects = await getProjects(workspaceId);
+
+  redirect(`/workspace/${workspaceId}/maps`);
+
+  // This code won't be reached due to the redirect
   return (
-    <WorkspaceProjectsClient
-      workspaceId={workspaceId}
-      initialProjects={initialProjects}
-    />
+    <></>
   );
 }
