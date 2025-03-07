@@ -87,7 +87,7 @@ export type WorkspaceMember = {
 };
 
 export async function getWorkspaceMembers(
-  workspaceId: string,
+  workspaceId: string
 ): Promise<WorkspaceMember[]> {
   const token = await getAuthToken();
 
@@ -104,7 +104,7 @@ export async function getWorkspaceMembers(
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      },
+      }
     );
 
     if (!response.ok) {

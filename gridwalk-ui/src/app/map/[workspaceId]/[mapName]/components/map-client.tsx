@@ -1,14 +1,14 @@
 "use client";
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import MainSidebar from "./sidebars/main-sidebar";
-import MapEditSidebar from "./sidebars/map-edit-sidebar";
-import BaseLayerSidebar from "./sidebars/base-layer-sidebar";
+import MainSidebar from "./sideBars/main-sidebar";
+import MapEditSidebar from "./sideBars/map-edit-sidebar";
+import BaseLayerSidebar from "./sideBars/base-layer-sidebar";
 import {
   MainSidebarModalOptions,
   MapEditSidebarModalOptions,
   BaseLayerSidebarModalOptions,
-} from "./sidebars/types";
+} from "./sideBars/types";
 import { useMapInit } from "./map-init";
 import {
   getWorkspaceConnections,

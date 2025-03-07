@@ -8,15 +8,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ProfileData, Workspaces } from "../actions/actions";
+import { ProfileData, Workspace } from "../actions";
 import { ClientSidebarContent } from "./sidebar-content";
 
 interface ClientMobileSidebarProps {
   profileData: ProfileData;
-  workspaceData: Workspaces;
+  workspaceData: Workspace;
 }
 
-export function ClientMobileSidebar({ profileData, workspaceData }: ClientMobileSidebarProps) {
+export function ClientMobileSidebar({
+  profileData,
+  workspaceData,
+}: ClientMobileSidebarProps) {
   return (
     <Sheet>
       <SheetTrigger asChild>

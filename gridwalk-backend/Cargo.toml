@@ -14,7 +14,7 @@ axum-extra = { version = "0.9.4", features = ["typed-header"] }
 base64 = "0.22.1"
 deadpool-postgres = "0.14.0"
 dotenvy = "0.15.7"
-duckdb-postgis = "0.1.9"
+duckdb-postgis = "0.1.11"
 futures = "0.3"
 geozero = { version = "0.14.0", features = [
     "with-postgis-postgres",

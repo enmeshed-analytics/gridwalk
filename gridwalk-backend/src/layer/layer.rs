@@ -2,7 +2,7 @@ use crate::data::Database;
 use crate::utils::get_unix_timestamp;
 use crate::{User, Workspace, WorkspaceRole};
 use anyhow::{anyhow, Result};
-use duckdb_postgis;
+use duckdb_postgis::core_processor::launch_process_file;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -48,7 +48,7 @@ impl Layer {
     // TODO should the uri be something different now for the prob postgres instance?
     pub async fn send_to_postgis(&self, file_path: &str) -> Result<()> {
         let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk";
-        let layer_data = duckdb_postgis::duckdb_load::launch_process_file(
+        let layer_data = launch_process_file(
             file_path,
             &self.name,
             &postgis_uri,

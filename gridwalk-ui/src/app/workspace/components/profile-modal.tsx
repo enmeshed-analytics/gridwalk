@@ -6,9 +6,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ProfileData } from "./actions/actions";
 import { Button } from "@/components/ui/button";
 import { User, Mail, Settings } from "lucide-react";
+
+export type ProfileData = {
+  first_name: string;
+  last_name: string;
+  email: string;
+};
 
 interface ProfileModalProps {
   profileData: ProfileData;
