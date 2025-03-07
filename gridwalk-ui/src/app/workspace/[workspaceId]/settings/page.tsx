@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import WorkspaceSettingsClient from "./components/client";
 import { getWorkspaces } from "../actions";
+import { deleteWorkspace } from "./actions";
 
 interface PageProps {
   params: {
@@ -11,11 +13,25 @@ export default async function WorkspaceConnectionsPage({ params }: PageProps) {
   const { workspaceId } = await params;
   const workspaces = await getWorkspaces();
   const workspace = workspaces.find((w) => w.id === workspaceId);
-  
+
+  async function handleDeleteWorkspace() {
+    "use server";
+    await deleteWorkspace(workspaceId);
+    redirect("/workspace");
+  }
+
+  // Add this function for name update functionality
+  async function handleUpdateName(newName: string) {
+    "use server";
+    console.log(`Updating workspace name to: ${newName}`);
+  }
+
   return (
-    <WorkspaceSettingsClient 
-      workspaceId={workspaceId} 
-      workspaceName={workspace.name} 
+    <WorkspaceSettingsClient
+      workspaceId={workspaceId}
+      workspaceName={workspace?.name ?? "Untitled Workspace"}
+      onUpdateName={handleUpdateName}
+      onDeleteWorkspace={handleDeleteWorkspace}
     />
   );
 }

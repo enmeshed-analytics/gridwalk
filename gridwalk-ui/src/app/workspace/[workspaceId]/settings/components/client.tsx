@@ -1,11 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -31,9 +37,9 @@ interface WorkspaceSettingsClientProps {
   onDeleteWorkspace: () => Promise<void>;
 }
 
-export default function WorkspaceSettingsClient({ 
+export default function WorkspaceSettingsClient({
   workspaceName,
-  onDeleteWorkspace
+  onDeleteWorkspace,
 }: WorkspaceSettingsClientProps) {
   const [name, setName] = useState(workspaceName);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -91,7 +97,7 @@ export default function WorkspaceSettingsClient({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span>
-                          <Button 
+                          <Button
                             disabled={true}
                             className="cursor-not-allowed"
                           >
@@ -109,11 +115,14 @@ export default function WorkspaceSettingsClient({
 
               <div className="border-t border-gray-200 dark:border-gray-800 pt-6">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-medium text-red-600 dark:text-red-400">Danger Zone</h3>
+                  <h3 className="text-lg font-medium text-red-600 dark:text-red-400">
+                    Danger Zone
+                  </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Once you delete a workspace, there is no going back. Please be certain.
+                    Once you delete a workspace, there is no going back. Please
+                    be certain.
                   </p>
-                  
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="destructive" className="mt-2">
@@ -123,10 +132,13 @@ export default function WorkspaceSettingsClient({
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                          Are you absolutely sure?
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the
-                          workspace &quot;{workspaceName}&quot; and all associated connections and data.
+                          This action cannot be undone. This will permanently
+                          delete the workspace &quot;{workspaceName}&quot; and
+                          all associated connections and data.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>

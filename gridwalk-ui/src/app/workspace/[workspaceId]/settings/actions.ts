@@ -1,6 +1,7 @@
 "use server";
 import { getAuthToken } from "@/app/utils";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export async function deleteWorkspace(workspaceId: string): Promise<void> {
   const token = await getAuthToken();
@@ -24,6 +25,6 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
     throw new Error(errorText || "Failed to delete workspace");
   }
 
-  // Revalidate the projects list page to reflect the deletion
   revalidatePath(`/workspaces`);
+  redirect("/workspace");
 }
