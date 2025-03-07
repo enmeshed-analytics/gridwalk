@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Plus, Briefcase } from "lucide-react";
 import {
@@ -10,24 +10,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Workspaces, createWorkspace } from "../actions";
+import { Workspace, createWorkspace } from "../actions";
 import { CreateWorkspaceSidebar } from "../../components/create-workspace-modal";
 
 interface ClientWorkspaceDropdownProps {
-  workspaces: Workspaces;
+  workspaces: Workspace[];
 }
 
-export function ClientWorkspaceDropdown({ workspaces }: ClientWorkspaceDropdownProps) {
+export function ClientWorkspaceDropdown({
+  workspaces,
+}: ClientWorkspaceDropdownProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedWorkspace, setSelectedWorkspace] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
-    // Set initial selection if workspaces exist
-    if (workspaces.length > 0 && !selectedWorkspace) {
+    const currentWorkspaceId = pathname?.split("/")[2];
+    const currentWorkspace = workspaces.find(
+      (w) => w.id === currentWorkspaceId
+    );
+
+    if (currentWorkspace) {
+      setSelectedWorkspace(currentWorkspace.name);
+    } else if (workspaces.length > 0) {
       setSelectedWorkspace(workspaces[0].name);
     }
-  }, [workspaces, selectedWorkspace]);
+  }, [pathname, workspaces]);
 
   const handleCreateWorkspace = async (name: string) => {
     try {
@@ -38,9 +50,25 @@ export function ClientWorkspaceDropdown({ workspaces }: ClientWorkspaceDropdownP
     }
   };
 
-  const handleWorkspaceSelect = (id: string, name: string) => {
-    setSelectedWorkspace(name);
-    router.push(`/workspace/${id}`);
+  const handleWorkspaceSelect = async (id: string, name: string) => {
+    if (isNavigating) return;
+
+    try {
+      setIsNavigating(true);
+      setSelectedWorkspace(name);
+      await router.push(`/workspace/${id}/maps`);
+    } catch (error) {
+      console.error("Navigation error:", error);
+      const currentWorkspaceId = pathname?.split("/")[2];
+      const currentWorkspace = workspaces.find(
+        (w) => w.id === currentWorkspaceId
+      );
+      if (currentWorkspace) {
+        setSelectedWorkspace(currentWorkspace.name);
+      }
+    } finally {
+      setTimeout(() => setIsNavigating(false), 500);
+    }
   };
 
   return (
@@ -50,9 +78,11 @@ export function ClientWorkspaceDropdown({ workspaces }: ClientWorkspaceDropdownP
           <h2 className="text-blue-600 dark:text-blue-400 font-bold text-xl">
             GridWalk
           </h2>
-          
+
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Workspace</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              Workspace
+            </h3>
             <Button
               variant="ghost"
               size="sm"
@@ -64,13 +94,14 @@ export function ClientWorkspaceDropdown({ workspaces }: ClientWorkspaceDropdownP
             </Button>
           </div>
         </div>
-        
+
         <div className="mt-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant="outline" 
+                variant="outline"
                 className="w-full flex items-center justify-between bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:border-blue-500 dark:hover:border-blue-400 border-gray-300 dark:border-gray-600 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 font-medium"
+                disabled={isNavigating}
               >
                 <div className="flex items-center">
                   <Briefcase className="h-4 w-4 mr-2 text-blue-500 dark:text-blue-400" />
@@ -81,12 +112,22 @@ export function ClientWorkspaceDropdown({ workspaces }: ClientWorkspaceDropdownP
                 <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-md p-1" align="start">
+            <DropdownMenuContent
+              className="w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-md p-1"
+              align="start"
+            >
               {workspaces.map((workspace) => (
                 <DropdownMenuItem
                   key={workspace.id}
-                  onClick={() => handleWorkspaceSelect(workspace.id, workspace.name)}
-                  className="cursor-pointer py-2 px-3 rounded-md text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 focus:bg-blue-50 dark:focus:bg-blue-900/30 focus:text-blue-600 dark:focus:text-blue-400 transition-colors"
+                  onClick={() =>
+                    handleWorkspaceSelect(workspace.id, workspace.name)
+                  }
+                  className={`cursor-pointer py-2 px-3 rounded-md text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 focus:bg-blue-50 dark:focus:bg-blue-900/30 focus:text-blue-600 dark:focus:text-blue-400 transition-colors ${
+                    selectedWorkspace === workspace.name
+                      ? "bg-blue-50 dark:bg-blue-900/30"
+                      : ""
+                  }`}
+                  disabled={isNavigating}
                 >
                   {workspace.name}
                 </DropdownMenuItem>
@@ -95,7 +136,7 @@ export function ClientWorkspaceDropdown({ workspaces }: ClientWorkspaceDropdownP
           </DropdownMenu>
         </div>
       </div>
-      
+
       <CreateWorkspaceSidebar
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}

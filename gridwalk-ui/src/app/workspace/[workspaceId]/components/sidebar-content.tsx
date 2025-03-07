@@ -1,6 +1,6 @@
 "use client";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ProfileData, Workspaces } from "../actions";
+import { ProfileData, Workspace } from "../actions";
 import { ClientWorkspaceDropdown } from "./workspace-dropdown";
 import { ClientProfileSection } from "./profile-section";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 
 interface ClientSidebarContentProps {
   profileData: ProfileData;
-  workspaceData: Workspaces;
+  workspaceData: Workspace[];
 }
 
 export function ClientSidebarContent({

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { redirect } from "next/navigation";
 
 // Workspace with ID in path, redirect to maps page for that workspace
 export default async function WorkspaceIdPage({ params }) {
@@ -7,7 +7,5 @@ export default async function WorkspaceIdPage({ params }) {
   redirect(`/workspace/${workspaceId}/maps`);
 
   // This code won't be reached due to the redirect
-  return (
-    <></>
-  );
+  return <></>;
 }

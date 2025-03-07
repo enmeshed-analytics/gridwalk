@@ -13,7 +13,7 @@ import { ClientSidebarContent } from "./sidebar-content";
 
 interface ClientMobileSidebarProps {
   profileData: ProfileData;
-  workspaceData: Workspace;
+  workspaceData: Workspace[];
 }
 
 export function ClientMobileSidebar({
