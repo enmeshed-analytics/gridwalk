@@ -41,12 +41,43 @@ export function ClientWorkspaceDropdown({
     }
   }, [pathname, workspaces]);
 
-  const handleCreateWorkspace = async (name: string) => {
+  useEffect(() => {
+    const pendingName = localStorage.getItem("pendingWorkspaceName");
+
+    if (pendingName && workspaces.length > 0) {
+      // Find workspace with this name
+      const pendingWorkspace = workspaces.find((w) => w.name === pendingName);
+
+      if (pendingWorkspace) {
+        // Navigate to the new workspace
+        router.push(`/workspace/${pendingWorkspace.id}/maps`);
+        // Clean up
+        localStorage.removeItem("pendingWorkspaceName");
+      }
+    }
+  }, [workspaces, router]);
+
+  const handleCreateWorkspace = async (name: string): Promise<void> => {
     try {
+      setIsNavigating(true);
       await createWorkspace(name);
-      router.refresh();
+      setIsCreateModalOpen(false);
+
+      // Store the workspace name locally in client temporarily for retrieval after refresh
+      try {
+        // Use localStorage to get the workspace name after refresh
+        localStorage.setItem("pendingWorkspaceName", name);
+      } catch (storageErr) {
+        console.error("Error storing workspace name:", storageErr);
+      }
+
+      // Do a full reload to get fresh data
+      // the useEffect hook will handle cleaning up the pendingWorkspaceName in localStorage
+      window.location.href = "/workspace";
     } catch (error) {
       console.error("Error creating workspace:", error);
+    } finally {
+      setIsNavigating(false);
     }
   };
 
@@ -56,7 +87,7 @@ export function ClientWorkspaceDropdown({
     try {
       setIsNavigating(true);
       setSelectedWorkspace(name);
-      await router.push(`/workspace/${id}/maps`);
+      router.push(`/workspace/${id}/maps`);
     } catch (error) {
       console.error("Navigation error:", error);
       const currentWorkspaceId = pathname?.split("/")[2];
