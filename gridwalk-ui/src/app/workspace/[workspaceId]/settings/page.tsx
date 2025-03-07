@@ -20,7 +20,6 @@ export default async function WorkspaceConnectionsPage({ params }: PageProps) {
     redirect("/workspace");
   }
 
-  // Add this function for name update functionality
   async function handleUpdateName(newName: string) {
     "use server";
     console.log(`Updating workspace name to: ${newName}`);
