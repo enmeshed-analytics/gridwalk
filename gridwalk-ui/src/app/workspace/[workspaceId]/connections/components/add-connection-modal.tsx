@@ -22,11 +22,11 @@ interface AddConnectionModalProps {
 
 export default function AddConnectionModal({ workspaceId }: AddConnectionModalProps) {
   const [isOpen, setIsOpen] = useState(false);
-
+  
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white add-connection-button">
           <Plus className="mr-2 h-4 w-4" />
           Add Connection
         </Button>
