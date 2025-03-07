@@ -94,15 +94,15 @@ export default function WorkspaceMapClient({
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col space-y-4 md:flex-row md:justify-between md:items-center md:space-y-0">
           <div>
             <CardTitle>Maps</CardTitle>
             <CardDescription>
               View and manage maps in {currentWorkspace?.name || "this workspace"}.
             </CardDescription>
           </div>
-          <div className="flex space-x-4">
-            <div className="relative w-64">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 w-full md:w-auto">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
               <Input
                 placeholder="Search maps..."
@@ -113,7 +113,7 @@ export default function WorkspaceMapClient({
             </div>
             <Button 
               onClick={() => setIsProjectDialogOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Map
@@ -122,71 +122,77 @@ export default function WorkspaceMapClient({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-md">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Map
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Created
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Last Modified
-                </th>
-                <th scope="col" className="relative px-6 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-              {filteredProjects.map((project) => (
-                <tr key={project.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center">
-                        <MapPin className="h-5 w-5 text-blue-500" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {project.name}
+        <div className="overflow-x-auto">
+          <div className="border rounded-md">
+            <table className="w-full divide-y divide-gray-200 dark:divide-gray-800">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Map
+                  </th>
+                  <th scope="col" className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Created
+                  </th>
+                  <th scope="col" className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Last Modified
+                  </th>
+                  <th scope="col" className="relative px-4 sm:px-6 py-3 text-right">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                {filteredProjects.map((project) => (
+                  <tr key={project.id}>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center">
+                          <MapPin className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {project.name}
+                          </div>
+                          {/* Mobile-only date display */}
+                          <div className="md:hidden text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Created: {formatDate(project.created_at)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {formatDate(project.created_at)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {formatDate(project.updated_at)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end items-center space-x-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-blue-600 dark:text-blue-400"
-                        onClick={() => {
-                          router.push(`/map/${project.workspace_id}/${project.id}`);
-                        }}
-                      >
-                        View
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 dark:text-red-400"
-                        onClick={(e) => handleDeleteClick(e, project)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {formatDate(project.created_at)}
+                    </td>
+                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {formatDate(project.updated_at)}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end items-center space-x-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-blue-600 dark:text-blue-400"
+                          onClick={() => {
+                            router.push(`/map/${project.workspace_id}/${project.id}`);
+                          }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 dark:text-red-400"
+                          onClick={(e) => handleDeleteClick(e, project)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         
         {filteredProjects.length === 0 && (
