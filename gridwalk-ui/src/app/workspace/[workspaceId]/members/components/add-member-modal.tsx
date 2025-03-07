@@ -26,7 +26,7 @@ export default function AddMemberModal({ workspaceId }: AddMemberModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full">
           <UserPlus className="mr-2 h-4 w-4" />
           Add Member
         </Button>
