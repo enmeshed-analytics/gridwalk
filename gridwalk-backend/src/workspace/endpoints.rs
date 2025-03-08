@@ -10,6 +10,7 @@ use futures;
 use futures::future::join_all;
 use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -75,7 +76,7 @@ pub async fn create_workspace(
                     .app_data
                     .add_workspace_member(&wsp, &owner, WorkspaceRole::Admin, now)
                     .await;
-                "workspace created successfully".into_response()
+                Json(json!({ "workspace_id": wsp.id })).into_response()
             }
             Err(_) => "workspace not created".into_response(),
         }
@@ -257,6 +258,38 @@ pub async fn get_workspaces(
             Err(_) => {
                 let error = ErrorResponse {
                     error: "Failed to fetch workspaces".to_string(),
+                };
+                Json(error).into_response()
+            }
+        }
+    } else {
+        let error = ErrorResponse {
+            error: "Unauthorized".to_string(),
+        };
+        Json(error).into_response()
+    }
+}
+
+pub async fn get_workspace(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(workspace_id): Path<String>,
+) -> Response {
+    if let Some(user) = auth_user.user {
+        match Workspace::from_id(&state.app_data, &workspace_id).await {
+            Ok(workspace) => {
+                if let Ok(_member) = workspace.get_member(&state.app_data, &user).await {
+                    Json(workspace).into_response()
+                } else {
+                    let error = ErrorResponse {
+                        error: "Unauthorized".to_string(),
+                    };
+                    Json(error).into_response()
+                }
+            }
+            Err(_) => {
+                let error = ErrorResponse {
+                    error: "Workspace not found".to_string(),
                 };
                 Json(error).into_response()
             }
