@@ -9,7 +9,7 @@ type WorkspaceMember = {
 };
 
 export async function getWorkspaceMembers(
-  workspaceId: string,
+  workspaceId: string
 ): Promise<WorkspaceMember[]> {
   const token = await getAuthToken();
 
@@ -26,7 +26,7 @@ export async function getWorkspaceMembers(
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      },
+      }
     );
 
     if (!response.ok) {
@@ -57,7 +57,7 @@ export type AddWorkspaceMemberRequest = {
 };
 
 export async function addWorkspaceMember(
-  data: AddWorkspaceMemberRequest,
+  data: AddWorkspaceMemberRequest
 ): Promise<void> {
   const token = await getAuthToken();
 
@@ -80,7 +80,7 @@ export async function addWorkspaceMember(
           email: data.email.trim(),
           role: data.role,
         }),
-      },
+      }
     );
 
     if (!response.ok) {
@@ -103,11 +103,10 @@ interface RemoveWorkspaceMemberRequest {
 }
 
 export async function removeWorkspaceMember(
-  data: RemoveWorkspaceMemberRequest,
+  data: RemoveWorkspaceMemberRequest
 ): Promise<void> {
   const token = await getAuthToken();
 
-  // Validation
   if (!data.workspace_id) throw new Error("Workspace ID is required");
   if (!data.email) throw new Error("Email is required");
 
@@ -124,7 +123,7 @@ export async function removeWorkspaceMember(
           workspace_id: data.workspace_id,
           email: data.email,
         }),
-      },
+      }
     );
 
     if (!response.ok) {
@@ -132,6 +131,9 @@ export async function removeWorkspaceMember(
       if (response.status === 401) throw new Error("Authentication failed");
       throw new Error(errorText || "Failed to remove workspace member");
     }
+
+    // Add this line to revalidate the page after removal
+    revalidatePath(`/workspaces/${data.workspace_id}/members`);
   } catch (error) {
     console.error("Failed to remove workspace member:", error);
     throw error;

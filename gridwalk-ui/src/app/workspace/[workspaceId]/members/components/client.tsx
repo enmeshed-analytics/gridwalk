@@ -23,6 +23,12 @@ import { getRoleBadgeColor } from "../page";
 import { removeWorkspaceMember as removeMember } from "../actions";
 import AddMemberModal from "./add-member-modal";
 
+interface WorkspaceMember {
+  id: string;
+  email: string;
+  role: string;
+}
+
 interface WorkspaceMembersClientProps {
   workspaceId: string;
   members: WorkspaceMember[];
@@ -33,7 +39,6 @@ export default function WorkspaceMembersClient({
   members,
 }: WorkspaceMembersClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-
   // Filter members based on search query - only using email and role as per your data structure
   const filteredMembers = members.filter(
     (member) =>
@@ -158,7 +163,10 @@ export default function WorkspaceMembersClient({
                                         `Are you sure you want to remove ${member.email}?`
                                       )
                                     ) {
-                                      removeMember(member.id, workspaceId);
+                                      removeMember({
+                                        workspace_id: workspaceId,
+                                        email: member.email,
+                                      });
                                     }
                                   }}
                                 >
