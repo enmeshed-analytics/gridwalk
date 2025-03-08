@@ -2,6 +2,7 @@
 
 import { getAuthToken } from "@/app/utils";
 import { revalidatePath } from "next/cache";
+import { Map } from "../types";
 
 export type CreateMapRequest = {
   name: string;
@@ -14,9 +15,7 @@ export type MapData = {
   workspace_id: string;
 };
 
-export async function createMap(
-  data: CreateMapRequest,
-): Promise<MapData> {
+export async function createMap(data: CreateMapRequest): Promise<MapData> {
   const token = await getAuthToken();
 
   if (!data.workspace_id) throw new Error("Workspace ID is required");
@@ -41,16 +40,8 @@ export async function createMap(
   }
 
   const mapData = await response.json();
-  revalidatePath(`/workspaces/${data.workspace_id}/maps`);
+  revalidatePath(`/workspace/${data.workspace_id}/maps`);
   return mapData;
-}
-
-interface Map {
-  workspace_id: string;
-  id: string;
-  name: string;
-  created_by: string;
-  created_at: number;
 }
 
 /**
@@ -73,7 +64,7 @@ export async function getMaps(workspaceId: string): Promise<Map[]> {
           Authorization: `Bearer ${token}`,
         },
         cache: "no-store",
-      },
+      }
     );
 
     if (!response.ok) {
@@ -84,23 +75,23 @@ export async function getMaps(workspaceId: string): Promise<Map[]> {
       throw new Error(errorText || "Failed to fetch projects");
     }
 
-    const projectsData: Project[] = await response.json();
+    const mapsData: Map[] = await response.json();
 
-    if (!Array.isArray(projectsData)) {
-      console.warn("Projects data is not an array:", projectsData);
+    if (!Array.isArray(mapsData)) {
+      console.warn("Maps data is not an array:", mapsData);
       return [];
     }
 
-    return projectsData;
+    return mapsData;
   } catch (error) {
-    console.error("Failed to fetch projects:", error);
+    console.error("Failed to fetch maps:", error);
     throw error;
   }
 }
 
 export async function deleteMap(
   workspaceId: string,
-  mapId: string,
+  mapId: string
 ): Promise<void> {
   const token = await getAuthToken();
   if (!workspaceId) throw new Error("Workspace ID is required");
@@ -113,15 +104,14 @@ export async function deleteMap(
       headers: {
         Authorization: `Bearer ${token}`,
       },
-    },
+    }
   );
 
   if (!response.ok) {
     const errorText = await response.text();
     if (response.status === 401) throw new Error("Authentication failed");
     if (response.status === 403) throw new Error("Insufficient permissions");
-    if (response.status === 404)
-      throw new Error("Map or workspace not found");
+    if (response.status === 404) throw new Error("Map or workspace not found");
     throw new Error(errorText || "Failed to delete map");
   }
 

@@ -38,15 +38,16 @@ export interface ViewWorkspaceMemberModalProps {
   workspaceId: string;
 }
 
-export interface Project {
+export interface Map {
   workspace_id: string;
   id: string;
   name: string;
   uploaded_by: string;
+  updated_at: number;
   created_at: number;
 }
 
-export interface WorkspaceProjectsClientProps {
+export interface WorkspaceMapClientProps {
   workspaceId: string;
-  initialProjects: Project[];
+  initialMaps: Map[];
 }

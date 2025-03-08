@@ -15,29 +15,29 @@ import { Search, Plus, Trash2, MapPin } from "lucide-react";
 
 import { CreateMapModal, DeleteMapModal } from "./map-modal";
 import { createMap, deleteMap } from "../actions";
-import { Project } from "../../types";
+import { Map } from "../../types";
 
 // Interface for the client component props
 interface WorkspaceMapClientProps {
   workspaceId: string;
-  initialProjects: Project[];
+  initialMaps: Map[];
   currentWorkspace: { id: string; name: string };
 }
 
 export default function WorkspaceMapClient({
   workspaceId,
-  initialProjects,
+  initialMaps = [],
   currentWorkspace,
 }: WorkspaceMapClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Map | null>(null);
 
   // Filter projects based on search query
-  const filteredProjects = initialProjects.filter((project) =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredMaps = initialMaps.filter((map) =>
+    map.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleCreateProject = async (name: string) => {
@@ -56,10 +56,10 @@ export default function WorkspaceMapClient({
     }
   };
 
-  const handleDeleteClick = (e: React.MouseEvent, project: Project) => {
+  const handleDeleteClick = (e: React.MouseEvent, map: Map) => {
     e.stopPropagation();
     e.preventDefault();
-    setSelectedProject(project);
+    setSelectedProject(map);
     setIsDeleteDialogOpen(true);
   };
 
@@ -76,7 +76,7 @@ export default function WorkspaceMapClient({
     }
   };
 
-  const formatDate = (timestamp) => {
+  const formatDate = (timestamp: number | null): string => {
     if (!timestamp) return "-";
 
     // Convert Unix timestamp (seconds) to milliseconds
@@ -153,8 +153,8 @@ export default function WorkspaceMapClient({
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-                {filteredProjects.map((project) => (
-                  <tr key={project.id}>
+                {filteredMaps.map((map) => (
+                  <tr key={map.id}>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-8 w-8 flex items-center justify-center">
@@ -162,20 +162,20 @@ export default function WorkspaceMapClient({
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {project.name}
+                            {map.name}
                           </div>
                           {/* Mobile-only date display */}
                           <div className="md:hidden text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Created: {formatDate(project.created_at)}
+                            Created: {formatDate(map.created_at)}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(project.created_at)}
+                      {formatDate(map.created_at)}
                     </td>
                     <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(project.updated_at)}
+                      {formatDate(map.updated_at)}
                     </td>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center space-x-2">
@@ -184,9 +184,7 @@ export default function WorkspaceMapClient({
                           size="sm"
                           className="text-blue-600 dark:text-blue-400"
                           onClick={() => {
-                            router.push(
-                              `/map/${project.workspace_id}/${project.id}`
-                            );
+                            router.push(`/map/${map.workspace_id}/${map.id}`);
                           }}
                         >
                           View
@@ -195,7 +193,7 @@ export default function WorkspaceMapClient({
                           variant="ghost"
                           size="sm"
                           className="text-red-600 dark:text-red-400"
-                          onClick={(e) => handleDeleteClick(e, project)}
+                          onClick={(e) => handleDeleteClick(e, map)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -208,7 +206,7 @@ export default function WorkspaceMapClient({
           </div>
         </div>
 
-        {filteredProjects.length === 0 && (
+        {filteredMaps.length === 0 && (
           <div className="text-center py-8">
             <p className="text-gray-500 dark:text-gray-400">No maps found</p>
           </div>
