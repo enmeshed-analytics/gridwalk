@@ -17,9 +17,11 @@ export function ClientSidebarContent({
   profileData,
   workspaceData,
 }: ClientSidebarContentProps) {
-  const activeWorkspaceId =
-    workspaceData.length > 0 ? workspaceData[0].id : null;
   const pathname = usePathname();
+
+  const activeWorkspaceId =
+    pathname?.split("/")[2] ||
+    (workspaceData.length > 0 ? workspaceData[0].id : null);
 
   // Function to check if a link is currently active
   const isActivePath = (path: string) => {

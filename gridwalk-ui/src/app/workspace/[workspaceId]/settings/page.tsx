@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import WorkspaceSettingsClient from "./components/client";
 import { getWorkspaces } from "../actions";
 import { deleteWorkspace } from "./actions";
@@ -17,7 +16,6 @@ export default async function WorkspaceConnectionsPage({ params }: PageProps) {
   async function handleDeleteWorkspace() {
     "use server";
     await deleteWorkspace(workspaceId);
-    redirect("/workspace");
   }
 
   async function handleUpdateName(newName: string) {
