@@ -269,3 +269,35 @@ pub async fn get_workspaces(
         Json(error).into_response()
     }
 }
+
+pub async fn get_workspace(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(workspace_id): Path<String>,
+) -> Response {
+    if let Some(user) = auth_user.user {
+        match Workspace::from_id(&state.app_data, &workspace_id).await {
+            Ok(workspace) => {
+                if let Ok(_member) = workspace.get_member(&state.app_data, &user).await {
+                    Json(workspace).into_response()
+                } else {
+                    let error = ErrorResponse {
+                        error: "Unauthorized".to_string(),
+                    };
+                    Json(error).into_response()
+                }
+            }
+            Err(_) => {
+                let error = ErrorResponse {
+                    error: "Workspace not found".to_string(),
+                };
+                Json(error).into_response()
+            }
+        }
+    } else {
+        let error = ErrorResponse {
+            error: "Unauthorized".to_string(),
+        };
+        Json(error).into_response()
+    }
+}
