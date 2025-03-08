@@ -6,16 +6,17 @@ export interface ApiResponse {
   created_at: number;
 }
 
-export interface CreateProjectModalProps {
+export interface CreateMapModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (name: string) => Promise<void>;
 }
 
-export interface DeleteProjectModalProps {
+export interface DeleteMapModalProps {
   isOpen: boolean;
   onClose: () => void;
-  projectName: string;
+  mapId: string;
+  mapName: string;
   onConfirm: () => Promise<void>;
 }
 

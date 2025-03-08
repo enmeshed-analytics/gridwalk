@@ -2,22 +2,20 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Search, 
-  Plus, 
-  Trash2,
-  MapPin
-} from "lucide-react";
+import { Search, Plus, Trash2, MapPin } from "lucide-react";
 
-import {
-  CreateMapModal,
-  DeleteMapModal,
-} from "./map-modal";
+import { CreateMapModal, DeleteMapModal } from "./map-modal";
 import { createMap, deleteMap } from "../actions";
-import { Project } from "../types";
+import { Project } from "../../types";
 
 // Interface for the client component props
 interface WorkspaceMapClientProps {
@@ -36,9 +34,9 @@ export default function WorkspaceMapClient({
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  
+
   // Filter projects based on search query
-  const filteredProjects = initialProjects.filter(project => 
+  const filteredProjects = initialProjects.filter((project) =>
     project.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -84,10 +82,10 @@ export default function WorkspaceMapClient({
     // Convert Unix timestamp (seconds) to milliseconds
     const date = new Date(timestamp * 1000);
 
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     }).format(date);
   };
 
@@ -98,7 +96,8 @@ export default function WorkspaceMapClient({
           <div>
             <CardTitle>Maps</CardTitle>
             <CardDescription>
-              View and manage maps in {currentWorkspace?.name || "this workspace"}.
+              View and manage maps in{" "}
+              {currentWorkspace?.name || "this workspace"}.
             </CardDescription>
           </div>
           <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 w-full md:w-auto">
@@ -111,7 +110,7 @@ export default function WorkspaceMapClient({
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button 
+            <Button
               onClick={() => setIsProjectDialogOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
             >
@@ -127,16 +126,28 @@ export default function WorkspaceMapClient({
             <table className="w-full divide-y divide-gray-200 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Map
                   </th>
-                  <th scope="col" className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Created
                   </th>
-                  <th scope="col" className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Last Modified
                   </th>
-                  <th scope="col" className="relative px-4 sm:px-6 py-3 text-right">
+                  <th
+                    scope="col"
+                    className="relative px-4 sm:px-6 py-3 text-right"
+                  >
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
@@ -168,12 +179,14 @@ export default function WorkspaceMapClient({
                     </td>
                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center space-x-2">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           className="text-blue-600 dark:text-blue-400"
                           onClick={() => {
-                            router.push(`/map/${project.workspace_id}/${project.id}`);
+                            router.push(
+                              `/map/${project.workspace_id}/${project.id}`
+                            );
                           }}
                         >
                           View
@@ -194,7 +207,7 @@ export default function WorkspaceMapClient({
             </table>
           </div>
         </div>
-        
+
         {filteredProjects.length === 0 && (
           <div className="text-center py-8">
             <p className="text-gray-500 dark:text-gray-400">No maps found</p>
@@ -215,7 +228,8 @@ export default function WorkspaceMapClient({
           setIsDeleteDialogOpen(false);
           setSelectedProject(null);
         }}
-        projectName={selectedProject?.name || ""}
+        mapId={selectedProject?.id || ""}
+        mapName={selectedProject?.name || ""}
         onConfirm={handleDeleteConfirm}
       />
     </Card>
