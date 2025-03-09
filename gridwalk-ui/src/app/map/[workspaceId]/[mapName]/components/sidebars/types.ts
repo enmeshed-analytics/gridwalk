@@ -18,6 +18,8 @@ export interface MainSidebarProps {
   mapRef: React.RefObject<maplibregl.Map | null>;
   selectedLayers: { [key: number]: boolean };
   onLayerToggle: (index: number, connection: WorkspaceConnection) => void;
+  onStyleClick: (layerId: string) => void;
+  workspaceId: string;
 }
 
 export interface MainSidebarModalOptions {

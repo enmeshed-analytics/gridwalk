@@ -385,6 +385,7 @@ async fn process_layer(
         })?;
 
     // Process the file
+    println!("Processing layer: {}", layer.name);
     layer
         .send_to_postgis(file_path.to_str().unwrap())
         .await
@@ -396,7 +397,18 @@ async fn process_layer(
             (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
         })?;
 
-    // Write the record to database (e.g. DynamoDB)
+    println!("Layer '{}' sent to PostGIS", layer.name);
+
+    // Strip the file extension in the name before writing to database
+    // the send to postgis does this automatically in the duckdb code that is called in it
+    let clean_name = Path::new(&layer.name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(&layer.name);
+    
+    println!("Writing layer record to database with name: {}", clean_name);
+    
+    // Write the record to the admin database (e.g. DynamoDB)
     layer.write_record(&state.app_data).await.map_err(|e| {
         let error = json!({
             "error": "Failed to write layer record to Database",

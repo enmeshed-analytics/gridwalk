@@ -25,12 +25,16 @@ interface LayersTableProps {
   mapRef: React.RefObject<maplibregl.Map | null>;
   selectedLayers: { [key: number]: boolean };
   onLayerToggle: (index: number, connection: WorkspaceConnection) => void;
+  onStyleClick: (layerId: string) => void;
+  workspaceId: string;
 }
 
 const LayersTable = ({
   connections,
   selectedLayers,
   onLayerToggle,
+  onStyleClick,
+  workspaceId,
 }: LayersTableProps) => {
   return (
     <div className="overflow-x-auto">
@@ -44,18 +48,34 @@ const LayersTable = ({
               }`}
             >
               <td className="px-4 py-2 text-xs text-gray-900">
-                <div className="flex items-center justify-between">
-                  <span>{String(connection)}</span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onLayerToggle(index, connection)}
-                    className={`ml-2 px-4 py-0.5 text-xs h-6 min-h-0${
-                      selectedLayers[index] ? "text-white bg-green-600" : ""
-                    }`}
-                  >
-                    {selectedLayers[index] ? "Active" : "Select"}
-                  </Button>
+                <div className="flex items-center gap-4">
+                  <span className="flex-1 truncate">{String(connection)}</span>
+                  <div className="flex gap-2 shrink-0">
+                    {selectedLayers[index] && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          onStyleClick(`layer-${workspaceId}-${connection}`)
+                        }
+                        className="px-3 py-0.5 text-xs h-6 min-h-0 text-white bg-blue-500 border-none hover:bg-blue-600"
+                      >
+                        Style
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onLayerToggle(index, connection)}
+                      className={`px-3 py-0.5 text-xs h-6 min-h-0 ${
+                        selectedLayers[index]
+                          ? "text-white bg-green-600 hover:bg-green-700"
+                          : ""
+                      }`}
+                    >
+                      {selectedLayers[index] ? "Active" : "Select"}
+                    </Button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -86,6 +106,8 @@ const MainSidebar = ({
   mapRef,
   selectedLayers,
   onLayerToggle,
+  onStyleClick,
+  workspaceId,
 }: MainSidebarProps) => {
   const router = useRouter();
   const [uploadKey, setUploadKey] = React.useState(0);
@@ -152,6 +174,8 @@ const MainSidebar = ({
                   mapRef={mapRef}
                   selectedLayers={selectedLayers}
                   onLayerToggle={onLayerToggle}
+                  onStyleClick={onStyleClick}
+                  workspaceId={workspaceId}
                 />
               </div>
             ) : (

@@ -42,3 +42,16 @@ export const INITIAL_MAP_CONFIG = {
 export interface MapClientProps {
   apiUrl: string;
 }
+
+export interface LayerStyle {
+  color: string;
+  opacity: number;
+  radius?: number;
+  width?: number;
+}
+
+export interface LayerConfig {
+  layerId: string;
+  geomType: string;
+  style: LayerStyle;
+}

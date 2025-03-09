@@ -20,7 +20,10 @@ import {
   MapStyleKey,
   INITIAL_MAP_CONFIG,
   MapClientProps,
+  LayerConfig,
+  LayerStyle,
 } from "./types";
+import { StyleModal } from "./layerStyling/layer-style-modal";
 
 const defaultBaseLayer: BaseLayerSidebarModalOptions = {
   id: "light",
@@ -28,6 +31,33 @@ const defaultBaseLayer: BaseLayerSidebarModalOptions = {
   icon: "light",
   description: "Light base map style",
 };
+
+// Update the type definition
+type LayerConfigType =
+  | {
+      type: "line";
+      paint: {
+        "line-color": string;
+        "line-opacity": number;
+        "line-width": number;
+      };
+    }
+  | {
+      type: "fill";
+      paint: {
+        "fill-color": string;
+        "fill-opacity": number;
+        "fill-outline-color": string;
+      };
+    }
+  | {
+      type: "circle";
+      paint: {
+        "circle-color": string;
+        "circle-opacity": number;
+        "circle-radius": number;
+      };
+    };
 
 export function MapClient({ apiUrl }: MapClientProps) {
   // Connections State
@@ -46,6 +76,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
     useState<BaseLayerSidebarModalOptions>(defaultBaseLayer);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
+
+  // Layer styling states for things such as color, opacity, width, radius etc, etc
+  const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [layerConfigs, setLayerConfigs] = useState<{
+    [key: string]: LayerConfig;
+  }>({});
 
   // File Upload States
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -152,6 +189,67 @@ export function MapClient({ apiUrl }: MapClientProps) {
     }
   }, [workspaceId]);
 
+  useEffect(() => {
+    const savedConfigs = localStorage.getItem("layerConfigs");
+    if (savedConfigs) {
+      setLayerConfigs(JSON.parse(savedConfigs));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("layerConfigs", JSON.stringify(layerConfigs));
+  }, [layerConfigs]);
+
+  const updateLayerStyle = useCallback(
+    (layerId: string, style: LayerStyle) => {
+      if (!mapRef.current) return;
+      const map = mapRef.current;
+      const config = layerConfigs[layerId];
+
+      if (!config) return;
+
+      // Update the stored configuration
+      const updatedConfigs = {
+        ...layerConfigs,
+        [layerId]: {
+          ...layerConfigs[layerId],
+          style,
+        },
+      };
+
+      // Update state
+      setLayerConfigs(updatedConfigs);
+
+      // Immediately update localStorage
+      localStorage.setItem("layerConfigs", JSON.stringify(updatedConfigs));
+
+      // Apply style based on geometry type
+      switch (config.geomType.toLowerCase().trim()) {
+        case "point":
+        case "multipoint":
+          map.setPaintProperty(layerId, "circle-color", style.color);
+          map.setPaintProperty(layerId, "circle-opacity", style.opacity);
+          if (style.radius)
+            map.setPaintProperty(layerId, "circle-radius", style.radius);
+          break;
+        case "linestring":
+        case "multilinestring":
+          map.setPaintProperty(layerId, "line-color", style.color);
+          map.setPaintProperty(layerId, "line-opacity", style.opacity);
+          if (style.width)
+            map.setPaintProperty(layerId, "line-width", style.width);
+          break;
+        case "polygon":
+        case "multipolygon":
+          map.setPaintProperty(layerId, "fill-color", style.color);
+          map.setPaintProperty(layerId, "fill-opacity", style.opacity);
+          map.setPaintProperty(layerId, "fill-outline-color", style.color);
+          break;
+      }
+    },
+    [mapRef, layerConfigs]
+  );
+
   const addMapLayer = useCallback(
     async (
       map: maplibregl.Map,
@@ -180,19 +278,28 @@ export function MapClient({ apiUrl }: MapClientProps) {
           });
         }
 
-        // Configure the layer based on geometry type
-        // TODO ADD PROPER TYPE FOR LAYER CONFIG
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let layerConfig: any;
+        // Get saved configuration or use default
+        const savedConfig = layerConfigs[layerId];
+        const defaultStyle = {
+          color: "#0080ff",
+          opacity: 0.5,
+          radius: 6,
+          width: 2,
+        };
+
+        const style = savedConfig?.style || defaultStyle;
+
+        // Configure the layer based on geometry type with saved or default style
+        let layerConfig: LayerConfigType;
         switch (geomType.toLowerCase().trim()) {
           case "linestring":
           case "multilinestring":
             layerConfig = {
               type: "line",
               paint: {
-                "line-color": "#0080ff",
-                "line-opacity": 0.8,
-                "line-width": 2,
+                "line-color": style.color,
+                "line-opacity": style.opacity,
+                "line-width": style.width || 2,
               },
             };
             break;
@@ -201,9 +308,9 @@ export function MapClient({ apiUrl }: MapClientProps) {
             layerConfig = {
               type: "fill",
               paint: {
-                "fill-color": "#0080ff",
-                "fill-opacity": 0.5,
-                "fill-outline-color": "#0066cc",
+                "fill-color": style.color,
+                "fill-opacity": style.opacity,
+                "fill-outline-color": style.color,
               },
             };
             break;
@@ -212,9 +319,9 @@ export function MapClient({ apiUrl }: MapClientProps) {
             layerConfig = {
               type: "circle",
               paint: {
-                "circle-color": "#0080ff",
-                "circle-opacity": 0.5,
-                "circle-radius": 6,
+                "circle-color": style.color,
+                "circle-opacity": style.opacity,
+                "circle-radius": style.radius || 6,
               },
             };
             break;
@@ -225,9 +332,9 @@ export function MapClient({ apiUrl }: MapClientProps) {
             layerConfig = {
               type: "circle",
               paint: {
-                "circle-color": "#0080ff",
-                "circle-opacity": 0.5,
-                "circle-radius": 6,
+                "circle-color": style.color,
+                "circle-opacity": style.opacity,
+                "circle-radius": style.radius || 6,
               },
             };
         }
@@ -238,7 +345,19 @@ export function MapClient({ apiUrl }: MapClientProps) {
           source: layerId,
           "source-layer": sourceLayerName,
           ...layerConfig,
-        });
+        } as maplibregl.LayerSpecification);
+
+        // Store the configuration if it doesn't exist
+        if (!savedConfig) {
+          setLayerConfigs((prev) => ({
+            ...prev,
+            [layerId]: {
+              layerId,
+              geomType,
+              style,
+            },
+          }));
+        }
 
         return geomType;
       } catch (error) {
@@ -246,7 +365,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         throw error;
       }
     },
-    []
+    [layerConfigs]
   );
 
   const handleBaseLayerSidebarClick = useCallback(
@@ -461,6 +580,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
     };
   }, [mapRef]);
 
+  const handleStyleClick = (layerId: string) => {
+    console.log("Style click triggered for layer:", layerId);
+    console.log("Current layer configs:", layerConfigs);
+    setSelectedLayerId(layerId);
+    setIsStyleModalOpen(true);
+  };
+
   return (
     <div className="w-full h-screen relative">
       {mapError && (
@@ -495,10 +621,22 @@ export function MapClient({ apiUrl }: MapClientProps) {
         mapRef={mapRef}
         selectedLayers={selectedLayers}
         onLayerToggle={handleSelectLayer}
+        onStyleClick={handleStyleClick}
+        workspaceId={workspaceId}
       />
       <BaseLayerSidebar
         onBaseItemClick={handleBaseLayerSidebarClick}
         selectedBaseItem={selectedBaseItem}
+      />
+      <StyleModal
+        isOpen={isStyleModalOpen}
+        onClose={() => setIsStyleModalOpen(false)}
+        layerConfig={selectedLayerId ? layerConfigs[selectedLayerId] : null}
+        onStyleUpdate={(style) => {
+          if (selectedLayerId) {
+            updateLayerStyle(selectedLayerId, style);
+          }
+        }}
       />
     </div>
   );

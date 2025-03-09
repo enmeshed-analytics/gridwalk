@@ -296,12 +296,27 @@ impl GeoConnector for PostgisConnector {
             .await
             .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
 
+        // First check which geometry column exists
+        let check_column_query = format!(
+            "SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = $1 
+            AND table_name = $2 
+            AND column_name IN ('geom', 'geometry')",
+        );
+
+        // Get the geometry column name
+        let geom_column: String = client
+            .query_one(&check_column_query, &[&namespace, &source_name])
+            .await?
+            .get(0);
+
         // Query to get the geometry type
         let query = format!(
-            "SELECT DISTINCT ST_GeometryType(geom) 
+            "SELECT DISTINCT ST_GeometryType({}) 
             FROM \"{}\".\"{}\" 
             LIMIT 1",
-            namespace, source_name
+            geom_column, namespace, source_name
         );
 
         let row = client.query_one(&query, &[]).await?;
