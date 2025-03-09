@@ -24,6 +24,8 @@ import {
   LayerStyle,
 } from "./types";
 import { StyleModal } from "./layerStyling/layer-style-modal";
+import MapboxDraw from "@mapbox/mapbox-gl-draw";
+import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 
 const defaultBaseLayer: BaseLayerSidebarModalOptions = {
   id: "light",
@@ -59,7 +61,49 @@ type LayerConfigType =
       };
     };
 
+interface Annotation extends GeoJSON.Feature {
+  id: string;
+  properties: {
+    type?: "square" | "hexagon" | "circle";
+    style?: {
+      color: string;
+      opacity: number;
+    };
+  };
+}
+
 export function MapClient({ apiUrl }: MapClientProps) {
+  // Move addAnnotationLayer before it's used and memoize it
+  // THIS NEEDS TO MOVE
+  const addAnnotationLayer = useCallback(
+    (map: maplibregl.Map, annotation: Annotation) => {
+      // Check if layer already exists and remove it
+      if (map.getLayer(annotation.id)) {
+        map.removeLayer(annotation.id);
+      }
+      if (map.getSource(annotation.id)) {
+        map.removeSource(annotation.id);
+      }
+
+      // Add the layer
+      map.addLayer({
+        id: annotation.id,
+        type: "fill",
+        source: {
+          type: "geojson",
+          data: annotation,
+        },
+        paint: {
+          "fill-color": annotation.properties.style?.color || "#0080ff",
+          "fill-opacity": annotation.properties.style?.opacity || 0.5,
+          "fill-outline-color": annotation.properties.style?.color || "#0080ff",
+        },
+      });
+    },
+    []
+  );
+
+  // APP STATE AND FUNCTIONS
   // Connections State
   const [workspaceConnections, setWorkspaceConnections] = useState<
     WorkspaceConnection[]
@@ -98,6 +142,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
     [key: number]: boolean;
   }>({});
   const initialLoadComplete = useRef(false);
+
+  // Add a ref for the draw control
+  const drawRef = useRef<MapboxDraw | null>(null);
+
+  // Add annotations state
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
 
   // Map Initialisation Config
   const {
@@ -398,8 +448,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
             if (map.isStyleLoaded() && !hasRestoredLayers) {
               console.log("Style is loaded, restoring layers");
               await restoreLayers();
-              hasRestoredLayers = true;
 
+              // Restore annotations after layers
+              annotations.forEach((annotation) => {
+                addAnnotationLayer(map, annotation);
+              });
+
+              hasRestoredLayers = true;
               map.off("idle", handleIdle);
             }
           };
@@ -450,7 +505,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
           });
       }
     },
-    [addMapLayer, workspaceId, mapRef]
+    [addMapLayer, workspaceId, mapRef, annotations, addAnnotationLayer]
   );
 
   const removeMapLayer = useCallback((map: maplibregl.Map, layerId: string) => {
@@ -586,6 +641,127 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setSelectedLayerId(layerId);
     setIsStyleModalOpen(true);
   };
+
+  // Add effect to save annotations whenever they change
+  useEffect(() => {
+    if (annotations.length > 0) {
+      localStorage.setItem("mapAnnotations", JSON.stringify(annotations));
+    }
+  }, [annotations]);
+
+  // Draw control when the map is ready
+  useEffect(() => {
+    if (!mapRef.current || !isMapReady) return;
+
+    // Store a reference to the map to avoid the ESLint warning
+    const map = mapRef.current;
+
+    // Initialize the draw control
+    const draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        polygon: true,
+        point: true,
+        trash: true,
+      },
+    });
+
+    // Add the control to the map
+    map.addControl(draw);
+    drawRef.current = draw;
+
+    // Load saved annotations if any
+    try {
+      const savedAnnotations = localStorage.getItem("mapAnnotations");
+      if (savedAnnotations) {
+        const parsed = JSON.parse(savedAnnotations);
+        // Add features to the draw control
+        draw.add(parsed);
+        setAnnotations(parsed);
+      }
+    } catch (error) {
+      console.error("Error loading annotations:", error);
+    }
+
+    // Set up event listeners for draw events
+    function updateAnnotations() {
+      if (!drawRef.current) return;
+
+      // Get all features from the draw control
+      const data = drawRef.current.getAll();
+
+      // Map the features to Annotation objects
+      const annotations = data.features.map((feature) => {
+        // Ensure each feature has a string ID
+        const id = String(
+          feature.id ||
+            `feature-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        );
+
+        // Create an Annotation from the feature
+        const annotation: Annotation = {
+          ...feature,
+          id,
+          properties: {
+            ...feature.properties,
+            type: feature.properties?.type || "polygon", // Default to polygon
+            style: feature.properties?.style || {
+              color: "#0080ff",
+              opacity: 0.5,
+            },
+          },
+        };
+
+        return annotation;
+      });
+
+      // Save to state and localStorage
+      setAnnotations(annotations);
+      localStorage.setItem("mapAnnotations", JSON.stringify(annotations));
+    }
+
+    map.on("draw.create", updateAnnotations);
+    map.on("draw.update", updateAnnotations);
+    map.on("draw.delete", updateAnnotations);
+
+    return () => {
+      // Clean up event listeners
+      map.off("draw.create", updateAnnotations);
+      map.off("draw.update", updateAnnotations);
+      map.off("draw.delete", updateAnnotations);
+
+      // Remove the control from the map
+      if (drawRef.current) {
+        map.removeControl(drawRef.current);
+      }
+    };
+  }, [mapRef, isMapReady]);
+
+  // Update the draw mode based on the selected edit item
+  useEffect(() => {
+    if (!drawRef.current || !selectedEditItem) return;
+
+    switch (selectedEditItem.id) {
+      case "point":
+        drawRef.current.changeMode("draw_point");
+        break;
+      case "square":
+      case "hexagon":
+      case "circle":
+        drawRef.current.changeMode("draw_polygon");
+        break;
+      case "delete":
+        // For delete, we'll use the trash control
+        if (drawRef.current.getSelectedIds().length > 0) {
+          drawRef.current.trash();
+        }
+        break;
+      case "select":
+      default:
+        drawRef.current.changeMode("simple_select");
+        break;
+    }
+  }, [selectedEditItem]);
 
   return (
     <div className="w-full h-screen relative">

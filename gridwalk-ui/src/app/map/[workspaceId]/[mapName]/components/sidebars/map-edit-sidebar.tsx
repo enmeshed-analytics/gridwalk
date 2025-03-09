@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Circle,
   Dot,
@@ -70,6 +70,27 @@ const MapEditSidebar = ({
         return null;
     }
   };
+
+  // Update the cursor style based on selected tool
+  // WE NEED SOMETHING BETTER THAN IF ELSE IFS
+  useEffect(() => {
+    const map = document.querySelector(".maplibregl-canvas-container");
+    if (map) {
+      const mapElement = map as HTMLElement;
+      if (
+        selectedEditItem?.id === "square" ||
+        selectedEditItem?.id === "hexagon" ||
+        selectedEditItem?.id === "circle" ||
+        selectedEditItem?.id === "point"
+      ) {
+        mapElement.style.cursor = "crosshair";
+      } else if (selectedEditItem?.id === "delete") {
+        mapElement.style.cursor = "not-allowed";
+      } else {
+        mapElement.style.cursor = "";
+      }
+    }
+  }, [selectedEditItem]);
 
   return (
     <div className="absolute top-0.4 left-1/2 transform -translate-x-1/2 z-10">
