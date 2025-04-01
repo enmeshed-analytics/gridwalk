@@ -19,7 +19,9 @@ export COMMIT_TYPES
 
 AVAILABLE_FOLDERS := gridwalk-backend gridwalk-ui gridwalk-product
 
-repo-update:
+.PHONY: dev-env dev-env-kill load-env docker-services backend frontend update git-add-all git-add-selected git-commit git-push
+
+update:
 	@echo "Available folders: $(AVAILABLE_FOLDERS)"
 	@echo ""
 	@echo "Examples:"
@@ -77,8 +79,6 @@ git-commit:
 git-push:
 	git push
 
-
-.PHONY: dev-env dev-env-kill load-env docker-services backend frontend
 
 # Export all variables
 export
