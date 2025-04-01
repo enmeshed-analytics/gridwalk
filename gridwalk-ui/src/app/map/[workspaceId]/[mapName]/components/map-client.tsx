@@ -64,45 +64,17 @@ type LayerConfigType =
 interface Annotation extends GeoJSON.Feature {
   id: string;
   properties: {
-    type?: "square" | "hexagon" | "circle";
+    type?: "square" | "hexagon" | "circle" | "line" | "polygon" | "point";
     style?: {
       color: string;
       opacity: number;
+      width?: number; // Added for line width
+      radius?: number; // Added for point radius
     };
   };
 }
 
 export function MapClient({ apiUrl }: MapClientProps) {
-  // Move addAnnotationLayer before it's used and memoize it
-  // THIS NEEDS TO MOVE
-  const addAnnotationLayer = useCallback(
-    (map: maplibregl.Map, annotation: Annotation) => {
-      // Check if layer already exists and remove it
-      if (map.getLayer(annotation.id)) {
-        map.removeLayer(annotation.id);
-      }
-      if (map.getSource(annotation.id)) {
-        map.removeSource(annotation.id);
-      }
-
-      // Add the layer
-      map.addLayer({
-        id: annotation.id,
-        type: "fill",
-        source: {
-          type: "geojson",
-          data: annotation,
-        },
-        paint: {
-          "fill-color": annotation.properties.style?.color || "#0080ff",
-          "fill-opacity": annotation.properties.style?.opacity || 0.5,
-          "fill-outline-color": annotation.properties.style?.color || "#0080ff",
-        },
-      });
-    },
-    []
-  );
-
   // APP STATE AND FUNCTIONS
   // Connections State
   const [workspaceConnections, setWorkspaceConnections] = useState<
@@ -161,6 +133,79 @@ export function MapClient({ apiUrl }: MapClientProps) {
     apiUrl,
   });
 
+  const addAnnotationLayer = useCallback(
+    (map: maplibregl.Map, annotation: Annotation) => {
+      try {
+        // Check if layer already exists and remove it
+        if (map.getLayer(annotation.id)) {
+          map.removeLayer(annotation.id);
+        }
+        if (map.getSource(annotation.id)) {
+          map.removeSource(annotation.id);
+        }
+
+        // Add the source
+        map.addSource(annotation.id, {
+          type: "geojson",
+          data: annotation,
+        });
+
+        if (!annotation.geometry) {
+          console.warn("Annotation missing geometry:", annotation);
+          return;
+        }
+
+        // Check the geometry type to determine which layer type to add
+        const geomType = annotation.geometry.type.toLowerCase();
+        console.log(`Adding annotation of type ${geomType}:`, annotation);
+
+        if (geomType.includes("linestring")) {
+          // Add a line layer for LineString features
+          map.addLayer({
+            id: annotation.id,
+            type: "line",
+            source: annotation.id,
+            paint: {
+              "line-color": annotation.properties.style?.color || "#3880ff",
+              "line-opacity": annotation.properties.style?.opacity || 0.8,
+              "line-width": annotation.properties.style?.width || 3,
+            },
+          });
+        } else if (geomType.includes("point")) {
+          // Add a circle layer for Point features
+          map.addLayer({
+            id: annotation.id,
+            type: "circle",
+            source: annotation.id,
+            paint: {
+              "circle-color": annotation.properties.style?.color || "#3880ff",
+              "circle-opacity": annotation.properties.style?.opacity || 0.8,
+              "circle-radius": annotation.properties.style?.radius || 5,
+            },
+          });
+        } else if (geomType.includes("polygon")) {
+          // For polygon features
+          map.addLayer({
+            id: annotation.id,
+            type: "fill",
+            source: annotation.id,
+            paint: {
+              "fill-color": annotation.properties.style?.color || "#3880ff",
+              "fill-opacity": annotation.properties.style?.opacity || 0.5,
+              "fill-outline-color":
+                annotation.properties.style?.color || "#3880ff",
+            },
+          });
+        } else {
+          console.warn(`Unknown geometry type: ${geomType}`);
+        }
+      } catch (err) {
+        console.error("Error in addAnnotationLayer:", err, annotation);
+      }
+    },
+    []
+  );
+
   const handleMainSidebarModalOpen = useCallback(
     (item: MainSidebarModalOptions) => {
       setSelectedItem(item);
@@ -183,7 +228,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setUploadError(null);
   }, []);
 
-  // File Upload Hook
   const { handleFileUpload } = useFileUploader({
     fileName,
     workspaceId,
@@ -258,7 +302,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
       if (!config) return;
 
-      // Update the stored configuration
       const updatedConfigs = {
         ...layerConfigs,
         [layerId]: {
@@ -309,7 +352,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
       geomTypeUrl: string
     ) => {
       try {
-        // Fetch the geometry type from the API
         const response = await fetch(geomTypeUrl);
         if (!response.ok) {
           throw new Error(
@@ -653,115 +695,323 @@ export function MapClient({ apiUrl }: MapClientProps) {
   useEffect(() => {
     if (!mapRef.current || !isMapReady) return;
 
-    // Store a reference to the map to avoid the ESLint warning
     const map = mapRef.current;
 
-    // Initialize the draw control
+    // Initialize draw with comprehensive styles for all geometry types
     const draw = new MapboxDraw({
       displayControlsDefault: false,
       controls: {
-        polygon: true,
-        point: true,
-        trash: true,
+        polygon: false,
+        point: false,
+        line_string: false,
+        trash: false,
       },
+      styles: [
+        {
+          id: "gl-draw-line-active",
+          type: "line",
+          filter: [
+            "all",
+            ["==", "$type", "LineString"],
+            ["==", "active", "true"],
+          ],
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: {
+            "line-color": "#3880ff",
+            "line-dasharray": [0.2, 2],
+            "line-width": 3,
+          },
+        },
+        {
+          id: "gl-draw-polygon-fill-active",
+          type: "fill",
+          filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+          paint: {
+            "fill-color": "#3880ff",
+            "fill-opacity": 0.1,
+          },
+        },
+        {
+          id: "gl-draw-polygon-stroke-active",
+          type: "line",
+          filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: {
+            "line-color": "#3880ff",
+            "line-width": 3,
+          },
+        },
+        {
+          id: "gl-draw-polygon-and-line-vertex-active",
+          type: "circle",
+          filter: [
+            "all",
+            ["==", "meta", "vertex"],
+            ["==", "$type", "Point"],
+            ["!=", "mode", "static"],
+          ],
+          paint: {
+            "circle-radius": 5,
+            "circle-color": "#fff",
+            "circle-stroke-color": "#3880ff",
+            "circle-stroke-width": 2,
+          },
+        },
+        {
+          id: "gl-draw-polygon-and-line-midpoint-active",
+          type: "circle",
+          filter: [
+            "all",
+            ["==", "meta", "midpoint"],
+            ["==", "$type", "Point"],
+            ["!=", "mode", "static"],
+          ],
+          paint: {
+            "circle-radius": 3,
+            "circle-color": "#3880ff",
+          },
+        },
+        {
+          id: "gl-draw-line",
+          type: "line",
+          filter: [
+            "all",
+            ["==", "$type", "LineString"],
+            ["!=", "mode", "static"],
+          ],
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: {
+            "line-color": "#3880ff",
+            "line-width": 3,
+            "line-opacity": 0.8,
+          },
+        },
+        {
+          id: "gl-draw-polygon-fill",
+          type: "fill",
+          filter: ["all", ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
+          paint: {
+            "fill-color": "#3880ff",
+            "fill-outline-color": "#3880ff",
+            "fill-opacity": 0.5,
+          },
+        },
+        {
+          id: "gl-draw-polygon-stroke",
+          type: "line",
+          filter: ["all", ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: {
+            "line-color": "#3880ff",
+            "line-width": 2,
+          },
+        },
+        {
+          id: "gl-draw-point",
+          type: "circle",
+          filter: [
+            "all",
+            ["==", "$type", "Point"],
+            ["==", "meta", "feature"],
+            ["!=", "mode", "static"],
+          ],
+          paint: {
+            "circle-radius": 5,
+            "circle-color": "#3880ff",
+            "circle-opacity": 0.8,
+          },
+        },
+      ],
     });
 
-    // Add the control to the map
     map.addControl(draw);
     drawRef.current = draw;
 
-    // Load saved annotations if any
+    // Load saved annotations
     try {
       const savedAnnotations = localStorage.getItem("mapAnnotations");
       if (savedAnnotations) {
         const parsed = JSON.parse(savedAnnotations);
         // Add features to the draw control
-        draw.add(parsed);
+        parsed.forEach((feature: GeoJSON.Feature) => {
+          try {
+            draw.add(feature);
+          } catch (err) {
+            console.error("Error adding feature:", err, feature);
+          }
+        });
         setAnnotations(parsed);
       }
     } catch (error) {
       console.error("Error loading annotations:", error);
     }
 
-    // Set up event listeners for draw events
     function updateAnnotations() {
       if (!drawRef.current) return;
 
-      // Get all features from the draw control
-      const data = drawRef.current.getAll();
+      try {
+        const data = drawRef.current.getAll();
+        console.log("Draw features:", data.features);
 
-      // Map the features to Annotation objects
-      const annotations = data.features.map((feature) => {
-        // Ensure each feature has a string ID
-        const id = String(
-          feature.id ||
-            `feature-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        );
+        if (!data.features.length) {
+          setAnnotations([]);
+          localStorage.setItem("mapAnnotations", JSON.stringify([]));
+          return;
+        }
 
-        // Create an Annotation from the feature
-        const annotation: Annotation = {
-          ...feature,
-          id,
-          properties: {
-            ...feature.properties,
-            type: feature.properties?.type || "polygon", // Default to polygon
-            style: feature.properties?.style || {
-              color: "#0080ff",
-              opacity: 0.5,
+        // Map the features to Annotation objects
+        const annotations = data.features.map((feature) => {
+          // Ensure each feature has a string ID
+          const id = String(
+            feature.id ||
+              `feature-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          );
+
+          let featureType;
+          let defaultStyle: Annotation["properties"]["style"] = {
+            color: "#3880ff",
+            opacity: 0.5,
+          };
+
+          if (!feature.geometry) {
+            console.warn("Feature missing geometry:", feature);
+            featureType = "unknown";
+          } else {
+            switch (feature.geometry.type) {
+              case "LineString":
+              case "MultiLineString":
+                featureType = "line";
+                defaultStyle = {
+                  color: "#3880ff",
+                  opacity: 0.8,
+                  width: 3,
+                } as Annotation["properties"]["style"];
+                break;
+              case "Point":
+              case "MultiPoint":
+                featureType = "point";
+                defaultStyle = {
+                  color: "#3880ff",
+                  opacity: 0.8,
+                  radius: 5,
+                } as Annotation["properties"]["style"];
+                break;
+              case "Polygon":
+              case "MultiPolygon":
+                featureType = "polygon";
+                defaultStyle = {
+                  color: "#3880ff",
+                  opacity: 0.5,
+                } as Annotation["properties"]["style"];
+                break;
+              default:
+                featureType = "unknown";
+                console.warn("Unknown geometry type:", feature.geometry.type);
+            }
+          }
+
+          // Create an Annotation from the feature
+          const annotation: Annotation = {
+            ...feature,
+            id,
+            properties: {
+              ...feature.properties,
+              type: feature.properties?.type || featureType,
+              style: feature.properties?.style || defaultStyle,
             },
-          },
-        };
+          };
 
-        return annotation;
-      });
+          return annotation;
+        });
 
-      // Save to state and localStorage
-      setAnnotations(annotations);
-      localStorage.setItem("mapAnnotations", JSON.stringify(annotations));
+        console.log("Processed annotations:", annotations);
+        setAnnotations(annotations);
+        localStorage.setItem("mapAnnotations", JSON.stringify(annotations));
+      } catch (err) {
+        console.error("Error in updateAnnotations:", err);
+      }
     }
 
     map.on("draw.create", updateAnnotations);
     map.on("draw.update", updateAnnotations);
     map.on("draw.delete", updateAnnotations);
+    map.on("draw.selectionchange", updateAnnotations);
 
     return () => {
-      // Clean up event listeners
       map.off("draw.create", updateAnnotations);
       map.off("draw.update", updateAnnotations);
       map.off("draw.delete", updateAnnotations);
+      map.off("draw.selectionchange", updateAnnotations);
 
-      // Remove the control from the map
-      if (drawRef.current) {
-        map.removeControl(drawRef.current);
+      // Add defensive cleanup for the draw control
+      try {
+        if (map && drawRef.current && map.getStyle()) {
+          // Only remove if map is still valid and has a style
+          map.removeControl(drawRef.current);
+          drawRef.current = null;
+        }
+      } catch (err) {
+        console.warn("Error removing draw control during cleanup:", err);
+        // Don't rethrow - we're in cleanup and want to suppress errors
       }
     };
   }, [mapRef, isMapReady]);
 
-  // Update the draw mode based on the selected edit item
+  // Ensure the draw mode is correctly changed when a tool is selected
   useEffect(() => {
-    if (!drawRef.current || !selectedEditItem) return;
+    if (!drawRef.current || !selectedEditItem || !mapRef.current) return;
 
-    switch (selectedEditItem.id) {
-      case "point":
-        drawRef.current.changeMode("draw_point");
-        break;
-      case "square":
-      case "hexagon":
-      case "circle":
-        drawRef.current.changeMode("draw_polygon");
-        break;
-      case "delete":
-        // For delete, we'll use the trash control
-        if (drawRef.current.getSelectedIds().length > 0) {
-          drawRef.current.trash();
-        }
-        break;
-      case "select":
-      default:
-        drawRef.current.changeMode("simple_select");
-        break;
+    const draw = drawRef.current;
+    console.log("Changing to drawing mode:", selectedEditItem.id);
+
+    try {
+      switch (selectedEditItem.id) {
+        case "point":
+          draw.changeMode("draw_point");
+          break;
+        case "line":
+          draw.changeMode("draw_line_string");
+          break;
+        case "square":
+        case "hexagon":
+        case "circle":
+          draw.changeMode("draw_polygon");
+          break;
+        case "delete":
+          const selectedIds = draw.getSelectedIds();
+          if (selectedIds.length > 0) {
+            draw.trash();
+          } else {
+            draw.changeMode("simple_select");
+          }
+          break;
+        case "select":
+        default:
+          draw.changeMode("simple_select");
+          break;
+      }
+    } catch (err) {
+      console.error("Error changing draw mode:", err);
+      // Try to recover by setting to simple_select
+      try {
+        draw.changeMode("simple_select");
+      } catch (e) {
+        console.error("Could not recover to simple_select mode:", e);
+      }
     }
-  }, [selectedEditItem]);
+  }, [selectedEditItem, mapRef]);
 
   return (
     <div className="w-full h-screen relative">

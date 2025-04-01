@@ -38,7 +38,7 @@ const LayersTable = ({
 }: LayersTableProps) => {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
+      <table className="w-full border-collapse ">
         <tbody>
           {connections.map((connection, index) => (
             <tr
@@ -47,7 +47,7 @@ const LayersTable = ({
                 index % 2 === 0 ? "bg-white" : "bg-blue-50"
               }`}
             >
-              <td className="px-4 py-2 text-xs text-gray-900">
+              <td className="px-4 py-2 text-xs text-gray-900 ">
                 <div className="flex items-center gap-4">
                   <span className="flex-1 truncate">{String(connection)}</span>
                   <div className="flex gap-2 shrink-0">

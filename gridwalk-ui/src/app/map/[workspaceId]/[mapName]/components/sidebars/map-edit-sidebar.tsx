@@ -1,12 +1,5 @@
 import React, { useEffect } from "react";
-import {
-  Circle,
-  Dot,
-  Square,
-  Hexagon,
-  Trash,
-  MousePointer2,
-} from "lucide-react";
+import { Dot, Square, Trash, GitBranch } from "lucide-react";
 import { MapEditSidebarModalOptions, MapEditsProps } from "./types";
 
 const MapEditSidebar = ({
@@ -15,34 +8,22 @@ const MapEditSidebar = ({
 }: MapEditsProps) => {
   const editItems: MapEditSidebarModalOptions[] = [
     {
-      id: "select",
-      title: "Select",
-      icon: "select",
-      description: "Select features on map",
-    },
-    {
       id: "point",
       title: "Draw Point",
       icon: "point",
       description: "Draw points on map",
     },
     {
+      id: "line",
+      title: "Draw Line",
+      icon: "line",
+      description: "Draw lines on map",
+    },
+    {
       id: "square",
-      title: "Draw Square",
+      title: "Draw Polygon",
       icon: "square",
-      description: "Draw squares on map",
-    },
-    {
-      id: "hexagon",
-      title: "Draw Hexagon",
-      icon: "hexagon",
-      description: "Draw hexagons on map",
-    },
-    {
-      id: "circle",
-      title: "Draw Circle",
-      icon: "circle",
-      description: "Draw circles on map",
+      description: "Draw polygons on map",
     },
     {
       id: "delete",
@@ -54,16 +35,12 @@ const MapEditSidebar = ({
 
   const getIconComponent = (iconName: string) => {
     switch (iconName) {
-      case "select":
-        return <MousePointer2 className="w-4 h-4" />;
       case "point":
         return <Dot className="w-4 h-4" />;
+      case "line":
+        return <GitBranch className="w-4 h-4" />;
       case "square":
         return <Square className="w-4 h-4" />;
-      case "hexagon":
-        return <Hexagon className="w-4 h-4" />;
-      case "circle":
-        return <Circle className="w-4 h-4" />;
       case "delete":
         return <Trash className="w-4 h-4" />;
       default:
@@ -71,8 +48,6 @@ const MapEditSidebar = ({
     }
   };
 
-  // Update the cursor style based on selected tool
-  // WE NEED SOMETHING BETTER THAN IF ELSE IFS
   useEffect(() => {
     const map = document.querySelector(".maplibregl-canvas-container");
     if (map) {
@@ -81,7 +56,8 @@ const MapEditSidebar = ({
         selectedEditItem?.id === "square" ||
         selectedEditItem?.id === "hexagon" ||
         selectedEditItem?.id === "circle" ||
-        selectedEditItem?.id === "point"
+        selectedEditItem?.id === "point" ||
+        selectedEditItem?.id === "line"
       ) {
         mapElement.style.cursor = "crosshair";
       } else if (selectedEditItem?.id === "delete") {
