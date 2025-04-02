@@ -697,7 +697,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
     const map = mapRef.current;
 
-    // Initialize draw with comprehensive styles for all geometry types
     const draw = new MapboxDraw({
       displayControlsDefault: false,
       controls: {
@@ -839,7 +838,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     map.addControl(draw);
     drawRef.current = draw;
 
-    // Load saved annotations
     try {
       const savedAnnotations = localStorage.getItem("mapAnnotations");
       if (savedAnnotations) {
@@ -871,9 +869,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
           return;
         }
 
-        // Map the features to Annotation objects
         const annotations = data.features.map((feature) => {
-          // Ensure each feature has a string ID
           const id = String(
             feature.id ||
               `feature-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -964,7 +960,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
         }
       } catch (err) {
         console.warn("Error removing draw control during cleanup:", err);
-        // Don't rethrow - we're in cleanup and want to suppress errors
       }
     };
   }, [mapRef, isMapReady]);
@@ -1004,7 +999,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
       }
     } catch (err) {
       console.error("Error changing draw mode:", err);
-      // Try to recover by setting to simple_select
       try {
         draw.changeMode("simple_select");
       } catch (e) {

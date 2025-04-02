@@ -69,11 +69,11 @@ const BaseLayerSidebar = ({
 const getSelectedStyle = (id: string) => {
   switch (id) {
     case "light":
-      return "bg-yellow-500 text-white"; // Light yellow
+      return "bg-yellow-500 text-white";
     case "dark":
-      return "bg-blue-800 text-white"; // Dark blue
+      return "bg-blue-800 text-white";
     case "car":
-      return "bg-purple-500 text-white"; // Purple
+      return "bg-purple-500 text-white";
     default:
       return "bg-blue-500 text-white";
   }

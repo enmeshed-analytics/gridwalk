@@ -11,25 +11,25 @@ const MapEditSidebar = ({
       id: "point",
       title: "Draw Point",
       icon: "point",
-      description: "Draw points on map",
+      description: "Draw points",
     },
     {
       id: "line",
       title: "Draw Line",
       icon: "line",
-      description: "Draw lines on map",
+      description: "Draw lines",
     },
     {
       id: "square",
       title: "Draw Polygon",
       icon: "square",
-      description: "Draw polygons on map",
+      description: "Draw polygons",
     },
     {
       id: "delete",
       title: "Delete",
       icon: "delete",
-      description: "Delete selected features",
+      description: "Delete selected feature",
     },
   ];
 
@@ -61,31 +61,33 @@ const MapEditSidebar = ({
       ) {
         mapElement.style.cursor = "crosshair";
       } else if (selectedEditItem?.id === "delete") {
-        mapElement.style.cursor = "not-allowed";
+        mapElement.style.cursor = "pointer";
       } else {
-        mapElement.style.cursor = "";
+        mapElement.style.cursor = "grab";
       }
     }
   }, [selectedEditItem]);
 
   return (
     <div className="absolute top-0.4 left-1/2 transform -translate-x-1/2 z-10">
-      <div className="bg-gray-800 rounded-lg shadow-lg px-2 py-1 flex items-center space-x-1">
+      <div className="bg-gray-800 rounded-lg shadow-lg px-2 py-1 flex items-center space-x-1 relative">
         {editItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onEditItemClick(item)}
             className={`
-              p-2 rounded-md transition-colors
+              p-2 rounded-md transition-colors group
               ${
                 selectedEditItem?.id === item.id
                   ? "bg-blue-400 text-white"
                   : "text-gray-300 hover:bg-blue-400"
               }
             `}
-            title={item.title}
           >
             {getIconComponent(item.icon || "")}
+            <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded px-1.5 py-0.5 top-full left-1/2 mt-1 -translate-x-1/2 whitespace-nowrap z-50">
+              {item.description}
+            </div>
           </button>
         ))}
       </div>
