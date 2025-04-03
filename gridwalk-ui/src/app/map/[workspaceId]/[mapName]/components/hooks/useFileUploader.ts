@@ -3,7 +3,7 @@ import { useSingleFileUploader, useShapefileUploader } from "./fileUpload";
 import {
   getWorkspaceConnections,
   WorkspaceConnection,
-} from "../../actions/getSources";
+} from "../actions/getSources";
 
 interface UseFileUploaderProps {
   fileName: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { getUploadHeaders } from "../../actions/auth";
+import { getUploadHeaders } from "../actions/auth";
 import { LayerInfo, UploadResponse } from "./types";
 import JSZip from "jszip";
 

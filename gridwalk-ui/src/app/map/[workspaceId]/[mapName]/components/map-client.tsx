@@ -14,7 +14,7 @@ import {
   getWorkspaceConnections,
   WorkspaceConnection,
 } from "./actions/getSources";
-import { useFileUploader } from "./hooks/fileUpload/useFileUploader";
+import { useFileUploader } from "./hooks/useFileUploader";
 import {
   MAP_STYLES,
   MapStyleKey,
@@ -23,7 +23,7 @@ import {
   LayerConfig,
   LayerStyle,
 } from "./types";
-import { StyleModal } from "./layerStyling/layer-style-modal";
+import { StyleModal } from "./sidebars/layer-style-modal";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 
@@ -34,7 +34,6 @@ const defaultBaseLayer: BaseLayerSidebarModalOptions = {
   description: "Light base map style",
 };
 
-// Update the type definition
 type LayerConfigType =
   | {
       type: "line";
@@ -68,8 +67,8 @@ interface Annotation extends GeoJSON.Feature {
     style?: {
       color: string;
       opacity: number;
-      width?: number; // Added for line width
-      radius?: number; // Added for point radius
+      width?: number;
+      radius?: number;
     };
   };
 }
@@ -120,6 +119,10 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
   // Add annotations state
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+
+  // Add this state near your other states
+  const [selectedAnnotation, setSelectedAnnotation] =
+    useState<Annotation | null>(null);
 
   // Map Initialisation Config
   const {
@@ -360,7 +363,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
         }
         const geomType = await response.text();
 
-        // Add the source if it doesn't exist
         if (!map.getSource(layerId)) {
           map.addSource(layerId, {
             type: "vector",
@@ -370,7 +372,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
           });
         }
 
-        // Get saved configuration or use default
         const savedConfig = layerConfigs[layerId];
         const defaultStyle = {
           color: "#0080ff",
@@ -381,7 +382,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
         const style = savedConfig?.style || defaultStyle;
 
-        // Configure the layer based on geometry type with saved or default style
         let layerConfig: LayerConfigType;
         switch (geomType.toLowerCase().trim()) {
           case "linestring":
@@ -431,7 +431,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
             };
         }
 
-        // Add the layer to the map
         map.addLayer({
           id: layerId,
           source: layerId,
@@ -938,6 +937,19 @@ export function MapClient({ apiUrl }: MapClientProps) {
       } catch (err) {
         console.error("Error in updateAnnotations:", err);
       }
+
+      // Handle selection change
+      const selected = drawRef.current.getSelected();
+      if (selected.features.length === 1) {
+        // When a single feature is selected, open the style modal for it
+        const selectedFeature = selected.features[0];
+        setSelectedAnnotation(selectedFeature as Annotation);
+        setIsStyleModalOpen(true);
+      } else {
+        // When deselecting or selecting multiple features, close the modal
+        setSelectedAnnotation(null);
+        setIsStyleModalOpen(false);
+      }
     }
 
     map.on("draw.create", updateAnnotations);
@@ -964,7 +976,113 @@ export function MapClient({ apiUrl }: MapClientProps) {
     };
   }, [mapRef, isMapReady]);
 
-  // Ensure the draw mode is correctly changed when a tool is selected
+  const deleteSelectedAnnotations = useCallback(() => {
+    if (!drawRef.current || !mapRef.current) return;
+    const draw = drawRef.current;
+    const map = mapRef.current;
+
+    const selectedIds = draw.getSelectedIds();
+    if (selectedIds.length === 0) return;
+
+    draw.trash();
+
+    const remainingFeatures = draw.getAll().features;
+
+    if (remainingFeatures.length === 0) {
+      setAnnotations([]);
+      localStorage.removeItem("mapAnnotations");
+      console.log("All annotations deleted, removing from local storage");
+    } else {
+      const updatedAnnotations = remainingFeatures.map((feature) => {
+        return {
+          ...feature,
+          id: String(feature.id),
+          properties: feature.properties || {},
+        } as Annotation;
+      });
+
+      setAnnotations(updatedAnnotations);
+      localStorage.setItem(
+        "mapAnnotations",
+        JSON.stringify(updatedAnnotations)
+      );
+      console.log("Updated annotations after deletion:", updatedAnnotations);
+    }
+
+    selectedIds.forEach((id) => {
+      if (map.getLayer(id)) map.removeLayer(id);
+      if (map.getSource(id)) map.removeSource(id);
+    });
+  }, [mapRef, drawRef]);
+
+  const updateAnnotationStyle = (
+    annotationId: string,
+    newStyle: LayerStyle
+  ) => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+
+    const annotationIndex = annotations.findIndex(
+      (ann) => ann.id === annotationId
+    );
+    if (annotationIndex === -1) return;
+
+    const updatedAnnotations = annotations.map((annotation, index) => {
+      if (index === annotationIndex) {
+        return {
+          ...annotation,
+          properties: {
+            ...annotation.properties,
+            style: newStyle,
+          },
+        };
+      }
+      return annotation;
+    });
+
+    setAnnotations(updatedAnnotations);
+
+    localStorage.setItem("mapAnnotations", JSON.stringify(updatedAnnotations));
+
+    try {
+      if (map.getLayer(annotationId)) {
+        map.removeLayer(annotationId);
+      }
+      if (map.getSource(annotationId)) {
+        map.removeSource(annotationId);
+      }
+
+      const updatedAnnotation = updatedAnnotations[annotationIndex];
+
+      map.addSource(annotationId, {
+        type: "geojson",
+        data: updatedAnnotation,
+      });
+
+      map.addLayer({
+        id: annotationId,
+        type: "fill",
+        source: annotationId,
+        paint: {
+          "fill-color": newStyle.color,
+          "fill-opacity": newStyle.opacity,
+          "fill-outline-color": newStyle.color,
+        },
+      });
+
+      console.log("Updated layer style successfully:", {
+        id: annotationId,
+        newColor: newStyle.color,
+        newOpacity: newStyle.opacity,
+      });
+    } catch (err) {
+      console.error("Error updating map layer:", err);
+    }
+
+    setIsStyleModalOpen(false);
+    setSelectedAnnotation(null);
+  };
+
   useEffect(() => {
     if (!drawRef.current || !selectedEditItem || !mapRef.current) return;
 
@@ -987,7 +1105,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         case "delete":
           const selectedIds = draw.getSelectedIds();
           if (selectedIds.length > 0) {
-            draw.trash();
+            deleteSelectedAnnotations();
           } else {
             draw.changeMode("simple_select");
           }
@@ -1005,7 +1123,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         console.error("Could not recover to simple_select mode:", e);
       }
     }
-  }, [selectedEditItem, mapRef]);
+  }, [selectedEditItem, mapRef, deleteSelectedAnnotations]);
 
   return (
     <div className="w-full h-screen relative">
@@ -1050,11 +1168,18 @@ export function MapClient({ apiUrl }: MapClientProps) {
       />
       <StyleModal
         isOpen={isStyleModalOpen}
-        onClose={() => setIsStyleModalOpen(false)}
+        onClose={() => {
+          setIsStyleModalOpen(false);
+          setSelectedLayerId(null);
+          setSelectedAnnotation(null);
+        }}
         layerConfig={selectedLayerId ? layerConfigs[selectedLayerId] : null}
+        annotation={selectedAnnotation}
         onStyleUpdate={(style) => {
           if (selectedLayerId) {
             updateLayerStyle(selectedLayerId, style);
+          } else if (selectedAnnotation) {
+            updateAnnotationStyle(selectedAnnotation.id, style);
           }
         }}
       />
