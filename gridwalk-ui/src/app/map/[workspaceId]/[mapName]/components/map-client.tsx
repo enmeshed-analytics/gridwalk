@@ -139,15 +139,18 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const addAnnotationLayer = useCallback(
     (map: maplibregl.Map, annotation: Annotation) => {
       try {
-        // Check if layer already exists and remove it
+        console.log(`START addAnnotationLayer for ID: ${annotation.id}`);
+
         if (map.getLayer(annotation.id)) {
+          console.log(`Removing existing layer for ID: ${annotation.id}`);
           map.removeLayer(annotation.id);
         }
         if (map.getSource(annotation.id)) {
+          console.log(`Removing existing source for ID: ${annotation.id}`);
           map.removeSource(annotation.id);
         }
 
-        // Add the source
+        console.log(`Adding source for ID: ${annotation.id}`, annotation);
         map.addSource(annotation.id, {
           type: "geojson",
           data: annotation,
@@ -158,50 +161,64 @@ export function MapClient({ apiUrl }: MapClientProps) {
           return;
         }
 
-        // Check the geometry type to determine which layer type to add
+        // Make sure style is defined
+        if (!annotation.properties || !annotation.properties.style) {
+          console.warn("Annotation missing style, adding default style");
+          annotation.properties = annotation.properties || {};
+          annotation.properties.style = {
+            color: "#3880ff",
+            opacity: 0.5,
+          };
+        }
+
+        const style = annotation.properties.style;
+        console.log(`Annotation style:`, style);
+
         const geomType = annotation.geometry.type.toLowerCase();
         console.log(`Adding annotation of type ${geomType}:`, annotation);
 
         if (geomType.includes("linestring")) {
-          // Add a line layer for LineString features
+          console.log(`Creating line layer with color: ${style.color}`);
           map.addLayer({
             id: annotation.id,
             type: "line",
             source: annotation.id,
             paint: {
-              "line-color": annotation.properties.style?.color || "#3880ff",
-              "line-opacity": annotation.properties.style?.opacity || 0.8,
-              "line-width": annotation.properties.style?.width || 3,
+              "line-color": style.color || "#3880ff",
+              "line-opacity": style.opacity || 0.8,
+              "line-width": style.width || 3,
             },
           });
         } else if (geomType.includes("point")) {
-          // Add a circle layer for Point features
+          console.log(`Creating point layer with color: ${style.color}`);
           map.addLayer({
             id: annotation.id,
             type: "circle",
             source: annotation.id,
             paint: {
-              "circle-color": annotation.properties.style?.color || "#3880ff",
-              "circle-opacity": annotation.properties.style?.opacity || 0.8,
-              "circle-radius": annotation.properties.style?.radius || 5,
+              "circle-color": style.color || "#3880ff",
+              "circle-opacity": style.opacity || 0.8,
+              "circle-radius": style.radius || 5,
             },
           });
         } else if (geomType.includes("polygon")) {
-          // For polygon features
+          console.log(`Creating polygon layer with color: ${style.color}`);
           map.addLayer({
             id: annotation.id,
             type: "fill",
             source: annotation.id,
             paint: {
-              "fill-color": annotation.properties.style?.color || "#3880ff",
-              "fill-opacity": annotation.properties.style?.opacity || 0.5,
-              "fill-outline-color":
-                annotation.properties.style?.color || "#3880ff",
+              "fill-color": style.color || "#3880ff",
+              "fill-opacity": style.opacity || 0.5,
+              "fill-outline-color": style.color || "#3880ff",
             },
           });
+          console.log(`Polygon layer created with ID: ${annotation.id}`);
         } else {
           console.warn(`Unknown geometry type: ${geomType}`);
         }
+
+        console.log(`FINISH addAnnotationLayer for ID: ${annotation.id}`);
       } catch (err) {
         console.error("Error in addAnnotationLayer:", err, annotation);
       }
@@ -650,13 +667,10 @@ export function MapClient({ apiUrl }: MapClientProps) {
     mapRef,
   ]);
 
-  // Cleanup effect for layers
   useEffect(() => {
-    // Capture the ref value when the effect starts
     const currentMap = mapRef?.current;
 
     return () => {
-      // Use the captured value in cleanup
       if (!currentMap) return;
 
       const layerIdsToCleanup = [...activeLayerIds.current];
@@ -705,6 +719,8 @@ export function MapClient({ apiUrl }: MapClientProps) {
         trash: false,
       },
       styles: [
+        // ACTIVE (being drawn)
+        // line stroke
         {
           id: "gl-draw-line-active",
           type: "line",
@@ -723,6 +739,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             "line-width": 3,
           },
         },
+        // polygon fill
         {
           id: "gl-draw-polygon-fill-active",
           type: "fill",
@@ -732,6 +749,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             "fill-opacity": 0.1,
           },
         },
+        // polygon outline
         {
           id: "gl-draw-polygon-stroke-active",
           type: "line",
@@ -745,6 +763,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             "line-width": 3,
           },
         },
+        // vertex points
         {
           id: "gl-draw-polygon-and-line-vertex-active",
           type: "circle",
@@ -761,6 +780,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             "circle-stroke-width": 2,
           },
         },
+        // midpoints
         {
           id: "gl-draw-polygon-and-line-midpoint-active",
           type: "circle",
@@ -775,6 +795,10 @@ export function MapClient({ apiUrl }: MapClientProps) {
             "circle-color": "#3880ff",
           },
         },
+
+        // INACTIVE (static, already drawn)
+        // make the inactive styles transparent to hide them
+        // line stroke - HIDDEN
         {
           id: "gl-draw-line",
           type: "line",
@@ -788,21 +812,23 @@ export function MapClient({ apiUrl }: MapClientProps) {
             "line-join": "round",
           },
           paint: {
-            "line-color": "#3880ff",
-            "line-width": 3,
-            "line-opacity": 0.8,
+            "line-color": "transparent",
+            "line-width": 0,
+            "line-opacity": 0,
           },
         },
+        // polygon fill - HIDDEN
         {
           id: "gl-draw-polygon-fill",
           type: "fill",
           filter: ["all", ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
           paint: {
-            "fill-color": "#3880ff",
-            "fill-outline-color": "#3880ff",
-            "fill-opacity": 0.5,
+            "fill-color": "transparent",
+            "fill-outline-color": "transparent",
+            "fill-opacity": 0,
           },
         },
+        // polygon outline - HIDDEN
         {
           id: "gl-draw-polygon-stroke",
           type: "line",
@@ -812,10 +838,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
             "line-join": "round",
           },
           paint: {
-            "line-color": "#3880ff",
-            "line-width": 2,
+            "line-color": "transparent",
+            "line-width": 0,
+            "line-opacity": 0,
           },
         },
+        // point - HIDDEN
         {
           id: "gl-draw-point",
           type: "circle",
@@ -826,9 +854,9 @@ export function MapClient({ apiUrl }: MapClientProps) {
             ["!=", "mode", "static"],
           ],
           paint: {
-            "circle-radius": 5,
-            "circle-color": "#3880ff",
-            "circle-opacity": 0.8,
+            "circle-radius": 0,
+            "circle-color": "transparent",
+            "circle-opacity": 0,
           },
         },
       ],
@@ -841,7 +869,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
       const savedAnnotations = localStorage.getItem("mapAnnotations");
       if (savedAnnotations) {
         const parsed = JSON.parse(savedAnnotations);
-        // Add features to the draw control
         parsed.forEach((feature: GeoJSON.Feature) => {
           try {
             draw.add(feature);
@@ -934,39 +961,108 @@ export function MapClient({ apiUrl }: MapClientProps) {
         console.log("Processed annotations:", annotations);
         setAnnotations(annotations);
         localStorage.setItem("mapAnnotations", JSON.stringify(annotations));
+
+        // Create custom layers for newly drawn features
+        if (map && drawRef.current) {
+          // For each annotation, ensure it has a custom layer
+          annotations.forEach((annotation) => {
+            // Check if we already have a layer for this annotation
+            if (!map.getLayer(annotation.id)) {
+              console.log(
+                `Creating custom layer for new annotation: ${annotation.id}`
+              );
+              addAnnotationLayer(map, annotation);
+            }
+          });
+        }
       } catch (err) {
         console.error("Error in updateAnnotations:", err);
       }
 
-      // Handle selection change
       const selected = drawRef.current.getSelected();
       if (selected.features.length === 1) {
-        // When a single feature is selected, open the style modal for it
         const selectedFeature = selected.features[0];
         setSelectedAnnotation(selectedFeature as Annotation);
         setIsStyleModalOpen(true);
       } else {
-        // When deselecting or selecting multiple features, close the modal
         setSelectedAnnotation(null);
         setIsStyleModalOpen(false);
       }
     }
 
+    // IMPORTANT: Register event handlers in this order
+    // First our direct handler for creating custom layers immediately
+    map.on("draw.create", (e: { features: GeoJSON.Feature[] }) => {
+      console.log("Direct draw.create handler called with:", e);
+      if (!e.features.length) return;
+
+      e.features.forEach((feature) => {
+        // Ensure the feature has an ID
+        const id = String(
+          feature.id ||
+            `feature-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        );
+
+        console.log(`Directly creating custom layer for new feature: ${id}`);
+
+        // Set default style based on geometry type
+        let defaultStyle: Annotation["properties"]["style"] = {
+          color: "#3880ff",
+          opacity: 0.5,
+        };
+
+        if (feature.geometry?.type.includes("Line")) {
+          defaultStyle = {
+            color: "#3880ff",
+            opacity: 0.8,
+            width: 3,
+          } as Annotation["properties"]["style"];
+        } else if (feature.geometry?.type.includes("Point")) {
+          defaultStyle = {
+            color: "#3880ff",
+            opacity: 0.8,
+            radius: 5,
+          } as Annotation["properties"]["style"];
+        }
+
+        // Create an annotation object with styling
+        const annotation: Annotation = {
+          ...feature,
+          id,
+          properties: {
+            ...feature.properties,
+            style: defaultStyle,
+          },
+        };
+
+        // Directly create the custom layer
+        try {
+          addAnnotationLayer(map, annotation);
+          console.log(`Successfully created custom layer with ID: ${id}`);
+        } catch (err) {
+          console.error(`Error creating custom layer for new feature:`, err);
+        }
+      });
+    });
+
+    // Then register the updateAnnotations handler for state management
     map.on("draw.create", updateAnnotations);
     map.on("draw.update", updateAnnotations);
     map.on("draw.delete", updateAnnotations);
     map.on("draw.selectionchange", updateAnnotations);
 
     return () => {
+      // Clean up all handlers
       map.off("draw.create", updateAnnotations);
       map.off("draw.update", updateAnnotations);
       map.off("draw.delete", updateAnnotations);
       map.off("draw.selectionchange", updateAnnotations);
 
-      // Add defensive cleanup for the draw control
+      // Also remove our direct create handler
+      map.off("draw.create", () => {});
+
       try {
         if (map && drawRef.current && map.getStyle()) {
-          // Only remove if map is still valid and has a style
           map.removeControl(drawRef.current);
           drawRef.current = null;
         }
@@ -974,7 +1070,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         console.warn("Error removing draw control during cleanup:", err);
       }
     };
-  }, [mapRef, isMapReady]);
+  }, [mapRef, isMapReady, addAnnotationLayer]);
 
   const deleteSelectedAnnotations = useCallback(() => {
     if (!drawRef.current || !mapRef.current) return;
@@ -1019,14 +1115,36 @@ export function MapClient({ apiUrl }: MapClientProps) {
     annotationId: string,
     newStyle: LayerStyle
   ) => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !drawRef.current) return;
     const map = mapRef.current;
+    const draw = drawRef.current;
 
+    // Find and update the annotation in state
     const annotationIndex = annotations.findIndex(
       (ann) => ann.id === annotationId
     );
     if (annotationIndex === -1) return;
 
+    console.log(
+      "Updating annotation style for:",
+      annotationId,
+      "New style:",
+      newStyle
+    );
+
+    // Preserve the current geometry and properties before updating
+    const currentFeature = draw.get(annotationId);
+    if (!currentFeature) {
+      console.error(`Feature ${annotationId} not found in draw control`);
+      return;
+    }
+
+    console.log("Current feature before update:", currentFeature);
+
+    // Remember selected IDs to restore selection later
+    const selectedIds = draw.getSelectedIds();
+
+    // Create updated annotations array with new style
     const updatedAnnotations = annotations.map((annotation, index) => {
       if (index === annotationIndex) {
         return {
@@ -1040,47 +1158,146 @@ export function MapClient({ apiUrl }: MapClientProps) {
       return annotation;
     });
 
+    // Update state and localStorage
     setAnnotations(updatedAnnotations);
-
     localStorage.setItem("mapAnnotations", JSON.stringify(updatedAnnotations));
 
+    // IMPORTANT: First clean up ALL existing handlers for ALL annotations
+    // This prevents duplicate handlers which cause the duplicate visualization issue
+    map.off("draw.update", () => {});
+
+    // Clean up any existing layers for this annotation
+    if (map.getLayer(annotationId)) {
+      map.removeLayer(annotationId);
+    }
+    if (map.getSource(annotationId)) {
+      map.removeSource(annotationId);
+    }
+
+    // Create a combined feature with original geometry and new style
+    const featureWithStyle = {
+      ...currentFeature,
+      properties: {
+        ...currentFeature.properties,
+        style: newStyle,
+      },
+    };
+
+    // Update in the draw control
+    draw.delete(annotationId);
+    draw.add(featureWithStyle);
+
+    // Get the updated annotation with the new style
+    const updatedAnnotation = updatedAnnotations[annotationIndex];
+
+    // Create a custom layer for visualization with the correct style
     try {
-      if (map.getLayer(annotationId)) {
-        map.removeLayer(annotationId);
-      }
-      if (map.getSource(annotationId)) {
-        map.removeSource(annotationId);
-      }
+      console.log(
+        "Creating custom layer for:",
+        annotationId,
+        "with style:",
+        newStyle
+      );
 
-      const updatedAnnotation = updatedAnnotations[annotationIndex];
-
+      // Add the GeoJSON source for our custom layer
       map.addSource(annotationId, {
         type: "geojson",
         data: updatedAnnotation,
       });
 
-      map.addLayer({
-        id: annotationId,
-        type: "fill",
-        source: annotationId,
-        paint: {
-          "fill-color": newStyle.color,
-          "fill-opacity": newStyle.opacity,
-          "fill-outline-color": newStyle.color,
-        },
-      });
+      // Get geometry type
+      const geomType = updatedAnnotation.geometry?.type.toLowerCase() || "";
+      console.log("Geometry type:", geomType);
 
-      console.log("Updated layer style successfully:", {
-        id: annotationId,
-        newColor: newStyle.color,
-        newOpacity: newStyle.opacity,
-      });
+      // Add styled layer based on geometry type
+      if (geomType.includes("polygon")) {
+        map.addLayer({
+          id: annotationId,
+          type: "fill",
+          source: annotationId,
+          paint: {
+            "fill-color": newStyle.color,
+            "fill-opacity": newStyle.opacity,
+            "fill-outline-color": newStyle.color,
+          },
+        });
+        console.log("Added polygon layer with color:", newStyle.color);
+      } else if (geomType.includes("linestring")) {
+        map.addLayer({
+          id: annotationId,
+          type: "line",
+          source: annotationId,
+          paint: {
+            "line-color": newStyle.color,
+            "line-opacity": newStyle.opacity,
+            "line-width": newStyle.width || 3,
+          },
+        });
+        console.log("Added line layer with color:", newStyle.color);
+      } else if (geomType.includes("point")) {
+        map.addLayer({
+          id: annotationId,
+          type: "circle",
+          source: annotationId,
+          paint: {
+            "circle-color": newStyle.color,
+            "circle-opacity": newStyle.opacity,
+            "circle-radius": newStyle.radius || 5,
+          },
+        });
+        console.log("Added circle layer with color:", newStyle.color);
+      }
     } catch (err) {
-      console.error("Error updating map layer:", err);
+      console.error("Error creating custom layer:", err);
     }
 
-    setIsStyleModalOpen(false);
-    setSelectedAnnotation(null);
+    // Restore selection if needed
+    if (selectedIds.includes(annotationId)) {
+      draw.changeMode("simple_select", { featureIds: selectedIds });
+    }
+
+    // Creating a single update handler that handles ALL annotations
+    // This is key to preventing duplicate handlers and visuals
+    function handleDrawUpdate(e: { features: GeoJSON.Feature[] }) {
+      // Process all features, not just one specific annotation
+      e.features.forEach((feature) => {
+        const featureId = feature.id as string;
+        if (!featureId) return;
+
+        // Find the annotation in our state
+        const annotationIdx = annotations.findIndex((a) => a.id === featureId);
+        if (annotationIdx === -1) return;
+
+        // Get the stored style for this annotation
+        const annotationStyle = annotations[annotationIdx].properties?.style;
+        if (!annotationStyle) return;
+
+        console.log("Feature updated, syncing custom layer:", featureId);
+
+        if (map.getSource(featureId)) {
+          const updatedFeature = {
+            ...feature,
+            properties: {
+              ...feature.properties,
+              style: annotationStyle,
+            },
+          };
+
+          (map.getSource(featureId) as maplibregl.GeoJSONSource).setData(
+            updatedFeature
+          );
+        }
+      });
+    }
+
+    map.on("draw.update", handleDrawUpdate);
+
+    console.log(
+      "Custom style layer created for:",
+      annotationId,
+      "Style applied:",
+      newStyle
+    );
   };
 
   useEffect(() => {
