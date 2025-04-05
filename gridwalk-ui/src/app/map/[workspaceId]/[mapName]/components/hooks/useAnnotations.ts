@@ -507,6 +507,9 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
     const selectedIds = draw.getSelectedIds();
     if (selectedIds.length === 0) return;
 
+    setIsStyleModalOpen(false);
+    setSelectedAnnotation(null);
+
     draw.trash();
 
     const remainingFeatures = draw.getAll().features;
