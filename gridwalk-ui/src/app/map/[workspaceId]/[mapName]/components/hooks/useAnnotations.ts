@@ -267,9 +267,28 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
             ["!=", "mode", "static"],
           ],
           paint: {
-            "circle-radius": 0,
+            "circle-radius": 4,
             "circle-color": "transparent",
+            "circle-stroke-color": "#3880ff",
+            "circle-stroke-width": 1,
             "circle-opacity": 0,
+          },
+        },
+        // point - SELECTED
+        {
+          id: "gl-draw-point-select",
+          type: "circle",
+          filter: [
+            "all",
+            ["==", "$type", "Point"],
+            ["==", "meta", "feature"],
+            ["==", "active", "true"],
+          ],
+          paint: {
+            "circle-radius": 6,
+            "circle-color": "rgba(255, 255, 255, 0.5)",
+            "circle-stroke-color": "#3880ff",
+            "circle-stroke-width": 2,
           },
         },
       ],
