@@ -52,6 +52,7 @@ export interface LayerStyle {
 
 export interface LayerConfig {
   layerId: string;
+  sourceId: string;
   geomType: string;
   style: LayerStyle;
 }

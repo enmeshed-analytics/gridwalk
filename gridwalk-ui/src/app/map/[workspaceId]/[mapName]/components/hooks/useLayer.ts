@@ -40,6 +40,8 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [activeLayerIds, setActiveLayerIds] = useState<string[]>([]);
+  // Track layer ordering to maintain consistent z-index
+  const [layerOrder, setLayerOrder] = useState<string[]>([]);
 
   // Load saved layer configs
   useEffect(() => {
@@ -47,12 +49,23 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     if (savedConfigs) {
       setLayerConfigs(JSON.parse(savedConfigs));
     }
+
+    // Load saved layer order if available
+    const savedOrder = localStorage.getItem("layerOrder");
+    if (savedOrder) {
+      setLayerOrder(JSON.parse(savedOrder));
+    }
   }, []);
 
   // Save layer configs when they change
   useEffect(() => {
     localStorage.setItem("layerConfigs", JSON.stringify(layerConfigs));
   }, [layerConfigs]);
+
+  // Save layer order when it changes
+  useEffect(() => {
+    localStorage.setItem("layerOrder", JSON.stringify(layerOrder));
+  }, [layerOrder]);
 
   const updateLayerStyle = useCallback(
     (layerId: string, style: LayerStyle) => {
@@ -103,6 +116,26 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     [mapRef, layerConfigs]
   );
 
+  // Helper function to find the first symbol layer in the map style
+  const getFirstLayerId = useCallback((map: maplibregl.Map) => {
+    const layers = map.getStyle().layers;
+    // Find the index of the first symbol layer in the map style
+    for (let i = 0; i < layers.length; i++) {
+      if (layers[i].type === "symbol") {
+        return layers[i].id;
+      }
+    }
+    return undefined; // If no symbol layer is found
+  }, []);
+
+  // Generate a source ID that's different from the layer ID
+  const getSourceId = useCallback(
+    (layerName: string) => {
+      return `source-${workspaceId}-${layerName}`;
+    },
+    [workspaceId]
+  );
+
   const addMapLayer = useCallback(
     async (
       map: maplibregl.Map,
@@ -120,8 +153,12 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
         }
         const geomType = await response.text();
 
-        if (!map.getSource(layerId)) {
-          map.addSource(layerId, {
+        // Create a unique source ID
+        const sourceId = getSourceId(layerId.split("-").pop() || "");
+
+        // Only add the source if it doesn't exist
+        if (!map.getSource(sourceId)) {
+          map.addSource(sourceId, {
             type: "vector",
             tiles: [sourceUrl],
             minzoom: 0,
@@ -188,12 +225,40 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
             };
         }
 
-        map.addLayer({
+        // Determine where to insert this layer
+        let beforeLayerId: string | undefined;
+
+        // If we have active layers, find the highest one in our layerOrder
+        if (activeLayerIds.length > 0 && layerOrder.length > 0) {
+          // Find active layers that are already on the map
+          const activeOrderedLayers = layerOrder.filter(
+            (id) => activeLayerIds.includes(id) && map.getLayer(id)
+          );
+
+          if (activeOrderedLayers.length > 0) {
+            // Insert before the topmost active layer
+            beforeLayerId = activeOrderedLayers[0];
+          }
+        }
+
+        // If we couldn't find an active layer, use the first symbol layer
+        if (!beforeLayerId) {
+          beforeLayerId = getFirstLayerId(map);
+        }
+
+        // Add layer with basic visibility layout
+        const layerSpec = {
           id: layerId,
-          source: layerId,
+          source: sourceId, // Use the unique source ID
           "source-layer": sourceLayerName,
+          layout: {
+            visibility: "visible",
+          },
           ...layerConfig,
-        } as maplibregl.LayerSpecification);
+        };
+
+        // Add the layer to the map
+        map.addLayer(layerSpec as maplibregl.LayerSpecification, beforeLayerId);
 
         // Store the configuration if it doesn't exist
         if (!savedConfig) {
@@ -201,6 +266,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
             ...prev,
             [layerId]: {
               layerId,
+              sourceId, // Store the source ID
               geomType,
               style,
             },
@@ -208,7 +274,15 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
         }
 
         // Add to active layer IDs
-        setActiveLayerIds((prev) => [...prev, layerId]);
+        setActiveLayerIds((prev) =>
+          prev.includes(layerId) ? prev : [...prev, layerId]
+        );
+
+        // Add to layer order (at the top)
+        setLayerOrder((prev) => {
+          const newOrder = prev.filter((id) => id !== layerId);
+          return [layerId, ...newOrder]; // New layer goes on top
+        });
 
         return geomType;
       } catch (error) {
@@ -216,20 +290,82 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
         throw error;
       }
     },
-    [layerConfigs]
+    [layerConfigs, activeLayerIds, getFirstLayerId, getSourceId, layerOrder]
   );
 
-  const removeMapLayer = useCallback((map: maplibregl.Map, layerId: string) => {
-    if (map.getLayer(layerId)) {
-      map.removeLayer(layerId);
-    }
-    if (map.getSource(layerId)) {
-      map.removeSource(layerId);
-    }
+  const removeMapLayer = useCallback(
+    (map: maplibregl.Map, layerId: string) => {
+      // Get the source ID from our configs
+      const sourceId =
+        layerConfigs[layerId]?.sourceId ||
+        getSourceId(layerId.split("-").pop() || "");
 
-    // Remove from active layer IDs
-    setActiveLayerIds((prev) => prev.filter((id) => id !== layerId));
-  }, []);
+      if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
+      }
+
+      // Check if the source is still being used by other layers before removing
+      const isSourceUsedElsewhere = Object.values(layerConfigs).some(
+        (config) => config.sourceId === sourceId && config.layerId !== layerId
+      );
+
+      if (!isSourceUsedElsewhere && map.getSource(sourceId)) {
+        map.removeSource(sourceId);
+      }
+
+      // Remove from active layer IDs
+      setActiveLayerIds((prev) => prev.filter((id) => id !== layerId));
+
+      // Update layer order
+      setLayerOrder((prev) => prev.filter((id) => id !== layerId));
+    },
+    [layerConfigs, getSourceId]
+  );
+
+  // Add this new function to reapply the layer order to the map
+  const applyLayerOrder = useCallback(() => {
+    if (!mapRef?.current) return;
+    const map = mapRef.current;
+
+    // Get the first symbol layer as the reference point
+    const firstSymbolId = getFirstLayerId(map);
+
+    // Apply the order from bottom to top (reverse of layerOrder)
+    // This ensures correct stacking order
+    [...layerOrder].reverse().forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        // Move each layer above the previous one and below the symbol layers
+        map.moveLayer(layerId, firstSymbolId);
+      }
+    });
+  }, [mapRef, layerOrder, getFirstLayerId]);
+
+  // Add an effect to reapply layer order whenever it changes
+  useEffect(() => {
+    if (mapRef?.current && layerOrder.length > 0) {
+      applyLayerOrder();
+    }
+  }, [layerOrder, mapRef, applyLayerOrder]);
+
+  // Modify the moveLayerToTop function
+  const moveLayerToTop = useCallback(
+    (layerId: string) => {
+      if (!mapRef?.current) return;
+      const map = mapRef.current;
+
+      if (!map.getLayer(layerId)) return;
+
+      // Update our order tracking - move the layer to the front of the array
+      setLayerOrder((prev) => {
+        const newOrder = prev.filter((id) => id !== layerId);
+        return [layerId, ...newOrder]; // Move to the top of our order array
+      });
+
+      // Note: The actual move in MapLibre will happen through the useEffect
+      // So we don't need to call map.moveLayer here anymore
+    },
+    [mapRef]
+  );
 
   const handleStyleClick = useCallback(
     (layerId: string) => {
@@ -270,11 +406,14 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     selectedLayerId,
     isStyleModalOpen,
     activeLayerIds,
+    layerOrder,
     setSelectedLayerId,
     setIsStyleModalOpen,
     updateLayerStyle,
     addMapLayer,
     removeMapLayer,
+    moveLayerToTop,
+    applyLayerOrder,
     handleStyleClick,
     getLayerSourceUrl,
     getLayerGeomTypeUrl,

@@ -289,7 +289,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
           .then((response) => response.json())
           .then((styleJson) => {
             console.log("Fetched new style, applying...");
-            map.setStyle(styleJson);
+            map.setStyle(styleJson, { diff: true });
             setCurrentStyle(MAP_STYLES[styleKey]);
           })
           .catch((error) => {
