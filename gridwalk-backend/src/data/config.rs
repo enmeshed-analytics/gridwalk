@@ -8,7 +8,6 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait Database: Send + Sync + UserStore + SessionStore + 'static {}
 
-// TODO need to add in DELETE WORKSPACE
 #[async_trait]
 pub trait UserStore: Send + Sync + 'static {
     async fn create_user(&self, user: &User) -> Result<()>;
