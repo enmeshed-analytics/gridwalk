@@ -22,10 +22,6 @@ geozero = { version = "0.14.0", features = [
     "with-mvt",
 ] }
 http = "1.2.0"
-martin = { git = "https://github.com/enmeshed-analytics/martin.git", features = [
-    "postgres",
-] }
-martin-tile-utils = { git = "https://github.com/enmeshed-analytics/martin.git" }
 native-tls = "0.2"
 postgres-native-tls = "0.5"
 rand = "0.8.5"
@@ -34,6 +30,7 @@ reqwest = { version = "0.12", features = ["json"] }
 rustls = { version = "0.23.13", features = ["std"] }
 serde = "1.0"
 serde_json = "1.0"
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-native-tls", "json"] }
 strum = "0.26"
 strum_macros = "0.26"
 tokio = { version = "1.40.0", features = ["full"] }
@@ -43,4 +40,4 @@ tower-http = { version = "0.5", features = ["trace", "cors", "limit"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 url = "2.5.2"
-uuid = "1.10.0"
+uuid = { version = "1.16.0", features = ["v4"] }
