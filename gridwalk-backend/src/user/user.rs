@@ -1,5 +1,5 @@
 use crate::data::Database;
-use crate::utils::{create_id, get_unix_timestamp, hash_password};
+use crate::utils::{create_id, hash_password};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -21,7 +21,7 @@ pub struct User {
     pub last_name: String,
     pub global_role: Option<GlobalRole>,
     pub active: bool,
-    pub created_at: u64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
     pub hash: String,
 }
 
@@ -80,7 +80,7 @@ impl User {
     }
 
     fn from_create_user(create_user: &CreateUser, id: &str, active: bool) -> User {
-        let now = get_unix_timestamp();
+        let now = chrono::Utc::now();
         // Generate password hash
         let password_hash = hash_password(&create_user.password).unwrap();
 
