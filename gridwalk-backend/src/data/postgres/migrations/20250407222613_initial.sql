@@ -18,7 +18,6 @@ CREATE TABLE gridwalk.users (
 CREATE TABLE gridwalk.workspaces (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    owner UUID NOT NULL REFERENCES gridwalk.users(id),
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -28,7 +27,7 @@ CREATE TABLE gridwalk.workspaces (
 CREATE TABLE gridwalk.workspace_members (
     workspace_id UUID REFERENCES gridwalk.workspaces(id),
     user_id UUID REFERENCES gridwalk.users(id),
-    role VARCHAR(50) NOT NULL,
+    role VARCHAR(50) NOT NULL, -- e.g., 'admin', 'editor', 'viewer'
     joined_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (workspace_id, user_id)
 );
