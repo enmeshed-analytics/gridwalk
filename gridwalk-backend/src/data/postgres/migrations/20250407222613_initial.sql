@@ -10,7 +10,8 @@ CREATE TABLE gridwalk.users (
     hash VARCHAR(255) NOT NULL,
     global_role VARCHAR(50),
     active BOOLEAN DEFAULT TRUE,
-    created_at BIGINT NOT NULL
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Workspaces table
@@ -19,7 +20,8 @@ CREATE TABLE gridwalk.workspaces (
     name VARCHAR(255) NOT NULL,
     owner UUID NOT NULL REFERENCES gridwalk.users(id),
     active BOOLEAN DEFAULT TRUE,
-    created_at BIGINT NOT NULL
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Workspace members (join table)
@@ -27,33 +29,33 @@ CREATE TABLE gridwalk.workspace_members (
     workspace_id UUID REFERENCES gridwalk.workspaces(id),
     user_id UUID REFERENCES gridwalk.users(id),
     role VARCHAR(50) NOT NULL,
-    joined_at BIGINT NOT NULL,
+    joined_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (workspace_id, user_id)
 );
 
 -- Connections table
 CREATE TABLE gridwalk.connections (
-    id VARCHAR(255) PRIMARY KEY,
+    id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    created_by UUID REFERENCES gridwalk.users(id),
     connector_type VARCHAR(50) NOT NULL, -- e.g., 'Postgres', 'MySQL', 'SQLite', 'GeoJSON', 'Shapefile', etc.
 
     -- Store all connection configuration as JSON based on connector type
     connection_config JSONB NOT NULL,
 
     -- Metadata
-    created_at BIGINT NOT NULL,
-    created_by UUID REFERENCES gridwalk.users(id),
-    last_updated_at BIGINT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     active BOOLEAN DEFAULT TRUE
 );
 
 -- Connection access rights
 CREATE TABLE gridwalk.connection_access (
     workspace_id UUID REFERENCES gridwalk.workspaces(id),
-    connection_id VARCHAR(255) REFERENCES gridwalk.connections(id),
+    connection_id UUID REFERENCES gridwalk.connections(id),
     access_path VARCHAR(255) NOT NULL,
-    access_variant VARCHAR(50) NOT NULL,
-    PRIMARY KEY (workspace_id, connection_id, access_path, access_variant)
+    access_variant VARCHAR(50) NOT NULL, -- e.g., 'read', 'write', 'owner'
+    PRIMARY KEY (workspace_id, connection_id)
 );
 
 -- Projects table
@@ -61,17 +63,17 @@ CREATE TABLE gridwalk.projects (
     id UUID PRIMARY KEY,
     workspace_id UUID REFERENCES gridwalk.workspaces(id),
     name VARCHAR(255) NOT NULL,
-    uploaded_by UUID REFERENCES gridwalk.users(id),
-    created_at BIGINT NOT NULL
+    owner UUID REFERENCES gridwalk.users(id),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Layers table
 CREATE TABLE gridwalk.layers (
+    id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     workspace_id UUID REFERENCES gridwalk.workspaces(id),
     uploaded_by UUID REFERENCES gridwalk.users(id),
-    created_at BIGINT NOT NULL,
-    PRIMARY KEY (name, workspace_id)
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for common query patterns
