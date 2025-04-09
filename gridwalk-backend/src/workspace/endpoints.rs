@@ -1,5 +1,5 @@
+use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::{app_state::AppState, utils::get_unix_timestamp};
 use crate::{User, Workspace, WorkspaceRole};
 use axum::{
     extract::{Extension, Path, State},
@@ -44,40 +44,32 @@ pub struct SimpleMemberResponse {
 }
 
 impl Workspace {
-    pub fn from_req(req: ReqCreateWorkspace, owner: String) -> Self {
+    pub fn from_req(req: ReqCreateWorkspace) -> Self {
         Workspace {
             id: Uuid::new_v4().to_string(),
             name: req.name,
-            owner,
-            created_at: get_unix_timestamp(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
             active: true,
         }
     }
 }
 
-// TODO: Create all records within a transaction
+// TODO: fix response types
 pub async fn create_workspace(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     Json(req): Json<ReqCreateWorkspace>,
 ) -> Response {
-    if let Some(owner) = auth_user.user {
-        let wsp = Workspace::from_req(req, owner.clone().id);
+    if let Some(user) = auth_user.user {
+        let wsp = Workspace::from_req(req);
         let primary_connection = state
             .geo_connections
             .get_connection("primary")
             .await
             .unwrap();
-        match Workspace::create(&state.app_data, &primary_connection, &wsp).await {
-            Ok(_) => {
-                let now = get_unix_timestamp();
-                // TODO: Handle response from adding member
-                let _ = state
-                    .app_data
-                    .add_workspace_member(&wsp, &owner, WorkspaceRole::Admin, now)
-                    .await;
-                Json(json!({ "workspace_id": wsp.id })).into_response()
-            }
+        match Workspace::create(&state.app_data, &primary_connection, &wsp, &user).await {
+            Ok(_) => Json(json!({ "workspace_id": wsp.id })).into_response(),
             Err(_) => "workspace not created".into_response(),
         }
     } else {
@@ -85,25 +77,34 @@ pub async fn create_workspace(
     }
 }
 
+// TODO: fix response types
 pub async fn delete_workspace(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     Path(workspace_id): Path<String>,
 ) -> Response {
     if let Some(req_user) = auth_user.user {
-        // Retrieve the workspace to ensure it exists and check permissions
-        if let Ok(workspace) = Workspace::from_id(&state.app_data, &workspace_id).await {
-            if workspace.owner == req_user.id {
-                // Ensure the user is the owner
-                match Workspace::delete(&state.app_data, &workspace_id).await {
-                    Ok(_) => "workspace deleted successfully".into_response(),
-                    Err(_) => "failed to delete workspace".into_response(),
-                }
-            } else {
-                "unauthorised to delete this workspace".into_response()
+        // Retrieve the workspace
+        let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
+            Ok(ws) => ws,
+            Err(_) => return "workspace not found".into_response(),
+        };
+
+        // Check if the user is a member of the workspace
+        let member = match workspace.get_member(&state.app_data, &req_user).await {
+            Ok(m) => m,
+            Err(_) => return "unauthorized".into_response(),
+        };
+
+        // Check if the user is an admin
+        if member.role == WorkspaceRole::Admin {
+            // Delete the workspace
+            match Workspace::delete(&state.app_data, &workspace_id).await {
+                Ok(_) => "workspace deleted".into_response(),
+                Err(_) => "failed to delete workspace".into_response(),
             }
         } else {
-            "workspace not found".into_response()
+            "unauthorized".into_response()
         }
     } else {
         "unauthorised".into_response()

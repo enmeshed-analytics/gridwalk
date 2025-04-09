@@ -1,5 +1,4 @@
 use crate::data::Database;
-use crate::utils::get_unix_timestamp;
 use crate::User;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -13,8 +12,8 @@ use crate::{ConnectionAccess, ConnectionAccessConfig, GeoConnector};
 pub struct Workspace {
     pub id: String,
     pub name: String,
-    pub owner: String,
-    pub created_at: u64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
     pub active: bool,
 }
 
@@ -23,6 +22,7 @@ pub struct WorkspaceMember {
     pub workspace_id: String,
     pub user_id: String,
     pub role: WorkspaceRole,
+    pub joined_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -75,9 +75,10 @@ impl Workspace {
         database: &Arc<dyn Database>,
         connection: &Arc<dyn GeoConnector>,
         wsp: &Workspace,
+        admin: &User,
     ) -> Result<()> {
         // Check for existing org with same name
-        let db_resp = database.create_workspace(wsp).await;
+        let db_resp = database.create_workspace(wsp, admin).await;
 
         // Create ConnectionAccess to shared primary db
         let connection_access = ConnectionAccess {
@@ -95,12 +96,13 @@ impl Workspace {
     }
 
     pub async fn delete(database: &Arc<dyn Database>, workspace_id: &str) -> Result<()> {
+        // TODO: Fix this
         database
             .delete_workspace(&Workspace {
                 id: workspace_id.to_string(),
                 name: String::new(),
-                owner: String::new(),
-                created_at: 0,
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
                 active: false,
             })
             .await
@@ -118,10 +120,7 @@ impl Workspace {
             Err(anyhow!("Only Admin can add members"))?
         }
 
-        let now = get_unix_timestamp();
-        database
-            .add_workspace_member(&self, user, role, now)
-            .await?;
+        database.add_workspace_member(&self, user, role).await?;
         Ok(())
     }
 
