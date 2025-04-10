@@ -1,6 +1,6 @@
 use super::base::Postgres;
 use crate::data::UserStore;
-use crate::{GlobalRole, User, Workspace, WorkspaceMember, WorkspaceRole};
+use crate::{Connection, GlobalRole, User, Workspace, WorkspaceMember, WorkspaceRole};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use sqlx::encode::{Encode, IsNull};
@@ -239,6 +239,22 @@ impl UserStore for Postgres {
             return Err(anyhow!("Failed to remove workspace member."));
         }
 
+        Ok(())
+    }
+
+    async fn create_connection(&self, connection: &Connection) -> Result<()> {
+        let query =
+            "INSERT INTO connections (id, name, connector_type, config) VALUES ($1, $2, $3, $4)";
+        let result = sqlx::query(&query)
+            .bind(&connection.id)
+            .bind(&connection.name)
+            .bind(&connection.connector_type)
+            .bind(sqlx::types::Json(&connection.config))
+            .execute(&self.pool)
+            .await?;
+        if result.rows_affected() == 0 {
+            return Err(anyhow!("Failed to create connection."));
+        }
         Ok(())
     }
 }

@@ -1,6 +1,9 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::connector::{Connection, ConnectionAccess, PostgisConnector, PostgresConnection};
+use crate::connector::{
+    Connection, ConnectionAccess, ConnectionTenancy, ConnectorType, PostgisConnector,
+    PostgresConnection,
+};
 use crate::{GlobalRole, Workspace, WorkspaceMember};
 use axum::{
     extract::{Extension, Path, State},
@@ -10,22 +13,27 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use uuid::Uuid;
 
 // TODO: Allow other connector types
 #[derive(Debug, Deserialize)]
 pub struct CreateGlobalConnectionRequest {
     name: String,
-    display_name: String,
+    owner: String,
     config: PostgresConnection,
 }
 
 impl Connection {
     pub fn from_req(req: CreateGlobalConnectionRequest) -> Self {
         Connection {
-            id: req.name,
-            name: req.display_name,
-            connector_type: "postgis".into(),
+            id: Uuid::new_v4(),
+            name: req.name,
+            connector_type: ConnectorType::Postgis,
+            tenancy: ConnectionTenancy::Shared,
             config: req.config,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            active: true,
         }
     }
 }
