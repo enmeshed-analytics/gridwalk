@@ -4,6 +4,7 @@ use crate::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
+use Uuid::Uuid;
 
 #[async_trait]
 pub trait Database: Send + Sync + UserStore + SessionStore + 'static {}
@@ -32,7 +33,7 @@ pub trait UserStore: Send + Sync + 'static {
     async fn get_accessible_connection(
         &self,
         wsp: &Workspace,
-        con_id: &str,
+        con_id: &Uuid,
     ) -> Result<ConnectionAccess>;
     async fn create_layer_record(&self, layer: &Layer) -> Result<()>;
     async fn create_project(&self, project: &Project) -> Result<()>;
