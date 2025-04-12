@@ -22,7 +22,7 @@ pub struct ConnectionConfig {
 #[serde(rename_all = "lowercase")]
 pub enum ConnectionTenancy {
     Shared,
-    Workspace,
+    Workspace(Uuid),
 }
 
 impl ConnectionConfig {
@@ -93,7 +93,7 @@ impl ConnectionAccess {
         database.get_accessible_connections(wsp).await
     }
 
-    pub async fn get(database: &Arc<dyn Database>, wsp: &Workspace, con_id: &str) -> Result<Self> {
+    pub async fn get(database: &Arc<dyn Database>, wsp: &Workspace, con_id: &Uuid) -> Result<Self> {
         let con = database.get_accessible_connection(wsp, con_id).await?;
         Ok(con)
     }

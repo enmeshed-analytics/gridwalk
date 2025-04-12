@@ -1,12 +1,12 @@
-use crate::data::Database;
-use crate::User;
+use crate::{data::Database, Connector};
+use crate::{User, VectorConnectorConfig};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::{ConnectionAccess, ConnectionAccessConfig, GeoConnector};
+use crate::{ConnectionAccess, ConnectionAccessConfig};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
@@ -73,11 +73,11 @@ impl Workspace {
 
     pub async fn create(
         database: &Arc<dyn Database>,
-        connection: &Arc<dyn GeoConnector>,
+        default_vector_store: VectorConnectorConfig,
         wsp: &Workspace,
         admin: &User,
     ) -> Result<()> {
-        // Check for existing org with same name
+        // TODO: Use transaction
         let db_resp = database.create_workspace(wsp, admin).await;
 
         // Create ConnectionAccess to shared primary db

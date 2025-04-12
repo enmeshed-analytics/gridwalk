@@ -1,8 +1,7 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::connector::{
-    Connection, ConnectionAccess, ConnectionTenancy, ConnectorType, PostgisConnector,
-    PostgresConnection,
+    ConnectionAccess, ConnectionConfig, ConnectionTenancy, PostgisConnector, PostgresConnection,
 };
 use crate::{GlobalRole, Workspace, WorkspaceMember};
 use axum::{
@@ -15,20 +14,21 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use super::Connector;
+
 // TODO: Allow other connector types
 #[derive(Debug, Deserialize)]
 pub struct CreateGlobalConnectionRequest {
     name: String,
     owner: String,
-    config: PostgresConnection,
+    config: Connector,
 }
 
-impl Connection {
+impl ConnectionConfig {
     pub fn from_req(req: CreateGlobalConnectionRequest) -> Self {
-        Connection {
+        ConnectionConfig {
             id: Uuid::new_v4(),
             name: req.name,
-            connector_type: ConnectorType::Postgis,
             tenancy: ConnectionTenancy::Shared,
             config: req.config,
             created_at: chrono::Utc::now(),
@@ -60,7 +60,7 @@ pub async fn create_connection(
     }
 
     // Create connection info
-    let connection_info = Connection::from_req(req);
+    let connection_info = ConnectionConfig::from_req(req);
 
     // Check if connection already exists
     if state
@@ -73,15 +73,16 @@ pub async fn create_connection(
     }
 
     // Create postgis connector
-    let postgis_connector = PostgisConnector::new(connection_info.clone().config).unwrap();
+    let connector = connection_info.config.clone();
+    //let postgis_connector = PostgisConnector::new(connection_info.clone().config).unwrap();
 
     // Attempt to create record
     match connection_info.clone().create_record(&state.app_data).await {
         Ok(_) => {
-            // Add connection to geo_connections
+            // Add connection to connections
             state
-                .geo_connections
-                .add_connection(connection_info.id, postgis_connector)
+                .connections
+                .add_connection(connection_info.id, connector)
                 .await;
             (StatusCode::OK, "Connection creation submitted").into_response()
         }
@@ -104,9 +105,9 @@ pub struct ConnectionResponse {
 impl From<ConnectionAccess> for ConnectionResponse {
     fn from(con: ConnectionAccess) -> Self {
         ConnectionResponse {
-            id: con.connection_id.clone(),
-            name: con.connection_id,
-            connector_type: "postgis".into(),
+            id: con.connection_id.clone().to_string(),
+            name: con.connection_id.clone().to_string(),
+            connector_type: "postgis".into(), // TODO: Fix this
         }
     }
 }
@@ -148,7 +149,7 @@ pub async fn list_connections(
 pub async fn list_sources(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path((workspace_id, connection_id)): Path<(String, String)>,
+    Path((workspace_id, connection_id)): Path<(String, Uuid)>,
 ) -> impl IntoResponse {
     match auth_user.user {
         Some(user) => {
@@ -168,7 +169,7 @@ pub async fn list_sources(
                     .map_err(|_| (StatusCode::NOT_FOUND, "".to_string()))?;
 
             let connection = state
-                .geo_connections
+                .connections
                 .get_connection(&connection_id)
                 .await
                 .unwrap();

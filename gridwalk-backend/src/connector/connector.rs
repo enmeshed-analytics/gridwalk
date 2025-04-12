@@ -19,6 +19,7 @@ pub enum VectorConnectorConfig {
     // Other vector configurations…
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum Connector {
     Vector(VectorConnectorConfig),
 }
