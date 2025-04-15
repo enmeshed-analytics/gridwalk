@@ -3,11 +3,11 @@ use crate::auth::AuthUser;
 use crate::{User, Workspace, WorkspaceRole};
 use axum::{
     extract::{Extension, Path, State},
+    http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use futures;
-use futures::future::join_all;
 use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -26,14 +26,14 @@ pub struct ReqCreateWorkspace {
 
 #[derive(Debug, Deserialize)]
 pub struct ReqAddWorkspaceMember {
-    workspace_id: String,
+    workspace_id: Uuid,
     email: String,
     role: WorkspaceRole,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ReqRemoveWorkspaceMember {
-    workspace_id: String,
+    workspace_id: Uuid,
     email: String,
 }
 
@@ -62,14 +62,9 @@ pub async fn create_workspace(
     Json(req): Json<ReqCreateWorkspace>,
 ) -> Response {
     if let Some(user) = auth_user.user {
-        let wsp = Workspace::from_req(req);
-        let primary_connection = state
-            .geo_connections
-            .get_connection("primary")
-            .await
-            .unwrap();
-        match Workspace::create(&state.app_data, &primary_connection, &wsp, &user).await {
-            Ok(_) => Json(json!({ "workspace_id": wsp.id })).into_response(),
+        let new_workspace = Workspace::from_req(req);
+        match new_workspace.save(&state.app_data, &user).await {
+            Ok(_) => Json(json!({ "workspace_id": new_workspace.id })).into_response(),
             Err(_) => "workspace not created".into_response(),
         }
     } else {
@@ -81,7 +76,7 @@ pub async fn create_workspace(
 pub async fn delete_workspace(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<String>,
+    Path(workspace_id): Path<Uuid>,
 ) -> Response {
     if let Some(req_user) = auth_user.user {
         // Retrieve the workspace
@@ -99,7 +94,7 @@ pub async fn delete_workspace(
         // Check if the user is an admin
         if member.role == WorkspaceRole::Admin {
             // Delete the workspace
-            match Workspace::delete(&state.app_data, &workspace_id).await {
+            match workspace.delete(&state.app_data).await {
                 Ok(_) => "workspace deleted".into_response(),
                 Err(_) => "failed to delete workspace".into_response(),
             }
@@ -173,65 +168,62 @@ pub async fn remove_workspace_member(
 pub async fn get_workspace_members(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<String>,
+    Path(workspace_id): Path<Uuid>,
 ) -> impl IntoResponse {
-    if let Some(req_user) = auth_user.user {
-        // Get the workspace
-        let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
-            Ok(ws) => ws,
-            Err(_) => {
-                let error = ErrorResponse {
-                    error: "Workspace not found".to_string(),
-                };
-                return Json(error).into_response();
-            }
-        };
+    let req_user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
 
-        //
-        if let Ok(_member) = workspace.get_member(&state.app_data, &req_user).await {
-            // Get all members and transform to simplified response
-            match workspace.get_members(&state.app_data).await {
-                Ok(members) => {
-                    let users: Vec<SimpleMemberResponse> = futures::stream::iter(members)
-                        .then(|m| {
-                            let state_clone = state.clone();
-                            async move {
-                                if let Ok(user) =
-                                    User::from_id(&state_clone.app_data, &m.user_id).await
-                                {
-                                    SimpleMemberResponse {
-                                        role: m.role,
-                                        email: user.email,
-                                    }
-                                } else {
-                                    SimpleMemberResponse {
-                                        role: m.role,
-                                        email: "Uknown".to_string(),
-                                    }
+    // Get the workspace
+    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => {
+            let error = ErrorResponse {
+                error: "Workspace not found".to_string(),
+            };
+            return Json(error).into_response();
+        }
+    };
+
+    //
+    if let Ok(_member) = workspace.get_member(&state.app_data, &req_user).await {
+        // Get all members and transform to simplified response
+        match workspace.get_members(&state.app_data).await {
+            Ok(members) => {
+                let users: Vec<SimpleMemberResponse> = futures::stream::iter(members)
+                    .then(|m| {
+                        let state_clone = state.clone();
+                        async move {
+                            if let Ok(user) = User::from_id(&state_clone.app_data, &m.user_id).await
+                            {
+                                SimpleMemberResponse {
+                                    role: m.role,
+                                    email: user.email,
+                                }
+                            } else {
+                                SimpleMemberResponse {
+                                    role: m.role,
+                                    email: "unknown".to_string(),
                                 }
                             }
-                        })
-                        .collect()
-                        .await;
+                        }
+                    })
+                    .collect()
+                    .await;
 
-                    Json(users).into_response()
-                }
-                Err(_) => {
-                    let error = ErrorResponse {
-                        error: "Failed to fetch workspace members".to_string(),
-                    };
-                    Json(error).into_response()
-                }
+                Json(users).into_response()
             }
-        } else {
-            let error = ErrorResponse {
-                error: "Unauthorized to view workspace members".to_string(),
-            };
-            Json(error).into_response()
+            Err(_) => {
+                let error = ErrorResponse {
+                    error: "Failed to fetch workspace members".to_string(),
+                };
+                Json(error).into_response()
+            }
         }
     } else {
         let error = ErrorResponse {
-            error: "Unauthorized".to_string(),
+            error: "Unauthorized to view workspace members".to_string(),
         };
         Json(error).into_response()
     }
@@ -241,64 +233,48 @@ pub async fn get_workspaces(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
 ) -> Response {
-    if let Some(user) = auth_user.user {
-        match Workspace::get_user_workspaces(&state.app_data, &user).await {
-            Ok(workspace_ids) => {
-                let workspaces: Vec<Workspace> = join_all(
-                    workspace_ids
-                        .iter()
-                        .map(|id| Workspace::from_id(&state.app_data, id)),
-                )
-                .await
-                .into_iter()
-                .filter_map(Result::ok)
-                .collect();
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
 
-                Json(workspaces).into_response()
-            }
-            Err(_) => {
-                let error = ErrorResponse {
-                    error: "Failed to fetch workspaces".to_string(),
-                };
-                Json(error).into_response()
-            }
+    match Workspace::get_user_workspaces(&state.app_data, &user).await {
+        Ok(workspaces) => Json(workspaces).into_response(),
+        Err(_) => {
+            let error = ErrorResponse {
+                error: "Failed to fetch workspaces".to_string(),
+            };
+            Json(error).into_response()
         }
-    } else {
-        let error = ErrorResponse {
-            error: "Unauthorized".to_string(),
-        };
-        Json(error).into_response()
     }
 }
 
 pub async fn get_workspace(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<String>,
+    Path(workspace_id): Path<Uuid>,
 ) -> Response {
-    if let Some(user) = auth_user.user {
-        match Workspace::from_id(&state.app_data, &workspace_id).await {
-            Ok(workspace) => {
-                if let Ok(_member) = workspace.get_member(&state.app_data, &user).await {
-                    Json(workspace).into_response()
-                } else {
-                    let error = ErrorResponse {
-                        error: "Unauthorized".to_string(),
-                    };
-                    Json(error).into_response()
-                }
-            }
-            Err(_) => {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    match Workspace::from_id(&state.app_data, &workspace_id).await {
+        Ok(workspace) => {
+            if let Ok(_member) = workspace.get_member(&state.app_data, &user).await {
+                Json(workspace).into_response()
+            } else {
                 let error = ErrorResponse {
-                    error: "Workspace not found".to_string(),
+                    error: "Unauthorized".to_string(),
                 };
                 Json(error).into_response()
             }
         }
-    } else {
-        let error = ErrorResponse {
-            error: "Unauthorized".to_string(),
-        };
-        Json(error).into_response()
+        Err(_) => {
+            let error = ErrorResponse {
+                error: "Workspace not found".to_string(),
+            };
+            Json(error).into_response()
+        }
     }
 }

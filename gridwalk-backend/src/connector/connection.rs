@@ -1,4 +1,4 @@
-use super::Connector;
+use super::{Connector, PostgisConnection, PostgisConnector};
 use crate::{data::Database, Workspace};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -8,11 +8,16 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum ConnectionDetails {
+    Postgis(PostgisConnection),
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ConnectionConfig {
     pub id: Uuid,
     pub name: String,
     pub tenancy: ConnectionTenancy,
-    pub config: Connector,
+    pub config: ConnectionDetails,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
     pub active: bool,
@@ -21,7 +26,7 @@ pub struct ConnectionConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ConnectionTenancy {
-    Shared,
+    Shared { capacity: usize },
     Workspace(Uuid),
 }
 
@@ -31,8 +36,8 @@ impl ConnectionConfig {
         Ok(())
     }
 
-    pub async fn from_name(database: &Arc<dyn Database>, connection_name: &str) -> Result<Self> {
-        let con = database.get_connection(connection_name).await?;
+    pub async fn from_id(database: &Arc<dyn Database>, connection_id: &Uuid) -> Result<Self> {
+        let con = database.get_connection(connection_id).await?;
         Ok(con)
     }
 
@@ -99,20 +104,10 @@ impl ConnectionAccess {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PostgresConnection {
-    pub host: String,
-    pub port: u16,
-    pub database: String,
-    pub username: String,
-    pub password: String,
-    pub schema: Option<String>,
-}
-
 // The ActiveConnections struct and its impl block are used to manage live connections at runtime.
 #[derive(Clone)]
 pub struct ActiveConnections {
-    sources: Arc<RwLock<HashMap<Uuid, Arc<Connector>>>>,
+    sources: Arc<RwLock<HashMap<Uuid, Arc<dyn Connector>>>>,
 }
 
 impl ActiveConnections {
@@ -125,10 +120,13 @@ impl ActiveConnections {
     pub async fn add_connection(&self, connection: ConnectionConfig) {
         let mut sources = self.sources.write().await;
         // TODO: connect to the source
-        sources.insert(connection.id, Arc::new(connection.config));
+        let connector = match connection.config {
+            ConnectionDetails::Postgis(config) => PostgisConnector::new(config).unwrap(),
+        };
+        sources.insert(connection.id, Arc::new(connector));
     }
 
-    pub async fn get_connection(&self, connection_id: &Uuid) -> Result<Arc<Connector>> {
+    pub async fn get_connection(&self, connection_id: &Uuid) -> Result<Arc<dyn Connector>> {
         let sources = self.sources.read().await;
         sources
             .get(connection_id)
@@ -136,8 +134,9 @@ impl ActiveConnections {
             .ok_or_else(|| anyhow!("Source not found"))
     }
 
-    pub async fn remove_connection(&self, id: &Uuid) -> Option<Arc<Connector>> {
+    pub async fn remove_connection(&self, id: &Uuid) -> Result<()> {
         let mut sources = self.sources.write().await;
-        sources.remove(id)
+        sources.remove(id);
+        Ok(())
     }
 }

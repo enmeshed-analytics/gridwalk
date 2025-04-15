@@ -1,37 +1,28 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PostgisConnection {
-    pub host: String,
-    pub port: u16,
-    pub database: String,
-    pub username: String,
-    pub password: String,
-    pub schema: Option<String>,
-}
+#[async_trait]
+pub trait Connector: Send + Sync {
+    /// Establish a connection to the data source.
+    async fn connect(&mut self) -> Result<()>;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum VectorConnectorConfig {
-    Postgis(PostgisConnection),
-    // GeoPackage(GeoPackageConnection), TODO: implement this
-    // Other vector configurations…
-}
+    /// Disconnect from the data source.
+    async fn disconnect(&mut self) -> Result<()>;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub enum Connector {
-    Vector(VectorConnectorConfig),
+    // List all data sources in the specified namespace.
+    async fn list_sources(&self, namespace: &str) -> Result<Vec<String>>;
+
+    // Returns a reference to self as a `dyn Any` to support downcasting.
+    fn as_any(&self) -> &dyn Any;
 }
 
 // Trait for all vector-based geospatial data sources
 #[async_trait]
-pub trait VectorConnector: Send + Sync {
-    async fn connect(&mut self) -> Result<()>;
+pub trait VectorConnector: Connector {
     async fn get_geometry_type(&self, namespace: &str, source_name: &str) -> Result<GeometryType>;
-    async fn disconnect(&mut self) -> Result<()>;
     async fn create_namespace(&self, name: &str) -> Result<()>;
-    async fn list_sources(&self, namespace: &str) -> Result<Vec<String>>;
     async fn get_tile(
         &self,
         namespace: &str,

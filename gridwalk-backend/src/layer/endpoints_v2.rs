@@ -15,6 +15,7 @@ use tokio::{
     fs::{self, OpenOptions},
     io::AsyncWriteExt,
 };
+use uuid::Uuid;
 
 #[derive(Debug, PartialEq)]
 enum FileType {
@@ -33,7 +34,7 @@ struct UploadContext {
     user: User,
     total_chunks: u32,
     chunk_number: u32,
-    _workspace_id: String,
+    _workspace_id: Uuid,
     upload_id: String,
     dir_path: std::path::PathBuf,
     layer_info: Option<CreateLayer>,
@@ -94,6 +95,13 @@ async fn initialize_upload_context(
             });
             (StatusCode::BAD_REQUEST, Json(error))
         })?;
+    let workspace_id = Uuid::parse_str(workspace_id).map_err(|e| {
+        let error = json!({
+            "error": "Invalid workspace ID",
+            "details": e.to_string()
+        });
+        (StatusCode::BAD_REQUEST, Json(error))
+    })?;
 
     // Create uploads directory
     let dir_path = Path::new("uploads");
@@ -111,7 +119,7 @@ async fn initialize_upload_context(
         user: user.clone(),
         total_chunks,
         chunk_number,
-        _workspace_id: workspace_id.to_string(),
+        _workspace_id: workspace_id,
         upload_id,
         dir_path: dir_path.to_path_buf(),
         layer_info: None,
@@ -405,17 +413,20 @@ async fn process_layer(
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or(&layer.name);
-    
+
     println!("Writing layer record to database with name: {}", clean_name);
-    
-    // Write the record to the admin database (e.g. DynamoDB)
-    layer.write_record(&state.app_data).await.map_err(|e| {
-        let error = json!({
-            "error": "Failed to write layer record to Database",
-            "details": e.to_string()
-        });
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
-    })?;
+
+    // Write the record to the application database
+    layer
+        .write_record(&state.app_data, user)
+        .await
+        .map_err(|e| {
+            let error = json!({
+                "error": "Failed to write layer record to Database",
+                "details": e.to_string()
+            });
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
+        })?;
 
     // Return success response
     Ok(serde_json::to_value(layer).unwrap_or_else(|_| {
