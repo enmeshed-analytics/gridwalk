@@ -1,12 +1,23 @@
 use super::GeometryType;
-use super::PostgresConnection;
-use super::VectorConnector;
+use super::{Connector, VectorConnector};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use deadpool_postgres::{Config, Pool, Runtime};
 use postgres_native_tls::MakeTlsConnector;
+use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::sync::Arc;
 use tokio_postgres::NoTls;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PostgisConnection {
+    pub host: String,
+    pub port: u16,
+    pub database: String,
+    pub username: String,
+    pub password: String,
+    pub schema: Option<String>,
+}
 
 #[derive(Clone, Debug)]
 pub struct PostgisConnector {
@@ -14,7 +25,7 @@ pub struct PostgisConnector {
 }
 
 impl PostgisConnector {
-    pub fn new(connection: PostgresConnection) -> Result<Self> {
+    pub fn new(connection: PostgisConnection) -> Result<Self> {
         let mut config = Config::new();
         config.host = Some(connection.host.to_string());
         config.port = Some(connection.port);
@@ -47,7 +58,7 @@ impl PostgisConnector {
 }
 
 #[async_trait]
-impl VectorConnector for PostgisConnector {
+impl Connector for PostgisConnector {
     async fn connect(&mut self) -> Result<()> {
         println!("Testing connection to PostGIS database");
         let client = self
@@ -65,21 +76,6 @@ impl VectorConnector for PostgisConnector {
 
     async fn disconnect(&mut self) -> Result<()> {
         println!("Disconnect called, but pool remains active for potential future use");
-        Ok(())
-    }
-
-    async fn create_namespace(&self, name: &str) -> Result<()> {
-        let client = self
-            .pool
-            .get()
-            .await
-            .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
-        let escaped_name = format!("\"{}\"", name);
-        let query = format!("CREATE SCHEMA IF NOT EXISTS {}", escaped_name);
-        client
-            .execute(&query, &[])
-            .await
-            .map_err(|e| anyhow!("Failed to execute query to create namespace: {}", e))?;
         Ok(())
     }
 
@@ -102,6 +98,28 @@ impl VectorConnector for PostgisConnector {
             .map_err(|e| anyhow!("Failed to execute query to list sources: {}", e))?;
         let sources: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
         Ok(sources)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[async_trait]
+impl VectorConnector for PostgisConnector {
+    async fn create_namespace(&self, name: &str) -> Result<()> {
+        let client = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
+        let escaped_name = format!("\"{}\"", name);
+        let query = format!("CREATE SCHEMA IF NOT EXISTS {}", escaped_name);
+        client
+            .execute(&query, &[])
+            .await
+            .map_err(|e| anyhow!("Failed to execute query to create namespace: {}", e))?;
+        Ok(())
     }
 
     async fn get_tile(

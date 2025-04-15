@@ -1,7 +1,7 @@
 pub mod config;
 
-mod dynamodb;
+//mod dynamodb;
 mod postgres;
 
 pub use config::*;
-pub use dynamodb::*;
+//pub use dynamodb::*;

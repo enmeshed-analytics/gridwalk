@@ -1,8 +1,7 @@
+use super::ConnectionDetails;
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::connector::{
-    ConnectionAccess, ConnectionConfig, ConnectionTenancy, PostgisConnector, PostgresConnection,
-};
+use crate::connector::{ConnectionAccess, ConnectionConfig, ConnectionTenancy};
 use crate::{GlobalRole, Workspace, WorkspaceMember};
 use axum::{
     extract::{Extension, Path, State},
@@ -14,14 +13,12 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use super::Connector;
-
 // TODO: Allow other connector types
 #[derive(Debug, Deserialize)]
 pub struct CreateGlobalConnectionRequest {
     name: String,
-    owner: String,
-    config: Connector,
+    tenancy: ConnectionTenancy,
+    config: ConnectionDetails,
 }
 
 impl ConnectionConfig {
@@ -29,7 +26,7 @@ impl ConnectionConfig {
         ConnectionConfig {
             id: Uuid::new_v4(),
             name: req.name,
-            tenancy: ConnectionTenancy::Shared,
+            tenancy: req.tenancy,
             config: req.config,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
@@ -60,30 +57,27 @@ pub async fn create_connection(
     }
 
     // Create connection info
-    let connection_info = ConnectionConfig::from_req(req);
+    let connection_config = ConnectionConfig::from_req(req);
 
     // Check if connection already exists
     if state
         .app_data
-        .get_connection(&connection_info.id)
+        .get_connection(&connection_config.id)
         .await
         .is_ok()
     {
         return (StatusCode::CONFLICT, "Connection already exists").into_response();
     }
 
-    // Create postgis connector
-    let connector = connection_info.config.clone();
-    //let postgis_connector = PostgisConnector::new(connection_info.clone().config).unwrap();
-
     // Attempt to create record
-    match connection_info.clone().create_record(&state.app_data).await {
+    match connection_config
+        .clone()
+        .create_record(&state.app_data)
+        .await
+    {
         Ok(_) => {
             // Add connection to connections
-            state
-                .connections
-                .add_connection(connection_info.id, connector)
-                .await;
+            state.connections.add_connection(connection_config).await;
             (StatusCode::OK, "Connection creation submitted").into_response()
         }
         Err(e) => (
@@ -115,7 +109,7 @@ impl From<ConnectionAccess> for ConnectionResponse {
 pub async fn list_connections(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<String>,
+    Path(workspace_id): Path<Uuid>,
 ) -> impl IntoResponse {
     match auth_user.user {
         Some(user) => {
@@ -149,7 +143,7 @@ pub async fn list_connections(
 pub async fn list_sources(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path((workspace_id, connection_id)): Path<(String, Uuid)>,
+    Path((workspace_id, connection_id)): Path<(Uuid, Uuid)>,
 ) -> impl IntoResponse {
     match auth_user.user {
         Some(user) => {

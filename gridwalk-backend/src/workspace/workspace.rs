@@ -1,10 +1,11 @@
+use crate::User;
 use crate::{data::Database, Connector};
-use crate::{User, VectorConnectorConfig};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::{ConnectionAccess, ConnectionAccessConfig};
 
@@ -67,27 +68,24 @@ pub struct RemoveOrgMember {
 }
 
 impl Workspace {
-    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<Self> {
+    pub async fn from_id(database: &Arc<dyn Database>, id: &Uuid) -> Result<Self> {
         Ok(database.get_workspace_by_id(id).await?)
     }
 
-    pub async fn create(
-        database: &Arc<dyn Database>,
-        default_vector_store: VectorConnectorConfig,
-        wsp: &Workspace,
-        admin: &User,
-    ) -> Result<()> {
+    pub async fn save(&self, database: &Arc<dyn Database>, admin: &User) -> Result<()> {
         // TODO: Use transaction
-        let db_resp = database.create_workspace(wsp, admin).await;
+        let db_resp = database.create_workspace(&self, admin).await;
 
+        // TODO: Random UUID to supress error during testing
+        let connection_id = Uuid::new_v4();
         // Create ConnectionAccess to shared primary db
         let connection_access = ConnectionAccess {
-            connection_id: "primary".to_string(),
-            workspace_id: wsp.id.clone(),
-            access_config: ConnectionAccessConfig::ReadWrite(wsp.id.clone()),
+            connection_id,
+            workspace_id: self.id.clone(),
+            access_config: ConnectionAccessConfig::ReadWrite(self.id.clone()),
         };
         connection_access.create_record(database).await?;
-        let _ = &connection.create_namespace(&wsp.id).await?;
+        //let _ = &connection.create_namespace(&wsp.id).await?;
 
         match db_resp {
             Ok(_) => Ok(()),
@@ -95,17 +93,9 @@ impl Workspace {
         }
     }
 
-    pub async fn delete(database: &Arc<dyn Database>, workspace_id: &str) -> Result<()> {
-        // TODO: Fix this
-        database
-            .delete_workspace(&Workspace {
-                id: workspace_id.to_string(),
-                name: String::new(),
-                created_at: chrono::Utc::now(),
-                updated_at: chrono::Utc::now(),
-                active: false,
-            })
-            .await
+    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
+        // TODO: Fix this - leaves dangling references (cascade delete in db and add checks in logic)
+        database.delete_workspace(self).await
     }
 
     pub async fn add_member(
@@ -155,8 +145,8 @@ impl Workspace {
     pub async fn get_user_workspaces(
         database: &Arc<dyn Database>,
         user: &User,
-    ) -> Result<Vec<String>> {
-        database.get_workspaces(user).await
+    ) -> Result<Vec<Workspace>> {
+        database.get_user_workspaces(user).await
     }
 }
 

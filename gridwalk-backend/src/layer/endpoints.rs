@@ -331,13 +331,16 @@ async fn process_layer(
         })?;
 
     // Write the record to database (e.g. DynamoDB)
-    layer.write_record(&state.app_data).await.map_err(|e| {
-        let error = json!({
-            "error": "Failed to write layer record to Database",
-            "details": e.to_string()
-        });
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
-    })?;
+    layer
+        .write_record(&state.app_data, user)
+        .await
+        .map_err(|e| {
+            let error = json!({
+                "error": "Failed to write layer record to Database",
+                "details": e.to_string()
+            });
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
+        })?;
 
     // Return success response
     Ok(serde_json::to_value(layer).unwrap_or_else(|_| {
