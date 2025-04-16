@@ -1,5 +1,5 @@
-use crate::User;
-use crate::{data::Database, Connector};
+use crate::data::Database;
+use crate::{User, WorkspaceConnectionAccess};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -7,11 +7,11 @@ use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::{ConnectionAccess, ConnectionAccessConfig};
+//use crate::{ConnectionAccess, ConnectionAccessConfig};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -20,8 +20,8 @@ pub struct Workspace {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WorkspaceMember {
-    pub workspace_id: String,
-    pub user_id: String,
+    pub workspace_id: Uuid,
+    pub user_id: Uuid,
     pub role: WorkspaceRole,
     pub joined_at: chrono::DateTime<chrono::Utc>,
 }
@@ -77,14 +77,15 @@ impl Workspace {
         let db_resp = database.create_workspace(&self, admin).await;
 
         // TODO: Random UUID to supress error during testing
+        // Search for a shared tenancy connection with spare capacity (preferably in the same region)
         let connection_id = Uuid::new_v4();
         // Create ConnectionAccess to shared primary db
-        let connection_access = ConnectionAccess {
+
+        let connection_access = WorkspaceConnectionAccess {
             connection_id,
             workspace_id: self.id.clone(),
-            access_config: ConnectionAccessConfig::ReadWrite(self.id.clone()),
         };
-        connection_access.create_record(database).await?;
+        connection_access.save(database).await?;
         //let _ = &connection.create_namespace(&wsp.id).await?;
 
         match db_resp {

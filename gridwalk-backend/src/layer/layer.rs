@@ -1,5 +1,4 @@
 use crate::data::Database;
-use crate::utils::get_unix_timestamp;
 use crate::{User, Workspace, WorkspaceRole};
 use anyhow::{anyhow, Result};
 //use duckdb_postgis::core_processor::launch_process_file;
@@ -21,8 +20,8 @@ pub struct Layer {
     pub workspace_id: Uuid,
     pub connection_id: Uuid,
     pub name: String,
-    pub uploaded_by: String,
-    pub created_at: u64,
+    pub uploaded_by: Uuid,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl Layer {
@@ -33,8 +32,13 @@ impl Layer {
             connection_id: req.connection_id,
             name: req.name,
             uploaded_by: user.id.clone(),
-            created_at: get_unix_timestamp(),
+            created_at: chrono::Utc::now(),
         }
+    }
+
+    pub async fn from_id(database: &Arc<dyn Database>, source_id: &Uuid) -> Result<Self> {
+        let layer = database.get_layer(source_id).await?;
+        Ok(layer)
     }
 
     // TODO this should not be named CREATE but something else as it is just used to check permissions.
@@ -68,12 +72,8 @@ impl Layer {
     }
 
     // Change this to match the pattern used elsewhere
-    pub async fn write_record(
-        &self,
-        database: &Arc<dyn Database>,
-        uploaded_by: &User,
-    ) -> Result<()> {
-        database.create_layer_record(self, uploaded_by).await?;
+    pub async fn write_record(&self, database: &Arc<dyn Database>) -> Result<()> {
+        database.create_layer_record(self).await?;
         Ok(())
     }
 }

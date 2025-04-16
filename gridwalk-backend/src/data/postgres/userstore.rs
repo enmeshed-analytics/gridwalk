@@ -1,7 +1,8 @@
 use super::base::Postgres;
 use crate::data::UserStore;
 use crate::{
-    ConnectionAccess, ConnectionConfig, GlobalRole, User, Workspace, WorkspaceMember, WorkspaceRole,
+    ConnectionConfig, GlobalRole, User, Workspace, WorkspaceConnectionAccess, WorkspaceMember,
+    WorkspaceRole,
 };
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
@@ -105,6 +106,31 @@ impl<'r> FromRow<'r, PgRow> for WorkspaceMember {
     }
 }
 
+impl<'r> FromRow<'r, PgRow> for crate::Layer {
+    fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
+        Ok(Self {
+            id: row.try_get("id")?,
+            workspace_id: row.try_get("workspace_id")?,
+            connection_id: row.try_get("connection_id")?,
+            name: row.try_get("name")?,
+            uploaded_by: row.try_get("uploaded_by")?,
+            created_at: row.try_get("created_at")?,
+        })
+    }
+}
+
+impl<'r> FromRow<'r, PgRow> for crate::Project {
+    fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
+        Ok(Self {
+            id: row.try_get("id")?,
+            workspace_id: row.try_get("workspace_id")?,
+            name: row.try_get("name")?,
+            owner_id: row.try_get("owner")?,
+            created_at: row.try_get("created_at")?,
+        })
+    }
+}
+
 impl<'r> FromRow<'r, PgRow> for ConnectionConfig {
     fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
         // Convert config from json to ConnectionConfig
@@ -144,19 +170,11 @@ impl<'r> FromRow<'r, PgRow> for ConnectionConfig {
     }
 }
 
-impl<'r> FromRow<'r, PgRow> for ConnectionAccess {
+impl<'r> FromRow<'r, PgRow> for WorkspaceConnectionAccess {
     fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
-        let access_config = row.try_get::<String, _>("access_variant")?;
-        let access_path = row.try_get::<String, _>("access_path")?;
-        let access_config = crate::ConnectionAccessConfig::from_str(&access_config, access_path)
-            .map_err(|_| {
-                sqlx::Error::Decode(anyhow!("Failed to decode connection access").into())
-            })?;
-
         Ok(Self {
             connection_id: row.try_get("connection_id")?,
             workspace_id: row.try_get("workspace_id")?,
-            access_config,
         })
     }
 }
@@ -186,15 +204,17 @@ impl UserStore for Postgres {
         sqlx::query_as::<_, User>(query)
             .bind(email)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(|_| anyhow!("Failed to get user with email: {}", email))
     }
 
-    async fn get_user_by_id(&self, id: &str) -> Result<User> {
+    async fn get_user_by_id(&self, id: &Uuid) -> Result<User> {
         let query = "SELECT * FROM users WHERE id = $1";
         sqlx::query_as::<_, User>(query)
             .bind(id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(|_| anyhow!("Failed to get user with ID: {}", id))
     }
 
     async fn create_workspace(&self, wsp: &Workspace, admin: &User) -> Result<()> {
@@ -239,12 +259,13 @@ impl UserStore for Postgres {
         Ok(())
     }
 
-    async fn get_workspace_by_id(&self, id: &str) -> Result<Workspace> {
+    async fn get_workspace_by_id(&self, id: &Uuid) -> Result<Workspace> {
         let query = "SELECT * FROM workspaces WHERE id = $1";
         sqlx::query_as::<_, Workspace>(query)
             .bind(id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(|_| anyhow!("Failed to get workspace with ID: {}", id))
     }
 
     async fn add_workspace_member(
@@ -275,7 +296,14 @@ impl UserStore for Postgres {
             .bind(&wsp.id)
             .bind(&user.id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(|_| {
+                anyhow!(
+                    "Failed to get workspace member with ID: {} in workspace: {}",
+                    user.id,
+                    wsp.id
+                )
+            })
     }
 
     async fn get_workspace_members(&self, wsp: &Workspace) -> Result<Vec<WorkspaceMember>> {
@@ -283,7 +311,17 @@ impl UserStore for Postgres {
         sqlx::query_as::<_, WorkspaceMember>(query)
             .bind(&wsp.id)
             .fetch_all(&self.pool)
-            .await?;
+            .await
+            .map_err(|_| anyhow!("Failed to get workspace members for workspace: {}", wsp.id))
+    }
+
+    async fn get_user_workspaces(&self, user: &User) -> Result<Vec<Workspace>> {
+        let query = "SELECT * FROM workspaces WHERE id IN (SELECT workspace_id FROM workspace_members WHERE user_id = $1)";
+        sqlx::query_as::<_, Workspace>(query)
+            .bind(&user.id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|_| anyhow!("Failed to get workspaces for user with ID: {}", user.id))
     }
 
     async fn remove_workspace_member(&self, org: &Workspace, user: &User) -> Result<()> {
@@ -339,18 +377,18 @@ impl UserStore for Postgres {
         sqlx::query_as::<_, ConnectionConfig>(query)
             .bind(connection_id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(|_| anyhow!("Failed to get connection with ID: {}", connection_id))
     }
 
-    async fn create_connection_access(&self, ca: &ConnectionAccess) -> Result<()> {
-        let query = "INSERT INTO connection_access (workspace_id, connection_id, access_path, access_variant) VALUES ($1, $2, $3, $4)";
+    async fn create_connection_access(&self, ca: &WorkspaceConnectionAccess) -> Result<()> {
+        let query = "INSERT INTO connection_access (workspace_id, connection_id) VALUES ($1, $2)";
         let result = sqlx::query(&query)
             .bind(&ca.connection_id)
             .bind(&ca.workspace_id)
-            .bind(&ca.access_config.path())
-            .bind(&ca.access_config.variant_name())
             .execute(&self.pool)
-            .await?;
+            .await
+            .map_err(|e| anyhow!("Failed to create connection access: {}", e.to_string()))?;
 
         if result.rows_affected() == 0 {
             return Err(anyhow!("Failed to create connection access."));
@@ -359,29 +397,45 @@ impl UserStore for Postgres {
         Ok(())
     }
 
-    async fn get_accessible_connections(&self, wsp: &Workspace) -> Result<Vec<ConnectionAccess>> {
+    async fn get_accessible_connections(
+        &self,
+        wsp: &Workspace,
+    ) -> Result<Vec<WorkspaceConnectionAccess>> {
         let query = "SELECT * FROM connection_access WHERE workspace_id = $1";
-        sqlx::query_as::<_, ConnectionAccess>(query)
+        sqlx::query_as::<_, WorkspaceConnectionAccess>(query)
             .bind(&wsp.id)
             .fetch_all(&self.pool)
-            .await?;
+            .await
+            .map_err(|_| {
+                anyhow!(
+                    "Failed to get accessible connections for workspace: {}",
+                    wsp.id
+                )
+            })
     }
 
     async fn get_accessible_connection(
         &self,
         wsp: &Workspace,
         con_id: &Uuid,
-    ) -> Result<ConnectionAccess> {
+    ) -> Result<WorkspaceConnectionAccess> {
         let query =
             "SELECT * FROM connection_access WHERE workspace_id = $1 AND connection_id = $2";
-        sqlx::query_as::<_, ConnectionAccess>(query)
+        sqlx::query_as::<_, WorkspaceConnectionAccess>(query)
             .bind(&wsp.id)
             .bind(con_id)
             .fetch_one(&self.pool)
-            .await?;
+            .await
+            .map_err(|_| {
+                anyhow!(
+                    "Failed to get accessible connection with ID: {} for workspace: {}",
+                    con_id,
+                    wsp.id
+                )
+            })
     }
 
-    async fn create_layer_record(&self, layer: &crate::Layer, uploaded_by: &User) -> Result<()> {
+    async fn create_layer_record(&self, layer: &crate::Layer) -> Result<()> {
         let query =
             "INSERT INTO layers (id, name, workspace_id, connection_id, uploaded_by) VALUES ($1, $2, $3, $4, $5)";
         let result = sqlx::query(&query)
@@ -389,11 +443,92 @@ impl UserStore for Postgres {
             .bind(&layer.name)
             .bind(&layer.workspace_id)
             .bind(&layer.connection_id)
+            .bind(&layer.uploaded_by)
             .execute(&self.pool)
             .await?;
 
         if result.rows_affected() == 0 {
             return Err(anyhow!("Failed to create layer record."));
+        }
+
+        Ok(())
+    }
+
+    async fn get_layer(&self, layer_id: &Uuid) -> Result<crate::Layer> {
+        let query = "SELECT * FROM layers WHERE id = $1";
+        sqlx::query_as::<_, crate::Layer>(query)
+            .bind(layer_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| anyhow!("Failed to get layer with ID: {}", layer_id))
+    }
+
+    async fn create_project(&self, project: &crate::Project) -> Result<()> {
+        let query = "INSERT INTO projects (id, workspace_id, name, owner) VALUES ($1, $2, $3, $4)";
+        let result = sqlx::query(&query)
+            .bind(&project.id)
+            .bind(&project.workspace_id)
+            .bind(&project.name)
+            .bind(&project.owner_id)
+            .execute(&self.pool)
+            .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(anyhow!("Failed to create project."));
+        }
+
+        Ok(())
+    }
+
+    async fn get_projects(&self, workspace_id: &Uuid) -> Result<Vec<crate::Project>> {
+        let query = "SELECT * FROM projects WHERE workspace_id = $1";
+        sqlx::query_as::<_, crate::Project>(query)
+            .bind(workspace_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|_| anyhow!("Failed to get projects for workspace: {}", workspace_id))
+    }
+
+    async fn get_project(&self, workspace_id: &Uuid, project_id: &Uuid) -> Result<crate::Project> {
+        let query = "SELECT * FROM projects WHERE workspace_id = $1 AND id = $2";
+        sqlx::query_as::<_, crate::Project>(query)
+            .bind(workspace_id)
+            .bind(project_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| {
+                anyhow!(
+                    "Failed to get project with ID: {} in workspace: {}",
+                    project_id,
+                    workspace_id
+                )
+            })
+    }
+
+    async fn delete_project(&self, project: &crate::Project) -> Result<()> {
+        let query = "DELETE FROM projects WHERE id = $1";
+        let result = sqlx::query(&query)
+            .bind(&project.id)
+            .execute(&self.pool)
+            .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(anyhow!("Failed to delete project."));
+        }
+
+        Ok(())
+    }
+
+    async fn update_user_password(&self, user: &User) -> Result<()> {
+        let query = "UPDATE users SET password_hash = $1 WHERE id = $2";
+        let result = sqlx::query(&query)
+            .bind(&user.hash)
+            .bind(&user.id)
+            .execute(&self.pool)
+            .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(anyhow!("Failed to update user password."));
         }
 
         Ok(())

@@ -417,16 +417,13 @@ async fn process_layer(
     println!("Writing layer record to database with name: {}", clean_name);
 
     // Write the record to the application database
-    layer
-        .write_record(&state.app_data, user)
-        .await
-        .map_err(|e| {
-            let error = json!({
-                "error": "Failed to write layer record to Database",
-                "details": e.to_string()
-            });
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
-        })?;
+    layer.write_record(&state.app_data).await.map_err(|e| {
+        let error = json!({
+            "error": "Failed to write layer record to Database",
+            "details": e.to_string()
+        });
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
+    })?;
 
     // Return success response
     Ok(serde_json::to_value(layer).unwrap_or_else(|_| {

@@ -1,9 +1,10 @@
 use crate::data::Database;
-use crate::utils::{create_id, hash_password};
+use crate::utils::hash_password;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use strum_macros::{Display, EnumString};
+use uuid::Uuid;
 
 #[derive(PartialEq, Debug, Display, EnumString, Clone, Deserialize, Serialize)]
 #[strum(serialize_all = "snake_case")]
@@ -15,7 +16,7 @@ pub enum GlobalRole {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct User {
-    pub id: String,
+    pub id: Uuid,
     pub email: String,
     pub first_name: String,
     pub last_name: String,
@@ -37,12 +38,12 @@ pub struct CreateUser {
 #[derive(Debug, Clone, Serialize)]
 pub struct Email {
     pub email: String,
-    pub user_id: String,
+    pub user_id: Uuid,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Profile {
-    pub id: String,
+    pub id: Uuid,
     pub email: String,
     pub first_name: String,
     pub last_name: String,
@@ -63,15 +64,14 @@ impl From<User> for Profile {
 
 impl User {
     pub async fn create(database: &Arc<dyn Database>, user: &CreateUser) -> Result<()> {
-        let user_id = create_id(10).await;
-        let new_user = User::from_create_user(user, &user_id, true);
+        let new_user = User::from_create_user(user, true);
         match database.get_user_by_email(&new_user.email).await {
             Ok(_) => Err(anyhow!("email address already registered")),
             Err(_) => database.create_user(&new_user).await,
         }
     }
 
-    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<User> {
+    pub async fn from_id(database: &Arc<dyn Database>, id: &Uuid) -> Result<User> {
         database.get_user_by_id(id).await
     }
 
@@ -79,19 +79,18 @@ impl User {
         database.get_user_by_email(email).await
     }
 
-    fn from_create_user(create_user: &CreateUser, id: &str, active: bool) -> User {
-        let now = chrono::Utc::now();
+    fn from_create_user(create_user: &CreateUser, active: bool) -> User {
         // Generate password hash
         let password_hash = hash_password(&create_user.password).unwrap();
 
         User {
-            id: id.to_string(),
+            id: Uuid::new_v4(),
             email: create_user.email.to_string(),
             first_name: create_user.first_name.to_string(),
             last_name: create_user.last_name.to_string(),
             global_role: create_user.clone().global_role,
             active,
-            created_at: now,
+            created_at: chrono::Utc::now(),
             hash: password_hash,
         }
     }

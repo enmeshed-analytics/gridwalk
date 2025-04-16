@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::utils::{create_id, verify_password};
+use crate::utils::verify_password;
 use crate::{CreateUser, Profile, Session, User};
 use axum::{
     extract::{Extension, State},
@@ -14,7 +14,9 @@ use axum_extra::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::str::FromStr;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "healthy" }))
@@ -55,49 +57,47 @@ pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(req): Json<LoginRequest>,
 ) -> impl IntoResponse {
-    // Get user from app db
-    let user_response = User::from_email(&state.app_data, &req.email).await;
+    // Get user from app db, if Error, early return 401
+    let user = match User::from_email(&state.app_data, &req.email).await {
+        Ok(user) => user,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "error": "UNAUTHORIZED" })),
+            )
+        }
+    };
+
+    if !user.active {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "UNAUTHORIZED" })),
+        );
+    }
+
     // Check creds
-    match user_response {
-        Ok(user) => {
-            let password_verified = verify_password(&user.hash, &req.password).unwrap();
-            if !password_verified {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({
-                        "error": "Authentication failed"
-                    })),
-                );
-            }
-            let session_id = create_id(30).await;
-            match state
-                .app_data
-                .create_session(Some(&user), &session_id)
-                .await
-            {
-                Ok(_) => {
-                    // Return session token
-                    let response = json!({
-                        "apiKey": session_id,
-                    });
-                    (StatusCode::OK, Json(response))
-                }
-                Err(_) => {
-                    // Session creation failed
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({
-                            "error": "Failed to create session"
-                        })),
-                    )
-                }
-            }
+    match verify_password(&user.hash, &req.password) {
+        Ok(password_verified) => password_verified,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "error": "UNAUTHORIZED" })),
+            )
+        }
+    };
+
+    // Create session
+    match Session::create(&state.app_data, Some(&user)).await {
+        Ok(session) => {
+            let token = session.id.to_string();
+            let response = json!({
+                "session_id": token,
+            });
+            (StatusCode::OK, Json(response))
         }
         Err(_) => (
-            StatusCode::UNAUTHORIZED,
-            Json(json!({
-                "error": "User not found"
-            })),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "Failed to create session" })),
         ),
     }
 }
@@ -107,12 +107,24 @@ pub async fn logout(
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> impl IntoResponse {
     let token = authorization.token();
-    match Session::from_id(&state.app_data, token).await {
-        Ok(session) => {
-            let _ = session.delete(&state.app_data).await;
-            "logged out".into_response()
-        }
-        Err(_) => "logged out".into_response(),
+    // Convert the token to a UUID
+    let session_id = match Uuid::from_str(token) {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "invalid token".to_string()).into_response(),
+    };
+
+    let session = match Session::from_id(&state.app_data, &session_id).await {
+        Ok(session) => session,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "".to_string()).into_response(),
+    };
+
+    match session.delete(&state.app_data).await {
+        Ok(_) => (StatusCode::OK, "logout succeeded".to_string()).into_response(),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "logout failed".to_string(),
+        )
+            .into_response(),
     }
 }
 

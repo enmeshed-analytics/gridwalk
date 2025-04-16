@@ -12,7 +12,7 @@ aws-sdk-dynamodb = "1.48"
 axum = { version = "0.7", features = ["macros", "multipart"] }
 axum-extra = { version = "0.9.4", features = ["typed-header"] }
 base64 = "0.22.1"
-deadpool-postgres = "0.14.0"
+deadpool-postgres = "0.14.1"
 chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15.7"
 duckdb-postgis = "=0.1.9"
@@ -35,7 +35,7 @@ sqlx = { version = "0.8", features = ["postgres", "chrono", "runtime-tokio-nativ
 strum = "0.26"
 strum_macros = "0.26"
 tokio = { version = "1.40.0", features = ["full"] }
-tokio-postgres = "0.7.12"
+tokio-postgres = { version="0.7.9", features=["with-uuid-1"] }
 tower-cookies = "0.10.0"
 tower-http = { version = "0.5", features = ["trace", "cors", "limit"] }
 tracing = "0.1"

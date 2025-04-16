@@ -9,7 +9,9 @@ use axum::{
 };
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use axum_extra::TypedHeader;
+use std::str::FromStr;
 use std::sync::Arc;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRef)]
 pub struct AuthUser {
@@ -33,7 +35,10 @@ pub async fn auth_middleware(
     })?;
 
     let token = auth.token();
-    match Session::from_id(&state.app_data, token).await {
+    let session_id = Uuid::from_str(token)
+        .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid session token").into_response())?;
+
+    match Session::from_id(&state.app_data, &session_id).await {
         Ok(session) => {
             if let Some(user_id) = session.user_id {
                 match User::from_id(&state.app_data, &user_id).await {

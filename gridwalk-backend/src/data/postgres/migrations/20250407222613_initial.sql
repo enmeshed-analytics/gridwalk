@@ -1,8 +1,5 @@
--- Create schema
-CREATE SCHEMA IF NOT EXISTS gridwalk;
-
 -- Users table
-CREATE TABLE gridwalk.users (
+CREATE TABLE users (
     id UUID PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     first_name VARCHAR(255) NOT NULL,
@@ -14,8 +11,17 @@ CREATE TABLE gridwalk.users (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Sessions table
+-- TODO: Add extra info for session management
+CREATE TABLE sessions (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Workspaces table
-CREATE TABLE gridwalk.workspaces (
+CREATE TABLE workspaces (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     active BOOLEAN DEFAULT TRUE,
@@ -24,16 +30,16 @@ CREATE TABLE gridwalk.workspaces (
 );
 
 -- Workspace members (join table)
-CREATE TABLE gridwalk.workspace_members (
-    workspace_id UUID REFERENCES gridwalk.workspaces(id),
-    user_id UUID REFERENCES gridwalk.users(id),
+CREATE TABLE workspace_members (
+    workspace_id UUID REFERENCES workspaces(id),
+    user_id UUID REFERENCES users(id),
     role VARCHAR(50) NOT NULL, -- e.g., 'admin', 'editor', 'viewer'
     joined_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (workspace_id, user_id)
 );
 
 -- Connections table
-CREATE TABLE gridwalk.connections (
+CREATE TABLE connections (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     tenancy STRING NOT NULL, -- e.g., 'shared', 'private'
@@ -56,36 +62,34 @@ CREATE TABLE gridwalk.connections (
     )
 );
 
--- Connection access rights
-CREATE TABLE gridwalk.connection_access (
-    workspace_id UUID REFERENCES gridwalk.workspaces(id),
-    connection_id UUID REFERENCES gridwalk.connections(id),
-    access_path VARCHAR(255) NOT NULL,
-    access_variant VARCHAR(50) NOT NULL, -- e.g., 'read', 'write', 'owner'
+-- Connection access rights - No data/layer sharing information is stored here
+CREATE TABLE connection_access (
+    workspace_id UUID REFERENCES workspaces(id),
+    connection_id UUID REFERENCES connections(id),
     PRIMARY KEY (workspace_id, connection_id)
 );
 
 -- Projects table
-CREATE TABLE gridwalk.projects (
+CREATE TABLE projects (
     id UUID PRIMARY KEY,
-    workspace_id UUID REFERENCES gridwalk.workspaces(id),
+    workspace_id UUID REFERENCES workspaces(id),
     name VARCHAR(255) NOT NULL,
-    owner UUID REFERENCES gridwalk.users(id),
+    owner UUID REFERENCES users(id),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Layers table
-CREATE TABLE gridwalk.layers (
+CREATE TABLE layers (
     id UUID PRIMARY KEY,
+    workspace_id UUID REFERENCES workspaces(id),
+    connection_id UUID REFERENCES connections(id),
     name VARCHAR(255) NOT NULL,
-    workspace_id UUID REFERENCES gridwalk.workspaces(id),
-    connection_id UUID REFERENCES gridwalk.connections(id),
-    uploaded_by UUID REFERENCES gridwalk.users(id),
+    uploaded_by UUID REFERENCES users(id),
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for common query patterns
-CREATE INDEX idx_workspace_members_user_id ON gridwalk.workspace_members(user_id);
-CREATE INDEX idx_projects_workspace_id ON gridwalk.projects(workspace_id);
-CREATE INDEX idx_layers_workspace_id ON gridwalk.layers(workspace_id);
-CREATE INDEX idx_connection_access_workspace_id ON gridwalk.connection_access(workspace_id);
+CREATE INDEX idx_workspace_members_user_id ON workspace_members(user_id);
+CREATE INDEX idx_projects_workspace_id ON projects(workspace_id);
+CREATE INDEX idx_layers_workspace_id ON layers(workspace_id);
+CREATE INDEX idx_connection_access_workspace_id ON connection_access(workspace_id);

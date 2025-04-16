@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::Arc;
 use tokio_postgres::NoTls;
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PostgisConnection {
@@ -16,7 +17,7 @@ pub struct PostgisConnection {
     pub database: String,
     pub username: String,
     pub password: String,
-    pub schema: Option<String>,
+    pub schema: String,
 }
 
 #[derive(Clone, Debug)]
@@ -79,7 +80,7 @@ impl Connector for PostgisConnector {
         Ok(())
     }
 
-    async fn list_sources(&self, namespace: &str) -> Result<Vec<String>> {
+    async fn list_sources(&self, workspace_id: &Uuid) -> Result<Vec<String>> {
         let client = self
             .pool
             .get()
@@ -92,7 +93,7 @@ impl Connector for PostgisConnector {
                 "SELECT table_name 
                 FROM information_schema.tables 
                 WHERE table_schema = $1",
-                &[&namespace],
+                &[&workspace_id],
             )
             .await
             .map_err(|e| anyhow!("Failed to execute query to list sources: {}", e))?;
@@ -102,6 +103,10 @@ impl Connector for PostgisConnector {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn as_vector_connector(&self) -> Option<&dyn VectorConnector> {
+        Some(self)
     }
 }
 
@@ -122,14 +127,7 @@ impl VectorConnector for PostgisConnector {
         Ok(())
     }
 
-    async fn get_tile(
-        &self,
-        namespace: &str,
-        source_name: &str,
-        z: u32,
-        x: u32,
-        y: u32,
-    ) -> Result<Vec<u8>> {
+    async fn get_tile(&self, source_id: &Uuid, z: u32, x: u32, y: u32) -> Result<Vec<u8>> {
         let pool = self.pool.as_ref();
         let client = pool.get().await?;
 
@@ -137,13 +135,12 @@ impl VectorConnector for PostgisConnector {
         let check_column_query = format!(
             "SELECT column_name 
             FROM information_schema.columns 
-            WHERE table_schema = $1 
-            AND table_name = $2 
+            AND table_name = $1 
             AND column_name IN ('geom', 'geometry')",
         );
 
         let geom_column: String = client
-            .query_one(&check_column_query, &[&namespace, &source_name])
+            .query_one(&check_column_query, &[&source_id])
             .await?
             .get(0);
 
@@ -164,10 +161,10 @@ impl VectorConnector for PostgisConnector {
                     bounds
                     WHERE ST_Intersects(t.{source_geom_column}, bounds.geom)
                 )
-                SELECT ST_AsMVT(mvt_data.*, '{source_name}') AS mvt
+                SELECT ST_AsMVT(mvt_data.*, '{source_id}') AS mvt
                 FROM mvt_data;
                 ",
-            table = format!("\"{}\".\"{}\"", namespace, source_name),
+            table = format!("\"{}\"", source_id),
             source_geom_column = geom_column,
             z = z,
             x = x,
@@ -179,7 +176,7 @@ impl VectorConnector for PostgisConnector {
         Ok(mvt_data)
     }
 
-    async fn get_geometry_type(&self, namespace: &str, source_name: &str) -> Result<GeometryType> {
+    async fn get_geometry_type(&self, source_id: &Uuid) -> Result<GeometryType> {
         // Let the client and handle the connection
         let client = self
             .pool
@@ -191,23 +188,23 @@ impl VectorConnector for PostgisConnector {
         let check_column_query = format!(
             "SELECT column_name 
             FROM information_schema.columns 
-            WHERE table_schema = $1 
-            AND table_name = $2 
+            AND table_name = $1 
             AND column_name IN ('geom', 'geometry')",
         );
 
         // Get the geometry column name
         let geom_column: String = client
-            .query_one(&check_column_query, &[&namespace, &source_name])
+            .query_one(&check_column_query, &[&source_id])
             .await?
             .get(0);
 
+        // TODO: Use parameterized query
         // Query to get the geometry type
         let query = format!(
             "SELECT DISTINCT ST_GeometryType({}) 
-            FROM \"{}\".\"{}\" 
+            FROM \"{}\" 
             LIMIT 1",
-            geom_column, namespace, source_name
+            geom_column, source_id
         );
 
         let row = client.query_one(&query, &[]).await?;
