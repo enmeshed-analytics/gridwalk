@@ -93,7 +93,7 @@ pub async fn tiles(
 // TODO: Fix this. There is no auth
 pub async fn get_geometry_type(
     State(state): State<Arc<AppState>>,
-    Path((workspace_id, source_id)): Path<(Uuid, Uuid)>,
+    Path(source_id): Path<Uuid>,
 ) -> impl IntoResponse {
     let layer = Layer::from_id(&state.app_data, &source_id).await.unwrap();
     let connection = state
