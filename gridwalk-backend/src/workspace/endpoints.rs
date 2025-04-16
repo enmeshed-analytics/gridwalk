@@ -46,7 +46,7 @@ pub struct SimpleMemberResponse {
 impl Workspace {
     pub fn from_req(req: ReqCreateWorkspace) -> Self {
         Workspace {
-            id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
             name: req.name,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),

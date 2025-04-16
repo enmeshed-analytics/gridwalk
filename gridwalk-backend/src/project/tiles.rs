@@ -1,31 +1,29 @@
 use crate::app_state::AppState;
-use crate::connector::ConnectionAccess;
-use crate::{Session, User, Workspace};
+use crate::{Layer, Session, User, Workspace};
 use axum::{
     extract::{Path, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
+use std::str::FromStr;
 use std::sync::Arc;
 use tower_cookies::Cookies;
+use uuid::Uuid;
 
-// TODO: Create cache for tile source/session to prevent repeated requests to DB
+// TODO: Create cache for session/layer permissions to prevent repeated requests to DB
 
 pub async fn tiles(
     State(state): State<Arc<AppState>>,
     cookies: Cookies,
-    Path((workspace_id, connection_id, source_name, z, x, y)): Path<(
-        String,
-        String,
-        String,
-        u32,
-        u32,
-        u32,
-    )>,
+    Path((layer_id, z, x, y)): Path<(Uuid, u32, u32, u32)>,
 ) -> impl IntoResponse {
     let token = cookies.get("sid").unwrap().value().to_string();
+    let session_id = match Uuid::from_str(&token) {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "").into_response(),
+    };
 
-    let session = match Session::from_id(&state.app_data, &token).await {
+    let session = match Session::from_id(&state.app_data, &session_id).await {
         Ok(session) => session,
         Err(_) => return (StatusCode::UNAUTHORIZED, "").into_response(),
     };
@@ -42,8 +40,13 @@ pub async fn tiles(
         Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "").into_response(),
     };
 
+    let layer = match Layer::from_id(&state.app_data, &layer_id).await {
+        Ok(layer) => layer,
+        Err(_) => return (StatusCode::NOT_FOUND, "").into_response(),
+    };
+
     // Get the workspace
-    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
+    let workspace = match Workspace::from_id(&state.app_data, &layer.workspace_id).await {
         Ok(ws) => ws,
         Err(_) => return "workspace not found".into_response(),
     };
@@ -55,22 +58,22 @@ pub async fn tiles(
         .await
         .map_err(|_| (StatusCode::FORBIDDEN, ""));
 
-    // TODO: Add to same transaction as above
-    // Check if workspace has access to the connection namespace
-    let _connection_access = ConnectionAccess::get(&state.app_data, &workspace, &connection_id)
-        .await
-        .map_err(|_| (StatusCode::NOT_FOUND, ""));
+    // TODO: Removed connection sharing logic. Use Layer sharing across workspaces instead
 
-    let geoconnector = state
-        .geo_connections
-        .get_connection(&connection_id)
+    // TODO: Look at caching the above to reduce db calls
+
+    let connector = state
+        .connections
+        .get_connection(&layer.connection_id)
         .await
         .unwrap();
 
-    let tile = geoconnector
-        .get_tile(&workspace_id, &source_name, z, x, y)
-        .await
-        .unwrap();
+    let connector = match connector.as_vector_connector() {
+        Some(vc) => vc,
+        None => return (StatusCode::INTERNAL_SERVER_ERROR, "").into_response(),
+    };
+
+    let tile = connector.get_tile(&layer_id, z, x, y).await.unwrap();
 
     Response::builder()
         .status(StatusCode::OK)
@@ -87,21 +90,30 @@ pub async fn tiles(
         .into_response()
 }
 
+// TODO: Fix this. There is no auth
 pub async fn get_geometry_type(
     State(state): State<Arc<AppState>>,
-    Path((workspace_id, connection_id, source_name)): Path<(String, String, String)>,
+    Path((workspace_id, source_id)): Path<(Uuid, Uuid)>,
 ) -> impl IntoResponse {
-    let geoconnector = state
-        .geo_connections
-        .get_connection(&connection_id)
+    let layer = Layer::from_id(&state.app_data, &source_id).await.unwrap();
+    let connection = state
+        .connections
+        .get_connection(&layer.connection_id)
         .await
         .unwrap();
 
+    let vector_connector = if let Some(vc) = connection.as_vector_connector() {
+        vc
+    } else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Connection is not a vector connector",
+        )
+            .into_response();
+    };
+
     // Get the geometry type and convert it to a string
-    match geoconnector
-        .get_geometry_type(&workspace_id, &source_name)
-        .await
-    {
+    match vector_connector.get_geometry_type(&source_id).await {
         Ok(geom_type) => {
             let geom_type_str = format!("{:?}", geom_type);
             Response::builder()

@@ -1,6 +1,6 @@
 use crate::{
-    ConnectionAccess, ConnectionConfig, Layer, Project, Session, User, Workspace, WorkspaceMember,
-    WorkspaceRole,
+    ConnectionConfig, Layer, Project, Session, User, Workspace, WorkspaceConnectionAccess,
+    WorkspaceMember, WorkspaceRole,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -13,7 +13,7 @@ pub trait Database: Send + Sync + UserStore + SessionStore + 'static {}
 pub trait UserStore: Send + Sync + 'static {
     async fn create_user(&self, user: &User) -> Result<()>;
     async fn get_user_by_email(&self, email: &str) -> Result<User>;
-    async fn get_user_by_id(&self, id: &str) -> Result<User>;
+    async fn get_user_by_id(&self, id: &Uuid) -> Result<User>;
     async fn create_workspace(&self, wsp: &Workspace, admin: &User) -> Result<()>;
     async fn delete_workspace(&self, wsp: &Workspace) -> Result<()>;
     async fn get_workspace_by_id(&self, id: &Uuid) -> Result<Workspace>;
@@ -25,27 +25,32 @@ pub trait UserStore: Send + Sync + 'static {
     ) -> Result<()>;
     async fn get_workspace_member(&self, wsp: &Workspace, user: &User) -> Result<WorkspaceMember>;
     async fn get_workspace_members(&self, wsp: &Workspace) -> Result<Vec<WorkspaceMember>>;
+    async fn get_user_workspaces(&self, user: &User) -> Result<Vec<Workspace>>;
     async fn remove_workspace_member(&self, org: &Workspace, user: &User) -> Result<()>;
     async fn create_connection(&self, connection: &ConnectionConfig) -> Result<()>;
     async fn get_connection(&self, connection_id: &Uuid) -> Result<ConnectionConfig>;
-    async fn create_connection_access(&self, ca: &ConnectionAccess) -> Result<()>;
-    async fn get_accessible_connections(&self, wsp: &Workspace) -> Result<Vec<ConnectionAccess>>;
+    async fn create_connection_access(&self, ca: &WorkspaceConnectionAccess) -> Result<()>;
+    async fn get_accessible_connections(
+        &self,
+        wsp: &Workspace,
+    ) -> Result<Vec<WorkspaceConnectionAccess>>;
     async fn get_accessible_connection(
         &self,
         wsp: &Workspace,
         con_id: &Uuid,
-    ) -> Result<ConnectionAccess>;
-    async fn create_layer_record(&self, layer: &Layer, uploaded_by: &User) -> Result<()>;
+    ) -> Result<WorkspaceConnectionAccess>;
+    async fn create_layer_record(&self, layer: &Layer) -> Result<()>;
+    async fn get_layer(&self, layer_id: &Uuid) -> Result<Layer>;
     async fn create_project(&self, project: &Project) -> Result<()>;
-    async fn get_user_workspaces(&self, user: &User) -> Result<Vec<Workspace>>;
-    async fn get_projects(&self, workspace_id: &str) -> Result<Vec<Project>>;
+    async fn get_projects(&self, workspace_id: &Uuid) -> Result<Vec<Project>>;
+    async fn get_project(&self, workspace_id: &Uuid, project_id: &Uuid) -> Result<Project>;
     async fn delete_project(&self, project: &Project) -> Result<()>;
     async fn update_user_password(&self, user: &User) -> Result<()>;
 }
 
 #[async_trait]
 pub trait SessionStore: Send + Sync + 'static {
-    async fn get_session_by_id(&self, id: &str) -> Result<Session>;
-    async fn create_session(&self, user: Option<&'life1 User>, session_id: &str) -> Result<()>;
-    async fn delete_session(&self, session_id: &str) -> Result<()>;
+    async fn get_session_by_id(&self, id: &Uuid) -> Result<Session>;
+    async fn create_session(&self, user: Option<&User>, session_id: &Uuid) -> Result<()>;
+    async fn delete_session(&self, session_id: &Uuid) -> Result<()>;
 }
