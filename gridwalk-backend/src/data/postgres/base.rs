@@ -156,9 +156,4 @@ impl Postgres {
 
         Ok(postgres)
     }
-
-    async fn ensure_tables_exist(pool: &PgPool, schema: &Option<String>) -> Result<()> {
-        // Set the search path if a schema is specified
-        Ok(())
-    }
 }

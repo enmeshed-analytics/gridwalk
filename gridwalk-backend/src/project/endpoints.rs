@@ -7,7 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
 use tracing::debug;
@@ -16,11 +16,6 @@ use uuid::Uuid;
 #[derive(Serialize)]
 pub struct ErrorResponse {
     error: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ProjectRequest {
-    workspace_id: Uuid,
 }
 
 pub async fn create_project(
@@ -141,12 +136,6 @@ pub async fn get_projects(
     };
 
     Json(projects).into_response()
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DeleteProjectQuery {
-    workspace_id: Uuid,
-    project_id: String,
 }
 
 pub async fn delete_project(
