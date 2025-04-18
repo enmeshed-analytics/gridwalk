@@ -17,7 +17,7 @@ impl<'a> FromSql<'a> for GlobalRole {
     // Tell tokio-postgres which SQL types we accept
     fn accepts(ty: &Type) -> bool {
         // you can also use Type::VARCHAR if you prefer
-        ty == &Type::TEXT
+        ty == &Type::VARCHAR
     }
 
     // Convert the raw bytes from Postgres into your enum

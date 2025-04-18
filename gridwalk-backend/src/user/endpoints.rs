@@ -91,7 +91,7 @@ pub async fn login(
         Ok(session) => {
             let token = session.id.to_string();
             let response = json!({
-                "session_id": token,
+                "apiKey": token,
             });
             (StatusCode::OK, Json(response))
         }
