@@ -4,7 +4,7 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE NOT NULL,
     first_name VARCHAR(255) NOT NULL,
     last_name VARCHAR(255) NOT NULL,
-    hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
     global_role VARCHAR(50),
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -42,9 +42,9 @@ CREATE TABLE workspace_members (
 CREATE TABLE connections (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    tenancy STRING NOT NULL, -- e.g., 'shared', 'private'
-    shared_capacity INTEGER, -- set if tenancy_type is 'shared'
-    workspace_id UUID, -- set if tenancy_type is 'workspace'
+    tenancy VARCHAR(50) NOT NULL, -- e.g., 'shared', 'private'
+    shared_capacity INTEGER, -- set if tenancy is 'shared'
+    workspace_id UUID, -- set if tenancy is 'workspace'
     connector_type VARCHAR(50) NOT NULL, -- e.g., 'Postgres', 'MySQL', 'SQLite', 'GeoJSON', 'Shapefile', etc.
 
     -- Store all connection configuration as JSON based on connector type
@@ -57,8 +57,8 @@ CREATE TABLE connections (
 
     -- Add a check constraint to ensure data consistency.
     CONSTRAINT tenancy_valid CHECK (
-         (tenancy_type = 'shared' AND shared_capacity IS NOT NULL AND workspace_id IS NULL)
-      OR (tenancy_type = 'workspace' AND workspace_id IS NOT NULL AND shared_capacity IS NULL)
+         (tenancy = 'shared' AND shared_capacity IS NOT NULL AND workspace_id IS NULL)
+      OR (tenancy = 'workspace' AND workspace_id IS NOT NULL AND shared_capacity IS NULL)
     )
 );
 
