@@ -47,7 +47,7 @@ impl Postgres {
 
         // TODO: Read initial user from env vars
         let initial_user = CreateUser {
-            email: "admin@example.com:".to_string(),
+            email: "admin@gridwalk.co".to_string(),
             first_name: "Admin".to_string(),
             last_name: "User".to_string(),
             global_role: Some(GlobalRole::Super),
