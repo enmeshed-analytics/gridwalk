@@ -65,7 +65,6 @@ pub async fn tiles(
     let connector = state
         .connections
         .get_connection(&layer.connection_id)
-        .await
         .unwrap();
 
     let connector = match connector.as_vector_connector() {
@@ -99,7 +98,6 @@ pub async fn get_geometry_type(
     let connection = state
         .connections
         .get_connection(&layer.connection_id)
-        .await
         .unwrap();
 
     let vector_connector = if let Some(vc) = connection.as_vector_connector() {
