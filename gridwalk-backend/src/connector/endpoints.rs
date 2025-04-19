@@ -1,4 +1,4 @@
-use super::ConnectionDetails;
+use super::{ConnectionDetails, Connector, PostgisConnector};
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::connector::{ConnectionConfig, ConnectionTenancy, WorkspaceConnectionAccess};
@@ -10,6 +10,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -31,6 +32,59 @@ impl ConnectionConfig {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
             active: true,
+        }
+    }
+}
+
+pub async fn test_connection(
+    Extension(auth_user): Extension<AuthUser>,
+    Json(req): Json<CreateGlobalConnectionRequest>,
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Check support level
+    let global_role = match user.check_global_role().await {
+        Some(level) => level,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Only allow user with Super global role to create connections
+    if global_role != GlobalRole::Super {
+        return (StatusCode::FORBIDDEN, "Unauthorized").into_response();
+    }
+
+    // Create connection info
+    let connection_config = ConnectionConfig::from_req(req);
+
+    // Test connection
+    match connection_config.config {
+        ConnectionDetails::Postgis(config) => {
+            let mut connector = PostgisConnector::new(config).unwrap();
+            match connector.test_connection().await {
+                Ok(_) => {
+                    return (
+                        StatusCode::OK,
+                        Json(json!({
+                            "status": "success",
+                            "message": "Connection test successful"
+                        })),
+                    )
+                        .into_response()
+                }
+                Err(e) => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({
+                            "status": "error",
+                            "message": format!("Connection test failed: {}", e)
+                        })),
+                    )
+                        .into_response()
+                }
+            }
         }
     }
 }
@@ -59,22 +113,8 @@ pub async fn create_connection(
     // Create connection info
     let connection_config = ConnectionConfig::from_req(req);
 
-    // Check if connection already exists
-    if state
-        .app_data
-        .get_connection(&connection_config.id)
-        .await
-        .is_ok()
-    {
-        return (StatusCode::CONFLICT, "Connection already exists").into_response();
-    }
-
     // Attempt to create record
-    match connection_config
-        .clone()
-        .create_record(&state.app_data)
-        .await
-    {
+    match connection_config.clone().create(&state.app_data).await {
         Ok(_) => {
             // Add connection to connections
             state.connections.add_connection(connection_config).await;

@@ -22,6 +22,13 @@ pub trait Connector: Send + Sync {
     fn as_vector_connector(&self) -> Option<&dyn VectorConnector> {
         None
     }
+
+    // Test the connection to the data source
+    async fn test_connection(&mut self) -> Result<()> {
+        self.connect().await?;
+        self.disconnect().await?;
+        Ok(())
+    }
 }
 
 // Trait for all vector-based geospatial data sources
