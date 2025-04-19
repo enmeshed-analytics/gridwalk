@@ -48,7 +48,7 @@ CREATE TABLE connections (
     connector_type VARCHAR(50) NOT NULL, -- e.g., 'Postgres', 'MySQL', 'SQLite', 'GeoJSON', 'Shapefile', etc.
 
     -- Store all connection configuration as JSON based on connector type
-    connection_config JSONB NOT NULL,
+    config JSONB NOT NULL,
 
     -- Metadata
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,

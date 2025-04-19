@@ -397,16 +397,20 @@ impl UserStore for Postgres {
             crate::ConnectionTenancy::Shared { capacity } => Some(capacity),
         };
 
+        let config_variant_str = connection.config.to_string();
+        println!("Config variant: {}", config_variant_str);
+
         let client = self.pool.get().await?;
         let rows_affected = client
             .execute(
-                "INSERT INTO connections (id, name, tenancy, shared_capacity, workspace_id, config) VALUES ($1, $2, $3, $4, $5, $6)",
+                "INSERT INTO connections (id, name, tenancy, shared_capacity, workspace_id, connector_type, config) VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 &[
                     &connection.id,
                     &connection.name,
                     &tenancy_str,
                     &shared_capacity.map(|cap| cap as i32),
                     &workspace_id,
+                    &config_variant_str,
                     &serde_json::to_value(&connection.config)?,
                 ],
             )

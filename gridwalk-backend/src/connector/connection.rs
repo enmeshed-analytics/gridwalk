@@ -4,10 +4,13 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use strum_macros::Display;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Display, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
 pub enum ConnectionDetails {
     Postgis(PostgisConnection),
 }
@@ -33,7 +36,16 @@ pub enum ConnectionTenancy {
 }
 
 impl ConnectionConfig {
-    pub async fn create_record(self, database: &Arc<dyn Database>) -> Result<()> {
+    pub async fn create(self, database: &Arc<dyn Database>) -> Result<()> {
+        // Test connection
+        match &self.config {
+            ConnectionDetails::Postgis(config) => {
+                let mut connector = PostgisConnector::new(config.clone()).unwrap();
+                connector.test_connection().await?;
+            }
+        }
+
+        // TODO: Create new Error type for connection errors
         database.create_connection(&self).await?;
         Ok(())
     }
