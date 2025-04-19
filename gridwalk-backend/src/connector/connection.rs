@@ -1,11 +1,10 @@
 use super::{Connector, PostgisConnection, PostgisConnector};
 use crate::{data::Database, Workspace};
 use anyhow::{anyhow, Result};
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use strum_macros::Display;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
 #[derive(Debug, Display, Clone, Deserialize, Serialize)]
@@ -121,36 +120,36 @@ impl WorkspaceConnectionAccess {
 // The ActiveConnections struct and its impl block are used to manage live connections at runtime.
 #[derive(Clone)]
 pub struct ActiveConnections {
-    sources: Arc<RwLock<HashMap<Uuid, Arc<dyn Connector>>>>,
+    //sources: Arc<RwLock<HashMap<Uuid, Arc<dyn Connector>>>>,
+    sources: DashMap<Uuid, Arc<dyn Connector + Send + Sync>>,
 }
 
 impl ActiveConnections {
     pub fn new() -> Self {
-        ActiveConnections {
-            sources: Arc::new(RwLock::new(HashMap::new())),
+        Self {
+            sources: DashMap::new(),
         }
     }
 
-    pub async fn add_connection(&self, connection: ConnectionConfig) {
-        let mut sources = self.sources.write().await;
-        // TODO: connect to the source
-        let connector = match connection.config {
-            ConnectionDetails::Postgis(config) => PostgisConnector::new(config).unwrap(),
+    pub async fn load_connection(&self, connection: ConnectionConfig) -> Result<()> {
+        let connector: Arc<dyn Connector + Send + Sync> = match connection.config {
+            ConnectionDetails::Postgis(cfg) => Arc::new(PostgisConnector::new(cfg)?),
         };
-        sources.insert(connection.id, Arc::new(connector));
+
+        // TODO: connect to the source
+        self.sources.insert(connection.id, connector);
+        Ok(())
     }
 
-    pub async fn get_connection(&self, connection_id: &Uuid) -> Result<Arc<dyn Connector>> {
-        let sources = self.sources.read().await;
-        sources
-            .get(connection_id)
-            .cloned()
+    pub fn get_connection(&self, id: &Uuid) -> Result<Arc<dyn Connector + Send + Sync>> {
+        self.sources
+            .get(id)
+            .map(|entry| entry.clone()) // clone the Arc, not the connector
             .ok_or_else(|| anyhow!("Source not found"))
     }
 
-    pub async fn remove_connection(&self, id: &Uuid) -> Result<()> {
-        let mut sources = self.sources.write().await;
-        sources.remove(id);
+    pub fn remove_connection(&self, id: &Uuid) -> Result<()> {
+        self.sources.remove(id);
         Ok(())
     }
 }

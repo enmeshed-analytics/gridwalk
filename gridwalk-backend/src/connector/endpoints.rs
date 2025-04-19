@@ -117,7 +117,7 @@ pub async fn create_connection(
     match connection_config.clone().create(&state.app_data).await {
         Ok(_) => {
             // Add connection to connections
-            state.connections.add_connection(connection_config).await;
+            let _ = state.connections.load_connection(connection_config).await;
             (StatusCode::OK, "Connection creation submitted").into_response()
         }
         Err(e) => (
@@ -208,11 +208,7 @@ pub async fn list_sources(
         Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
     }
 
-    let connection = state
-        .connections
-        .get_connection(&connection_id)
-        .await
-        .unwrap();
+    let connection = state.connections.get_connection(&connection_id).unwrap();
 
     match connection.list_sources(&workspace.id).await {
         Ok(sources) => Json(sources).into_response(),
