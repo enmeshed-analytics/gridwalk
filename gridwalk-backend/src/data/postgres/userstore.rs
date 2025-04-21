@@ -440,6 +440,31 @@ impl UserStore for Postgres {
         Ok(connections)
     }
 
+    async fn get_connections_by_tenancy(
+        &self,
+        tenancy: &crate::ConnectionTenancy,
+    ) -> Result<Vec<ConnectionConfig>> {
+        let client = self.pool.get().await?;
+        let rows = match tenancy {
+            crate::ConnectionTenancy::Workspace(workspace_id) => client
+                .query(
+                    "SELECT * FROM connections WHERE tenancy = 'workspace' AND workspace_id = $1",
+                    &[&workspace_id],
+                )
+                .await?,
+            crate::ConnectionTenancy::Shared { .. } => {
+                client
+                    .query("SELECT * FROM connections WHERE tenancy = 'shared'", &[])
+                    .await?
+            }
+        };
+        let connections: Vec<ConnectionConfig> = rows
+            .iter()
+            .map(|row| ConnectionConfig::try_from(row))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(connections)
+    }
+
     async fn get_connection(&self, connection_id: &Uuid) -> Result<ConnectionConfig> {
         let client = self.pool.get().await?;
         let row = client
