@@ -131,10 +131,9 @@ impl Workspace {
     pub async fn remove_member(
         self,
         database: &Arc<dyn Database>,
-        req_user: &User,
+        requesting_member: &WorkspaceMember,
         user: &User,
     ) -> Result<()> {
-        let requesting_member = self.clone().get_member(&database, &req_user).await?;
         if requesting_member.role != WorkspaceRole::Admin {
             Err(anyhow!("Only Admin can remove members"))?
         }

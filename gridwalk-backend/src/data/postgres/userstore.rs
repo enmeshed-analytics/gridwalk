@@ -189,13 +189,21 @@ impl TryFrom<&Row> for crate::ConnectionConfig {
                 })?;
                 crate::ConnectionTenancy::Shared { capacity }
             }
-            other => return Err(anyhow::anyhow!("Invalid tenancy type: {}", other).into()),
+            other => return Err(anyhow!("Invalid tenancy type: {}", other)),
+        };
+
+        let raw_config: serde_json::Value = row.try_get("config")?;
+        let config = if let Some(postgis_val) = raw_config.get("postgis") {
+            let pg: crate::PostgisConnection = serde_json::from_value(postgis_val.clone())?;
+            crate::ConnectionDetails::Postgis(pg)
+        } else {
+            return Err(anyhow!("Unsupported or missing connector type in config"));
         };
 
         Ok(Self {
             id: row.try_get("id")?,
             name: row.try_get("name")?,
-            config: row.try_get("config")?,
+            config,
             tenancy,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
@@ -422,6 +430,16 @@ impl UserStore for Postgres {
         Ok(())
     }
 
+    async fn get_all_connections(&self) -> Result<Vec<ConnectionConfig>> {
+        let client = self.pool.get().await?;
+        let rows = client.query("SELECT * FROM connections", &[]).await?;
+        let connections: Vec<ConnectionConfig> = rows
+            .iter()
+            .map(|row| ConnectionConfig::try_from(row))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(connections)
+    }
+
     async fn get_connection(&self, connection_id: &Uuid) -> Result<ConnectionConfig> {
         let client = self.pool.get().await?;
         let row = client
@@ -446,20 +464,17 @@ impl UserStore for Postgres {
         Ok(())
     }
 
-    async fn get_accessible_connections(
-        &self,
-        wsp: &Workspace,
-    ) -> Result<Vec<WorkspaceConnectionAccess>> {
+    async fn get_accessible_connections(&self, wsp: &Workspace) -> Result<Vec<ConnectionConfig>> {
         let client = self.pool.get().await?;
         let rows = client
             .query(
-                "SELECT * FROM connection_access WHERE workspace_id = $1",
+                "SELECT c.* FROM connection_access ca JOIN connections c ON ca.connection_id = c.id WHERE ca.workspace_id = $1",
                 &[&wsp.id],
             )
             .await?;
-        let connections: Vec<WorkspaceConnectionAccess> = rows
+        let connections: Vec<ConnectionConfig> = rows
             .iter()
-            .map(|row| WorkspaceConnectionAccess::try_from(row))
+            .map(|row| ConnectionConfig::try_from(row))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(connections)
     }

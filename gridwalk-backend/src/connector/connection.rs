@@ -7,6 +7,14 @@ use std::sync::Arc;
 use strum_macros::Display;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Display, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum ConnectionTenancy {
+    Shared { capacity: usize },
+    Workspace(Uuid),
+}
+
 #[derive(Debug, Display, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
@@ -27,14 +35,17 @@ pub struct ConnectionConfig {
     pub active: bool,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ConnectionTenancy {
-    Shared { capacity: usize },
-    Workspace(Uuid),
-}
-
 impl ConnectionConfig {
+    // Used to remove sensitive data from the connection config
+    pub fn sanitize(mut self) -> Self {
+        match &mut self.config {
+            ConnectionDetails::Postgis(postgis) => {
+                postgis.sanitize();
+            }
+        }
+        self
+    }
+
     pub async fn create(self, database: &Arc<dyn Database>) -> Result<()> {
         // Test connection
         match &self.config {
@@ -51,7 +62,12 @@ impl ConnectionConfig {
 
     pub async fn from_id(database: &Arc<dyn Database>, connection_id: &Uuid) -> Result<Self> {
         let con = database.get_connection(connection_id).await?;
-        Ok(con)
+        Ok(con.sanitize())
+    }
+
+    pub async fn get_all(database: &Arc<dyn Database>) -> Result<Vec<Self>> {
+        let con = database.get_all_connections().await?;
+        Ok(con.into_iter().map(|c| c.sanitize()).collect())
     }
 
     // TODO: Delete connection (after handling all dependencies)
@@ -72,7 +88,10 @@ impl WorkspaceConnectionAccess {
         Ok(())
     }
 
-    pub async fn get_all(database: &Arc<dyn Database>, wsp: &Workspace) -> Result<Vec<Self>> {
+    pub async fn get_all(
+        database: &Arc<dyn Database>,
+        wsp: &Workspace,
+    ) -> Result<Vec<ConnectionConfig>> {
         database.get_accessible_connections(wsp).await
     }
 
@@ -83,44 +102,9 @@ impl WorkspaceConnectionAccess {
     }
 }
 
-//#[derive(Debug, Clone, Deserialize, Serialize)]
-//pub enum ConnectionAccessConfig {
-//    Admin(Uuid),
-//    ReadWrite(Uuid),
-//    ReadOnly(Uuid),
-//}
-//
-//impl ConnectionAccessConfig {
-//    pub fn from_str(variant: &str, workspace_id: &Uuid) -> Result<Self, String> {
-//        match variant.to_lowercase().as_str() {
-//            "admin" => Ok(ConnectionAccessConfig::Admin(*workspace_id)),
-//            "readwrite" => Ok(ConnectionAccessConfig::ReadWrite(*workspace_id)),
-//            "readonly" => Ok(ConnectionAccessConfig::ReadOnly(*workspace_id)),
-//            _ => Err(format!("Invalid variant name: {}", variant)),
-//        }
-//    }
-//
-//    pub fn variant_name(&self) -> &'static str {
-//        match self {
-//            ConnectionAccessConfig::Admin(_) => "Admin",
-//            ConnectionAccessConfig::ReadWrite(_) => "ReadWrite",
-//            ConnectionAccessConfig::ReadOnly(_) => "ReadOnly",
-//        }
-//    }
-//
-//    pub fn workspace_id(&self) -> &Uuid {
-//        match self {
-//            ConnectionAccessConfig::Admin(v)
-//            | ConnectionAccessConfig::ReadWrite(v)
-//            | ConnectionAccessConfig::ReadOnly(v) => v,
-//        }
-//    }
-//}
-
 // The ActiveConnections struct and its impl block are used to manage live connections at runtime.
 #[derive(Clone)]
 pub struct ActiveConnections {
-    //sources: Arc<RwLock<HashMap<Uuid, Arc<dyn Connector>>>>,
     sources: DashMap<Uuid, Arc<dyn Connector + Send + Sync>>,
 }
 

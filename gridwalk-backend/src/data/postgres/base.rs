@@ -32,7 +32,6 @@ impl Postgres {
     // Create a new Postgres connection read config from env vars and call the new_with_config
     // function
     pub async fn new() -> Result<Arc<dyn Database>> {
-        info!("Initializing Postgres connection");
         let config = PostgresConnection {
             host: std::env::var("POSTGRES_HOST").unwrap_or("localhost".to_string()),
             port: std::env::var("POSTGRES_PORT")

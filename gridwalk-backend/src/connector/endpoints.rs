@@ -1,15 +1,15 @@
 use super::{ConnectionDetails, Connector, PostgisConnector};
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::connector::{ConnectionConfig, ConnectionTenancy, WorkspaceConnectionAccess};
-use crate::{GlobalRole, Workspace, WorkspaceMember};
+use crate::connector::{ConnectionConfig, ConnectionTenancy};
+use crate::GlobalRole;
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -128,97 +128,67 @@ pub async fn create_connection(
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ConnectionResponse {
-    pub id: String,
-    pub name: String,
-    pub connector_type: String,
-}
-
-// TODO: Switch to using Connection after retrieving the connection from the database
-impl From<WorkspaceConnectionAccess> for ConnectionResponse {
-    fn from(con: WorkspaceConnectionAccess) -> Self {
-        ConnectionResponse {
-            id: con.connection_id.clone().to_string(),
-            name: con.connection_id.clone().to_string(),
-            connector_type: "postgis".into(), // TODO: Fix this
-        }
-    }
-}
-
-pub async fn list_connections(
+pub async fn get_all_connections(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<Uuid>,
-) -> impl IntoResponse {
-    match auth_user.user {
-        Some(user) => {
-            let workspace = Workspace::from_id(&state.app_data, &workspace_id)
-                .await
-                .map_err(|_| (StatusCode::NOT_FOUND, "".to_string()))?;
-
-            // Check if the requesting user is a member of the workspace
-            WorkspaceMember::get(&state.app_data, &workspace, &user)
-                .await
-                .map_err(|_| (StatusCode::FORBIDDEN, "unauthorized".to_string()))?;
-
-            let connection_access_list =
-                WorkspaceConnectionAccess::get_all(&state.app_data, &workspace)
-                    .await
-                    .ok()
-                    .unwrap();
-
-            // Convert Vec<Connection> to Vec<ConnectionResponse>
-            // Removes the config from the response
-            let connection_responses: Vec<ConnectionResponse> = connection_access_list
-                .into_iter()
-                .map(ConnectionResponse::from)
-                .collect();
-
-            Ok(Json(connection_responses))
-        }
-        None => Err((StatusCode::FORBIDDEN, "unauthorized".to_string())),
-    }
-}
-
-pub async fn list_sources(
-    State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-    Path((workspace_id, connection_id)): Path<(Uuid, Uuid)>,
 ) -> impl IntoResponse {
     let user = match auth_user.user {
         Some(user) => user,
         None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
     };
 
-    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
-        Ok(ws) => ws,
-        Err(_) => {
-            return (StatusCode::NOT_FOUND, "Workspace not found".to_string()).into_response()
-        }
+    // Any global role is allowed to get connections
+    match user.check_global_role().await {
+        Some(level) => level,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
     };
 
-    match WorkspaceMember::get(&state.app_data, &workspace, &user).await {
-        Ok(_member) => {}
-        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
-    }
+    // Get all connections
+    let connections = ConnectionConfig::get_all(&state.app_data).await;
 
-    match WorkspaceConnectionAccess::get(&state.app_data, &workspace, &connection_id).await {
-        Ok(_access) => {}
-        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
-    }
-
-    let connection = state.connections.get_connection(&connection_id).unwrap();
-
-    match connection.list_sources(&workspace.id).await {
-        Ok(sources) => Json(sources).into_response(),
+    let connections = match connections {
+        Ok(connections) => connections,
         Err(e) => {
-            eprintln!("Error listing sources: {:?}", e);
-            (
+            return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to list sources".to_string(),
+                format!("Failed to get connections: {}", e),
             )
                 .into_response()
         }
-    }
+    };
+
+    (StatusCode::OK, Json(connections)).into_response()
+}
+
+pub async fn get_connection(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(connection_id): Path<Uuid>,
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Any global role is allowed to get connections
+    match user.check_global_role().await {
+        Some(level) => level,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Get connection
+    let connection = ConnectionConfig::from_id(&state.app_data, &connection_id).await;
+
+    let connection = match connection {
+        Ok(connection) => connection,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get connection: {}", e),
+            )
+                .into_response()
+        }
+    };
+
+    (StatusCode::OK, Json(connection)).into_response()
 }
