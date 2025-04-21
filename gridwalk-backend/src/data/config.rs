@@ -1,6 +1,6 @@
 use crate::{
-    ConnectionConfig, Layer, Project, Session, User, Workspace, WorkspaceConnectionAccess,
-    WorkspaceMember, WorkspaceRole,
+    ConnectionConfig, ConnectionTenancy, Layer, Project, Session, User, Workspace,
+    WorkspaceConnectionAccess, WorkspaceMember, WorkspaceRole,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -29,6 +29,10 @@ pub trait UserStore: Send + Sync + 'static {
     async fn remove_workspace_member(&self, org: &Workspace, user: &User) -> Result<()>;
     async fn create_connection(&self, connection: &ConnectionConfig) -> Result<()>;
     async fn get_all_connections(&self) -> Result<Vec<ConnectionConfig>>;
+    async fn get_connections_by_tenancy(
+        &self,
+        tenancy: &ConnectionTenancy,
+    ) -> Result<Vec<ConnectionConfig>>;
     async fn get_connection(&self, connection_id: &Uuid) -> Result<ConnectionConfig>;
     async fn get_connection_usage_count(&self, connection_id: &Uuid) -> Result<usize>;
     async fn create_connection_access(&self, ca: &WorkspaceConnectionAccess) -> Result<()>;

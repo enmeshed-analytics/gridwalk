@@ -1,6 +1,7 @@
 use crate::data::Database;
-use crate::{User, WorkspaceConnectionAccess};
+use crate::{ConnectionCapacityInfo, ConnectionTenancy, User, WorkspaceConnectionAccess};
 use anyhow::{anyhow, Result};
+use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -74,24 +75,56 @@ impl Workspace {
 
     pub async fn save(&self, database: &Arc<dyn Database>, admin: &User) -> Result<()> {
         // TODO: Use transaction
-        let db_resp = database.create_workspace(&self, admin).await;
 
-        // TODO: Random UUID to supress error during testing
-        // Search for a shared tenancy connection with spare capacity (preferably in the same region)
-        let connection_id = Uuid::new_v4();
+        let connections = database
+            // Capacity value is not used in the query
+            .get_connections_by_tenancy(&ConnectionTenancy::Shared { capacity: 0 })
+            .await?;
+
+        // For each connection, check if it has spare capacity. Get futures first
+        let capacity_futures = connections.iter().map(|c| async move {
+            match c.capacity_info(&database).await {
+                Ok(capacity) => Ok(capacity),
+                Err(_) => Err(anyhow::anyhow!("failed to get connection capacity")),
+            }
+        });
+
+        let connection_capacity_vec: Vec<Result<ConnectionCapacityInfo, anyhow::Error>> =
+            join_all(capacity_futures).await;
+
+        // Filter out Errors
+        let connection_capacity_vec: Vec<ConnectionCapacityInfo> = connection_capacity_vec
+            .into_iter()
+            .filter_map(|x| x.ok())
+            .collect();
+
+        // Pick the connection with highest percentage of free capacity
+        let mut connection_capacity_vec = connection_capacity_vec
+            .into_iter()
+            .filter(|c| c.usage_count < c.capacity)
+            .collect::<Vec<ConnectionCapacityInfo>>();
+        connection_capacity_vec.sort_by(|a, b| {
+            let a_percentage = (a.capacity - a.usage_count) as f64 / a.capacity as f64;
+            let b_percentage = (b.capacity - b.usage_count) as f64 / b.capacity as f64;
+            a_percentage
+                .partial_cmp(&b_percentage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        connection_capacity_vec.reverse();
+        let selected_connection = connection_capacity_vec
+            .get(0)
+            .ok_or_else(|| anyhow!("No connections with spare capacity"))?;
+
+        database.create_workspace(&self, admin).await?;
         // Create ConnectionAccess to shared primary db
-
-        let connection_access = WorkspaceConnectionAccess {
-            connection_id,
+        WorkspaceConnectionAccess {
+            connection_id: selected_connection.connection_id,
             workspace_id: self.id.clone(),
-        };
-        connection_access.save(database).await?;
-        //let _ = &connection.create_namespace(&wsp.id).await?;
-
-        match db_resp {
-            Ok(_) => Ok(()),
-            Err(_) => Err(anyhow!("failed to create workspace")),
         }
+        .save(database)
+        .await?;
+
+        Ok(())
     }
 
     pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
