@@ -1,6 +1,8 @@
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::{User, Workspace, WorkspaceRole};
+use crate::{
+    ConnectionConfig, User, Workspace, WorkspaceConnectionAccess, WorkspaceMember, WorkspaceRole,
+};
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,
@@ -55,20 +57,20 @@ impl Workspace {
     }
 }
 
-// TODO: fix response types
 pub async fn create_workspace(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     Json(req): Json<ReqCreateWorkspace>,
-) -> Response {
-    if let Some(user) = auth_user.user {
-        let new_workspace = Workspace::from_req(req);
-        match new_workspace.save(&state.app_data, &user).await {
-            Ok(_) => Json(json!({ "workspace_id": new_workspace.id })).into_response(),
-            Err(_) => "workspace not created".into_response(),
-        }
-    } else {
-        "workspace not created".into_response()
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
+    };
+
+    let new_workspace = Workspace::from_req(req);
+    match new_workspace.save(&state.app_data, &user).await {
+        Ok(_) => Json(json!({ "workspace_id": new_workspace.id })).into_response(),
+        Err(_) => "workspace not created".into_response(),
     }
 }
 
@@ -77,32 +79,39 @@ pub async fn delete_workspace(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     Path(workspace_id): Path<Uuid>,
-) -> Response {
-    if let Some(req_user) = auth_user.user {
-        // Retrieve the workspace
-        let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
-            Ok(ws) => ws,
-            Err(_) => return "workspace not found".into_response(),
-        };
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
+    };
 
-        // Check if the user is a member of the workspace
-        let member = match workspace.get_member(&state.app_data, &req_user).await {
-            Ok(m) => m,
-            Err(_) => return "unauthorized".into_response(),
-        };
+    // Retrieve the workspace
+    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => return "workspace not found".into_response(),
+    };
 
-        // Check if the user is an admin
-        if member.role == WorkspaceRole::Admin {
-            // Delete the workspace
-            match workspace.delete(&state.app_data).await {
-                Ok(_) => "workspace deleted".into_response(),
-                Err(_) => "failed to delete workspace".into_response(),
-            }
-        } else {
-            "unauthorized".into_response()
+    // Check if the user is a member of the workspace
+    let member = match workspace.get_member(&state.app_data, &user).await {
+        Ok(m) => m,
+        Err(_) => return "unauthorized".into_response(),
+    };
+
+    // Check if the user is an admin
+    if member.role != WorkspaceRole::Admin {
+        return (StatusCode::FORBIDDEN, "unauthorized".into_response()).into_response();
+    }
+
+    // Delete the workspace
+    match workspace.delete(&state.app_data).await {
+        Ok(_) => return (StatusCode::OK, "workspace deleted").into_response(),
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to delete workspace",
+            )
+                .into_response()
         }
-    } else {
-        "unauthorised".into_response()
     }
 }
 
@@ -110,30 +119,31 @@ pub async fn add_workspace_member(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     Json(req): Json<ReqAddWorkspaceMember>,
-) -> Response {
-    if let Some(req_user) = auth_user.user {
-        // Get the target user by email
-        let user_to_add = match User::from_email(&state.app_data, &req.email).await {
-            Ok(user) => user,
-            Err(_) => return "user not found".into_response(),
-        };
+) -> impl IntoResponse {
+    let requesting_user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
+    };
 
-        // Get the workspace
-        let workspace = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
-            Ok(ws) => ws,
-            Err(_) => return "workspace not found".into_response(),
-        };
+    // Get the target user by email
+    let user_to_add = match User::from_email(&state.app_data, &req.email).await {
+        Ok(user) => user,
+        Err(_) => return (StatusCode::NOT_FOUND, "User not found.").into_response(),
+    };
 
-        // Add memeber workspace
-        match workspace
-            .add_member(&state.app_data, &req_user, &user_to_add, req.role)
-            .await
-        {
-            Ok(_) => "member added to workspace successfully".into_response(),
-            Err(_) => "failed to add member to workspace".into_response(),
-        }
-    } else {
-        "unauthorized".into_response()
+    // Get the workspace
+    let workspace = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => return (StatusCode::FORBIDDEN, "".to_string()).into_response(),
+    };
+
+    // Add memeber workspace
+    match workspace
+        .add_member(&state.app_data, &requesting_user, &user_to_add, req.role)
+        .await
+    {
+        Ok(_) => (StatusCode::OK, "").into_response(),
+        Err(_) => (StatusCode::BAD_REQUEST, "").into_response(), // TODO: Add proper error handling
     }
 }
 
@@ -141,27 +151,39 @@ pub async fn remove_workspace_member(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
     Json(req): Json<ReqRemoveWorkspaceMember>,
-) -> Response {
-    if let Some(req_user) = auth_user.user {
-        // Get the workspace
-        let wsp = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
-            Ok(ws) => ws,
-            Err(_) => return "workspace not found".into_response(),
-        };
+) -> impl IntoResponse {
+    let requesting_user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
+    };
 
-        // Get the user to remove by email instead of id
-        let user = match User::from_email(&state.app_data, &req.email).await {
-            Ok(user) => user,
-            Err(_) => return "user not found".into_response(),
-        };
+    let workspace = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => return (StatusCode::FORBIDDEN, "workspace not found").into_response(),
+    };
 
-        // Remove workspace member
-        match wsp.remove_member(&state.app_data, &req_user, &user).await {
-            Ok(_) => "removed workspace member".into_response(),
-            Err(_) => "failed to remove member".into_response(),
-        }
-    } else {
-        "unauthorized".into_response()
+    // Check if the requesting user is a member of the workspace
+    let requesting_member = match workspace
+        .get_member(&state.app_data, &requesting_user)
+        .await
+    {
+        Ok(m) => m,
+        Err(_) => return (StatusCode::FORBIDDEN, "unauthorized").into_response(),
+    };
+
+    // Get the user to remove by email
+    let user = match User::from_email(&state.app_data, &req.email).await {
+        Ok(user) => user,
+        Err(_) => return (StatusCode::NOT_FOUND, "User not found.").into_response(),
+    };
+
+    // Remove workspace member
+    match workspace
+        .remove_member(&state.app_data, &requesting_member, &user)
+        .await
+    {
+        Ok(_) => "removed workspace member".into_response(),
+        Err(_) => "failed to remove member".into_response(),
     }
 }
 
@@ -277,4 +299,107 @@ pub async fn get_workspace(
             Json(error).into_response()
         }
     }
+}
+
+// For a workspace with a given connection_id, list all data sources
+// e.g. tables, views, etc.
+pub async fn list_sources(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path((workspace_id, connection_id)): Path<(Uuid, Uuid)>,
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => {
+            return (StatusCode::NOT_FOUND, "Workspace not found".to_string()).into_response()
+        }
+    };
+
+    match WorkspaceMember::get(&state.app_data, &workspace, &user).await {
+        Ok(_member) => {}
+        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
+    }
+
+    match WorkspaceConnectionAccess::get(&state.app_data, &workspace, &connection_id).await {
+        Ok(_access) => {}
+        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
+    }
+
+    let connection = state.connections.get_connection(&connection_id).unwrap();
+
+    match connection.list_sources(&workspace.id).await {
+        Ok(sources) => Json(sources).into_response(),
+        Err(e) => {
+            eprintln!("Error listing sources: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to list sources".to_string(),
+            )
+                .into_response()
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ConnectionResponse {
+    pub id: String,
+    pub name: String,
+    pub connector_type: String,
+    pub tenancy: String,
+}
+
+// TODO: Switch to using Connection after retrieving the connection from the database
+impl From<ConnectionConfig> for ConnectionResponse {
+    fn from(con: ConnectionConfig) -> Self {
+        ConnectionResponse {
+            id: con.id.to_string(),
+            name: con.name,
+            connector_type: con.config.to_string(),
+            tenancy: con.tenancy.to_string(),
+        }
+    }
+}
+
+// List all accessible connections for a given workspace
+pub async fn list_connections(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(workspace_id): Path<Uuid>,
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
+    };
+
+    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => {
+            return (StatusCode::NOT_FOUND, "Workspace not found".to_string()).into_response()
+        }
+    };
+
+    // Check if the requesting user is a member of the workspace
+    match WorkspaceMember::get(&state.app_data, &workspace, &user).await {
+        Ok(_member) => {}
+        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized".to_string()).into_response(),
+    }
+
+    let connection_access_list = WorkspaceConnectionAccess::get_all(&state.app_data, &workspace)
+        .await
+        .ok()
+        .unwrap();
+
+    // Convert Vec<Connection> to Vec<ConnectionResponse>
+    // Removes the config from the response
+    let connection_responses: Vec<ConnectionResponse> = connection_access_list
+        .into_iter()
+        .map(ConnectionResponse::from)
+        .collect();
+
+    Json(connection_responses).into_response()
 }

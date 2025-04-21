@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::sync::Arc;
 use tokio_postgres::NoTls;
+use tracing::debug;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -18,6 +19,12 @@ pub struct PostgisConnection {
     pub username: String,
     pub password: String,
     pub schema: String,
+}
+
+impl PostgisConnection {
+    pub fn sanitize(&mut self) {
+        self.password.clear();
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -61,7 +68,7 @@ impl PostgisConnector {
 #[async_trait]
 impl Connector for PostgisConnector {
     async fn connect(&mut self) -> Result<()> {
-        println!("Testing connection to PostGIS database");
+        debug!("Testing connection to PostGIS database");
         let client = self
             .pool
             .get()
@@ -71,12 +78,12 @@ impl Connector for PostgisConnector {
             .query("SELECT 1", &[])
             .await
             .map_err(|e| anyhow!("Failed to execute test query: {}", e))?;
-        println!("Connection test successful");
+        debug!("Connection test successful");
         Ok(())
     }
 
     async fn disconnect(&mut self) -> Result<()> {
-        println!("Disconnect called, but pool remains active for potential future use");
+        debug!("Disconnect called, but pool remains active for potential future use");
         Ok(())
     }
 

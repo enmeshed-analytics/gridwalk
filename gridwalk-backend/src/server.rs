@@ -2,10 +2,10 @@ use crate::app_state::AppState;
 use crate::auth::auth_middleware;
 use crate::{
     add_workspace_member, create_connection, create_project, create_workspace, delete_project,
-    delete_workspace, generate_os_token, get_geometry_type, get_projects, get_workspace,
-    get_workspace_members, get_workspaces, health_check, list_connections, list_sources, login,
-    logout, profile, register, remove_workspace_member, reset_password, test_connection, tiles,
-    upload_layer, upload_layer_v2,
+    delete_workspace, generate_os_token, get_all_connections, get_connection, get_geometry_type,
+    get_projects, get_workspace, get_workspace_members, get_workspaces, health_check,
+    list_connections, list_sources, login, logout, profile, register, remove_workspace_member,
+    reset_password, test_connection, tiles, upload_layer, upload_layer_v2,
 };
 use axum::{
     extract::DefaultBodyLimit,
@@ -103,6 +103,8 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/password_reset", post(reset_password))
         .route("/connections/test", post(test_connection))
         .route("/connections", post(create_connection))
+        .route("/connections", get(get_all_connections))
+        .route("/connections/:connection_id", get(get_connection))
         .route("/workspace", post(create_workspace))
         .route("/workspaces/:workspace_id", get(get_workspace))
         .route("/workspace/:workspace_id", delete(delete_workspace))
@@ -115,7 +117,6 @@ pub fn create_app(app_state: AppState) -> Router {
             "/workspace/:workspace_id/members/:user_id",
             delete(remove_workspace_member),
         )
-        .route("/connection", post(create_connection))
         .route(
             "/workspaces/:workspace_id/connections",
             get(list_connections),
