@@ -65,8 +65,8 @@ export function StyleModal({
 
   return (
     <div className="fixed right-0 top-0 bottom-0 max-w-64 flex items-center justify-end z-40">
-      <div className="bg-white text-gray-800 p-4 w-64 h-fit mr-0 rounded-l-xl shadow-2xl border-l border-y border-zinc-300">
-        <h2 className="text-base font-bold mb-2 truncate text-blue-500">
+      <div className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 p-4 w-64 h-fit mr-0 rounded-l-xl shadow-2xl border-l border-y border-zinc-300 dark:border-zinc-700">
+        <h2 className="text-base font-bold mb-2 truncate text-blue-500 dark:text-blue-400">
           {displayName}
         </h2>
         <form onSubmit={handleSubmit}>
@@ -101,7 +101,7 @@ export function StyleModal({
                   min="1"
                   max="20"
                   defaultValue={currentStyle.radius}
-                  className="w-full px-2 py-1 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                  className="w-full px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
                 />
               </div>
             )}
@@ -114,7 +114,7 @@ export function StyleModal({
                   min="1"
                   max="10"
                   defaultValue={currentStyle.width}
-                  className="w-full px-2 py-1 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                  className="w-full px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
                 />
               </div>
             )}
@@ -122,13 +122,13 @@ export function StyleModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-2.5 py-1 text-xs font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                className="px-2.5 py-1 text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-2.5 py-1 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors"
+                className="px-2.5 py-1 text-xs font-medium bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
               >
                 Apply
               </button>

@@ -45,6 +45,7 @@ export const useFileUploader = ({
       // Supported file types
       const supportedTypes = [
         "gpkg",
+        "csv",
         "zip",
         "xlsx",
         "csv",

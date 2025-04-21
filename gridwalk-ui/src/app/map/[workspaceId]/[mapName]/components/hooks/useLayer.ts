@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { LayerConfig, LayerStyle } from "../types";
+import { WorkspaceConnection } from "../actions/getSources";
 
 type LayerConfigType =
   | {
@@ -31,17 +32,38 @@ interface UseLayerProps {
   mapRef?: React.MutableRefObject<maplibregl.Map | null>;
   isMapReady?: boolean;
   workspaceId: string;
+  selectedLayers?: { [key: number]: boolean };
+  workspaceConnections?: WorkspaceConnection[];
 }
 
-export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
+export function useLayer({
+  mapRef,
+  workspaceId,
+  selectedLayers = {},
+  workspaceConnections = [],
+}: UseLayerProps) {
   const [layerConfigs, setLayerConfigs] = useState<{
     [key: string]: LayerConfig;
   }>({});
+  // Selected layer ID
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+
+  // Style modal open
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
-  const [activeLayerIds, setActiveLayerIds] = useState<string[]>([]);
+
   // Track layer ordering
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
+
+  // Get active layer IDs from selectedLayers when needed
+  const getActiveLayerIds = useCallback(() => {
+    return Object.entries(selectedLayers)
+      .filter(([, isSelected]) => isSelected)
+      .map(([index]) => {
+        const connection = workspaceConnections[Number(index)];
+        return connection ? `layer-${workspaceId}-${String(connection)}` : null;
+      })
+      .filter(Boolean) as string[];
+  }, [selectedLayers, workspaceConnections, workspaceId]);
 
   // Load saved layer configs
   useEffect(() => {
@@ -113,7 +135,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
           break;
       }
     },
-    [mapRef, layerConfigs],
+    [mapRef, layerConfigs]
   );
 
   // Helper function to find the first symbol layer in the map style
@@ -133,39 +155,110 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     (layerName: string) => {
       return `source-${workspaceId}-${layerName}`;
     },
-    [workspaceId],
+    [workspaceId]
   );
 
+  // Add a map layer
   const addMapLayer = useCallback(
     async (
       map: maplibregl.Map,
       layerId: string,
       sourceUrl: string,
       sourceLayerName: string,
-      geomTypeUrl: string,
+      geomTypeUrl: string
     ) => {
       try {
-        const response = await fetch(geomTypeUrl);
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch geometry type: ${response.statusText}`,
-          );
-        }
-        const geomType = await response.text();
+        console.log(`Adding layer: ${layerId} from source: ${sourceUrl}`);
 
-        // Create a unique source ID
+        // Always check if the layer exists first
+        let layerExists = false;
+        try {
+          layerExists = !!map.getLayer(layerId);
+        } catch (e) {
+          console.log(`Error checking if layer ${layerId} exists:`, e);
+          layerExists = false;
+        }
+
+        if (layerExists) {
+          console.log(`Layer ${layerId} already exists, making it visible`);
+          try {
+            map.setLayoutProperty(layerId, "visibility", "visible");
+            return layerConfigs[layerId]?.geomType || "unknown";
+          } catch (e) {
+            console.error(`Error making layer ${layerId} visible:`, e);
+            // Layer reference might be corrupted, remove and recreate it
+            try {
+              map.removeLayer(layerId);
+              console.log(`Removed corrupted layer ${layerId}`);
+              layerExists = false;
+            } catch (err) {
+              console.error(
+                `Failed to remove corrupted layer ${layerId}:`,
+                err
+              );
+            }
+          }
+        }
+
+        // Get geometry type
+        let geomType: string;
+        try {
+          const response = await fetch(geomTypeUrl);
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch geometry type: ${response.statusText}`
+            );
+          }
+          geomType = await response.text();
+        } catch (err) {
+          console.error(`Error fetching geometry type for ${layerId}:`, err);
+          geomType = "unknown"; // Default
+        }
+
+        // Source ID
         const sourceId = getSourceId(layerId.split("-").pop() || "");
 
-        // Only add the source if it doesn't exist
-        if (!map.getSource(sourceId)) {
-          map.addSource(sourceId, {
-            type: "vector",
-            tiles: [sourceUrl],
-            minzoom: 0,
-            maxzoom: 22,
-          });
+        // Check source exists
+        let sourceExists = false;
+        try {
+          sourceExists = !!map.getSource(sourceId);
+        } catch (e) {
+          console.log(`Error checking if source ${sourceId} exists:`, e);
+          sourceExists = false;
         }
 
+        // Create or recreate source if needed
+        if (!sourceExists) {
+          try {
+            console.log(`Adding source: ${sourceId}`);
+            map.addSource(sourceId, {
+              type: "vector",
+              tiles: [sourceUrl],
+              minzoom: 0,
+              maxzoom: 22,
+            });
+          } catch (e) {
+            console.error(`Error adding source ${sourceId}:`, e);
+            // Try to remove it first if it might be corrupted
+            try {
+              map.removeSource(sourceId);
+              console.log(`Removed potentially corrupted source ${sourceId}`);
+              map.addSource(sourceId, {
+                type: "vector",
+                tiles: [sourceUrl],
+                minzoom: 0,
+                maxzoom: 22,
+              });
+            } catch (err) {
+              console.error(`Failed to recreate source ${sourceId}:`, err);
+              throw new Error(
+                `Cannot add layer ${layerId}: source creation failed`
+              );
+            }
+          }
+        }
+
+        // Create layer style configuration
         const savedConfig = layerConfigs[layerId];
         const defaultStyle = {
           color: "#0080ff",
@@ -173,9 +266,9 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
           radius: 6,
           width: 2,
         };
-
         const style = savedConfig?.style || defaultStyle;
 
+        // Define layer config based on geometry type
         let layerConfig: LayerConfigType;
         switch (geomType.toLowerCase().trim()) {
           case "linestring":
@@ -200,8 +293,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
               },
             };
             break;
-          case "point":
-          case "multipoint":
+          default: // Default to point (circle)
             layerConfig = {
               type: "circle",
               paint: {
@@ -210,46 +302,34 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
                 "circle-radius": style.radius || 6,
               },
             };
-            break;
-          default:
-            console.warn(
-              `Unknown geometry type: ${geomType}, defaulting to point`,
+        }
+
+        // Get first symbol layer for proper layer ordering
+        let firstSymbolId;
+        try {
+          firstSymbolId = getFirstLayerId(map);
+        } catch (e) {
+          console.error(`Error getting first symbol layer:`, e);
+          firstSymbolId = undefined;
+        }
+
+        // Try one more time to see if the layer exists
+        try {
+          if (map.getLayer(layerId)) {
+            console.log(
+              `Layer ${layerId} was created by another process, making visible`
             );
-            layerConfig = {
-              type: "circle",
-              paint: {
-                "circle-color": style.color,
-                "circle-opacity": style.opacity,
-                "circle-radius": style.radius || 6,
-              },
-            };
-        }
-
-        // Determine where to insert this layer
-        let beforeLayerId: string | undefined;
-
-        // If we have active layers, find the highest one in our layerOrder
-        if (activeLayerIds.length > 0 && layerOrder.length > 0) {
-          // Find active layers that are already on the map
-          const activeOrderedLayers = layerOrder.filter(
-            (id) => activeLayerIds.includes(id) && map.getLayer(id),
-          );
-
-          if (activeOrderedLayers.length > 0) {
-            // Insert before the topmost active layer
-            beforeLayerId = activeOrderedLayers[0];
+            map.setLayoutProperty(layerId, "visibility", "visible");
+            return geomType;
           }
+        } catch (e) {
+          console.log(`Final layer existence check error:`, e);
         }
 
-        // If we couldn't find an active layer, use the first symbol layer
-        if (!beforeLayerId) {
-          beforeLayerId = getFirstLayerId(map);
-        }
-
-        // Add layer with basic visibility layout
+        // Create the layer spec
         const layerSpec = {
           id: layerId,
-          source: sourceId, // Use the unique source ID
+          source: sourceId,
           "source-layer": sourceLayerName,
           layout: {
             visibility: "visible",
@@ -257,88 +337,142 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
           ...layerConfig,
         };
 
-        // Add the layer to the map
-        map.addLayer(layerSpec as maplibregl.LayerSpecification, beforeLayerId);
+        // Add the layer with robust error handling
+        try {
+          console.log(`Adding layer ${layerId} to map`);
+          map.addLayer(
+            layerSpec as maplibregl.LayerSpecification,
+            firstSymbolId
+          );
+        } catch (e) {
+          console.error(`Error adding layer ${layerId}:`, e);
+          // If adding failed, try removing and re-adding
+          try {
+            if (map.getLayer(layerId)) {
+              map.removeLayer(layerId);
+            }
+            // Try again
+            map.addLayer(
+              layerSpec as maplibregl.LayerSpecification,
+              firstSymbolId
+            );
+            console.log(`Successfully re-added layer ${layerId} after error`);
+          } catch (err) {
+            console.error(`Final attempt to add layer ${layerId} failed:`, err);
+            throw new Error(`Could not add layer ${layerId}`);
+          }
+        }
 
-        // Store the configuration if it doesn't exist
+        // Store layer config
         if (!savedConfig) {
           setLayerConfigs((prev) => ({
             ...prev,
             [layerId]: {
               layerId,
-              sourceId, // Store the source ID
+              sourceId,
               geomType,
               style,
             },
           }));
         }
 
-        // Add to active layer IDs
-        setActiveLayerIds((prev) =>
-          prev.includes(layerId) ? prev : [...prev, layerId],
-        );
-
-        // Add to layer order (at the top)
+        // Update layer order
         setLayerOrder((prev) => {
           const newOrder = prev.filter((id) => id !== layerId);
-          return [layerId, ...newOrder]; // New layer goes on top
+          return [layerId, ...newOrder];
         });
 
         return geomType;
       } catch (error) {
-        console.error("Error adding map layer:", error);
+        console.error(`Error in addMapLayer for ${layerId}:`, error);
         throw error;
       }
     },
-    [layerConfigs, activeLayerIds, getFirstLayerId, getSourceId, layerOrder],
+    [layerConfigs, getFirstLayerId, getSourceId]
   );
 
+  // Remove a map layer
   const removeMapLayer = useCallback(
     (map: maplibregl.Map, layerId: string) => {
-      // Get the source ID from our configs
-      const sourceId =
-        layerConfigs[layerId]?.sourceId ||
-        getSourceId(layerId.split("-").pop() || "");
+      console.log(`Removing layer: ${layerId}`);
 
-      if (map.getLayer(layerId)) {
-        map.removeLayer(layerId);
+      try {
+        // First try to hide the layer
+        if (map.getLayer(layerId)) {
+          console.log(`Setting ${layerId} visibility to none`);
+          map.setLayoutProperty(layerId, "visibility", "none");
+        }
+
+        // Then try to actually remove it
+        try {
+          const sourceId =
+            layerConfigs[layerId]?.sourceId ||
+            getSourceId(layerId.split("-").pop() || "");
+
+          console.log(`Actually removing layer ${layerId}`);
+          if (map.getLayer(layerId)) {
+            map.removeLayer(layerId);
+          }
+
+          // Only remove source if it's not used elsewhere
+          const isSourceUsedElsewhere = Object.values(layerConfigs).some(
+            (config) =>
+              config.sourceId === sourceId && config.layerId !== layerId
+          );
+
+          if (!isSourceUsedElsewhere && map.getSource(sourceId)) {
+            console.log(`Removing source ${sourceId}`);
+            map.removeSource(sourceId);
+          }
+        } catch (err) {
+          // If removing fails, at least the layer is hidden
+          console.error(`Error fully removing layer ${layerId}:`, err);
+        }
+
+        // Update layer order regardless
+        setLayerOrder((prev) => prev.filter((id) => id !== layerId));
+
+        console.log(`Successfully removed layer: ${layerId}`);
+      } catch (err) {
+        console.error(`Error in removeMapLayer for ${layerId}:`, err);
       }
-
-      // Check if the source is still being used by other layers before removing
-      const isSourceUsedElsewhere = Object.values(layerConfigs).some(
-        (config) => config.sourceId === sourceId && config.layerId !== layerId,
-      );
-
-      if (!isSourceUsedElsewhere && map.getSource(sourceId)) {
-        map.removeSource(sourceId);
-      }
-
-      // Remove from active layer IDs
-      setActiveLayerIds((prev) => prev.filter((id) => id !== layerId));
-
-      // Update layer order
-      setLayerOrder((prev) => prev.filter((id) => id !== layerId));
     },
-    [layerConfigs, getSourceId],
+    [layerConfigs, getSourceId]
   );
 
-  // Add this new function to reapply the layer order to the map
+  // Apply layer order
   const applyLayerOrder = useCallback(() => {
     if (!mapRef?.current) return;
     const map = mapRef.current;
 
     // Get the first symbol layer as the reference point
     const firstSymbolId = getFirstLayerId(map);
+    if (!firstSymbolId) return;
+
+    console.log("Applying layer order:", layerOrder);
+
+    // Get all active layers from selectedLayers
+    const activeLayerIds = getActiveLayerIds();
+    console.log("Active layer IDs:", activeLayerIds);
+
+    // Filter layerOrder to only include active layers and ensure they exist on the map
+    const orderedActiveLayers = layerOrder.filter(
+      (id) => activeLayerIds.includes(id) && map.getLayer(id)
+    );
+    console.log("Ordered active layers:", orderedActiveLayers);
 
     // Apply the order from bottom to top (reverse of layerOrder)
-    // This ensures correct stacking order
-    [...layerOrder].reverse().forEach((layerId) => {
-      if (map.getLayer(layerId)) {
-        // Move each layer above the previous one and below the symbol layers
+    [...orderedActiveLayers].reverse().forEach((layerId) => {
+      try {
+        console.log(
+          `Moving layer ${layerId} above previous and below ${firstSymbolId}`
+        );
         map.moveLayer(layerId, firstSymbolId);
+      } catch (err) {
+        console.error(`Error moving layer ${layerId}:`, err);
       }
     });
-  }, [mapRef, layerOrder, getFirstLayerId]);
+  }, [mapRef, layerOrder, getFirstLayerId, getActiveLayerIds]);
 
   // Add an effect to reapply layer order whenever it changes
   useEffect(() => {
@@ -347,7 +481,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     }
   }, [layerOrder, mapRef, applyLayerOrder]);
 
-  // Modify the moveLayerToTop function
+  // Move a layer to the top
   const moveLayerToTop = useCallback(
     (layerId: string) => {
       if (!mapRef?.current) return;
@@ -364,7 +498,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
       // Note: The actual move in MapLibre will happen through the useEffect
       // So we don't need to call map.moveLayer here anymore
     },
-    [mapRef],
+    [mapRef]
   );
 
   const handleStyleClick = useCallback(
@@ -374,7 +508,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
       setSelectedLayerId(layerId);
       setIsStyleModalOpen(true);
     },
-    [layerConfigs],
+    [layerConfigs]
   );
 
   // Generate a source URL for a layer
@@ -382,7 +516,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     (layerName: string) => {
       return `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceId}/connections/primary/sources/${layerName}/tiles/{z}/{x}/{y}`;
     },
-    [workspaceId],
+    [workspaceId]
   );
 
   // Generate a geometry type URL for a layer
@@ -390,7 +524,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     (layerName: string) => {
       return `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceId}/connections/primary/sources/${layerName}/tiles/geometry`;
     },
-    [workspaceId],
+    [workspaceId]
   );
 
   // Generate a layer ID
@@ -398,14 +532,74 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     (layerName: string) => {
       return `layer-${workspaceId}-${layerName}`;
     },
-    [workspaceId],
+    [workspaceId]
+  );
+
+  // Force show all selected layers
+  const forceShowAllSelectedLayers = useCallback(
+    (map: maplibregl.Map) => {
+      console.log("Forcing visibility of all selected layers");
+
+      // Process each selected layer
+      Object.entries(selectedLayers)
+        .filter(([, isSelected]) => isSelected)
+        .forEach(([index]) => {
+          const connection = workspaceConnections[Number(index)];
+          if (!connection) return;
+
+          const layerName = String(connection);
+          const layerId = getLayerId(layerName);
+
+          let layerExists = false;
+          try {
+            layerExists = !!map.getLayer(layerId);
+          } catch (e) {
+            console.log(`Error checking if layer ${layerId} exists:`, e);
+            layerExists = false;
+          }
+
+          if (layerExists) {
+            // If layer exists, just make it visible
+            try {
+              console.log(`Forcing layer ${layerId} to be visible`);
+              map.setLayoutProperty(layerId, "visibility", "visible");
+            } catch (e) {
+              console.error(`Error making layer ${layerId} visible:`, e);
+              layerExists = false; // Mark as not existing to recreate it
+            }
+          }
+
+          if (!layerExists) {
+            // If layer doesn't exist, create it
+            const sourceUrl = getLayerSourceUrl(layerName);
+            const geomTypeUrl = getLayerGeomTypeUrl(layerName);
+
+            // Add the layer with error handling
+            addMapLayer(map, layerId, sourceUrl, layerName, geomTypeUrl)
+              .then(() =>
+                console.log(`Successfully added missing layer ${layerId}`)
+              )
+              .catch((err) =>
+                console.error(`Failed to add missing layer ${layerId}:`, err)
+              );
+          }
+        });
+    },
+    [
+      selectedLayers,
+      workspaceConnections,
+      getLayerId,
+      getLayerSourceUrl,
+      getLayerGeomTypeUrl,
+      addMapLayer,
+    ]
   );
 
   return {
     layerConfigs,
     selectedLayerId,
     isStyleModalOpen,
-    activeLayerIds,
+    getActiveLayerIds,
     layerOrder,
     setSelectedLayerId,
     setIsStyleModalOpen,
@@ -418,5 +612,6 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     getLayerSourceUrl,
     getLayerGeomTypeUrl,
     getLayerId,
+    forceShowAllSelectedLayers,
   };
 }

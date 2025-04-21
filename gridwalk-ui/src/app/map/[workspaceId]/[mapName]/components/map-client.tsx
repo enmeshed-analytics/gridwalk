@@ -97,7 +97,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     layerConfigs,
     selectedLayerId,
     isStyleModalOpen,
-    activeLayerIds,
     setSelectedLayerId,
     setIsStyleModalOpen,
     updateLayerStyle,
@@ -107,10 +106,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
     getLayerSourceUrl,
     getLayerGeomTypeUrl,
     getLayerId,
+    forceShowAllSelectedLayers,
   } = useLayer({
     mapRef,
     isMapReady,
     workspaceId,
+    selectedLayers,
+    workspaceConnections,
   });
 
   // Initial Load Complete
@@ -122,7 +124,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
       setSelectedItem(item);
       setIsModalOpen(true);
     },
-    [],
+    []
   );
 
   // Handle Modal Close
@@ -174,7 +176,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     (item: MapEditSidebarModalOptions) => {
       setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
     },
-    [],
+    []
   );
 
   const handleSelectLayer = useCallback(
@@ -185,38 +187,45 @@ export function MapClient({ apiUrl }: MapClientProps) {
       const layerId = getLayerId(layerName);
       const willBeEnabled = !selectedLayers[index];
 
-      setSelectedLayers((prev) => ({
-        ...prev,
-        [index]: willBeEnabled,
-      }));
-
-      localStorage.setItem(
-        "selectedLayers",
-        JSON.stringify({
-          ...selectedLayers,
-          [index]: willBeEnabled,
-        }),
+      console.log(
+        `${
+          willBeEnabled ? "Enabling" : "Disabling"
+        } layer: ${layerName} (${layerId})`
       );
 
+      // Update state with new selection
+      const updatedLayers = {
+        ...selectedLayers,
+        [index]: willBeEnabled,
+      };
+
+      setSelectedLayers(updatedLayers);
+      localStorage.setItem("selectedLayers", JSON.stringify(updatedLayers));
+
+      // Handle visibility based on selection
       if (willBeEnabled) {
         try {
           const sourceUrl = getLayerSourceUrl(layerName);
           const geomTypeUrl = getLayerGeomTypeUrl(layerName);
-
           await addMapLayer(map, layerId, sourceUrl, layerName, geomTypeUrl);
         } catch (err) {
+          console.error(`Error adding layer ${layerId}:`, err);
+          // Revert on error
           setSelectedLayers((prev) => ({
             ...prev,
             [index]: false,
           }));
-          console.error("Error adding layer:", err);
+          localStorage.setItem(
+            "selectedLayers",
+            JSON.stringify({
+              ...selectedLayers,
+              [index]: false,
+            })
+          );
         }
       } else {
-        try {
-          removeMapLayer(map, layerId);
-        } catch (err) {
-          console.error("Error removing layer:", err);
-        }
+        // Use removeMapLayer instead of directly setting layout property
+        removeMapLayer(map, layerId);
       }
     },
     [
@@ -227,86 +236,52 @@ export function MapClient({ apiUrl }: MapClientProps) {
       getLayerId,
       getLayerSourceUrl,
       getLayerGeomTypeUrl,
-    ],
+    ]
   );
 
   const handleBaseLayerSidebarClick = useCallback(
     (item: BaseLayerSidebarModalOptions) => {
       if (!mapRef.current) return;
-      console.log("Active layers before style change:", activeLayerIds);
 
       setSelectedBaseItem(item);
       const styleKey = item.id as MapStyleKey;
 
       if (Object.keys(MAP_STYLES).includes(styleKey)) {
         const map = mapRef.current;
-        let hasRestoredLayers = false;
-
-        const setupStyleLoadHandlers = () => {
-          console.log("Setting up style load handlers");
-
-          const handleIdle = async () => {
-            if (map.isStyleLoaded() && !hasRestoredLayers) {
-              console.log("Style is loaded, restoring layers");
-
-              for (const layerId of activeLayerIds) {
-                const layerName = layerId.replace(`layer-${workspaceId}-`, "");
-                const sourceUrl = getLayerSourceUrl(layerName);
-                const geomTypeUrl = getLayerGeomTypeUrl(layerName);
-
-                try {
-                  await addMapLayer(
-                    map,
-                    layerId,
-                    sourceUrl,
-                    layerName,
-                    geomTypeUrl,
-                  );
-                } catch (error) {
-                  console.error(`Error restoring layer ${layerName}:`, error);
-                }
-              }
-
-              annotations.forEach((annotation) => {
-                addAnnotationLayer(map, annotation);
-              });
-
-              hasRestoredLayers = true;
-              map.off("idle", handleIdle);
-            }
-          };
-
-          map.on("idle", handleIdle);
-
-          setTimeout(() => {
-            map.off("idle", handleIdle);
-          }, 5000);
-        };
-
-        setupStyleLoadHandlers();
 
         fetch(MAP_STYLES[styleKey])
           .then((response) => response.json())
           .then((styleJson) => {
-            console.log("Fetched new style, applying...");
+            // Apply the new style
             map.setStyle(styleJson, { diff: true });
             setCurrentStyle(MAP_STYLES[styleKey]);
+
+            // After style changes, we need to wait for the map to stabilize
+            const styleDataHandler = () => {
+              // Once style is loaded, wait a bit more for things to stabilize
+              setTimeout(() => {
+                // Force all selected layers to be visible
+                forceShowAllSelectedLayers(map);
+
+                // Add annotations too
+                annotations.forEach((annotation) => {
+                  addAnnotationLayer(map, annotation);
+                });
+
+                // Remove the handler
+                map.off("styledata", styleDataHandler);
+              }, 100);
+            };
+
+            // Listen for style changes
+            map.on("styledata", styleDataHandler);
           })
           .catch((error) => {
             console.error("Error loading style:", error);
           });
       }
     },
-    [
-      workspaceId,
-      mapRef,
-      activeLayerIds,
-      addMapLayer,
-      addAnnotationLayer,
-      annotations,
-      getLayerSourceUrl,
-      getLayerGeomTypeUrl,
-    ],
+    [mapRef, forceShowAllSelectedLayers, annotations, addAnnotationLayer]
   );
 
   // Effect to fetch workspace layers
@@ -347,7 +322,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             if (isSelected && workspaceConnections[Number(index)]) {
               handleSelectLayer(
                 Number(index),
-                workspaceConnections[Number(index)],
+                workspaceConnections[Number(index)]
               );
             }
           });
@@ -372,7 +347,16 @@ export function MapClient({ apiUrl }: MapClientProps) {
     return () => {
       if (!currentMap) return;
 
-      activeLayerIds.forEach((layerId: string) => {
+      // Derive active layer IDs from selectedLayers
+      const activeLayers = Object.entries(selectedLayers)
+        .filter(([, isSelected]) => isSelected)
+        .map(([index]) => {
+          const connection = workspaceConnections[Number(index)];
+          return connection ? getLayerId(String(connection)) : null;
+        })
+        .filter(Boolean) as string[];
+
+      activeLayers.forEach((layerId: string) => {
         try {
           if (currentMap.getLayer(layerId)) {
             currentMap.removeLayer(layerId);
@@ -385,7 +369,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         }
       });
     };
-  }, [mapRef, activeLayerIds]);
+  }, [mapRef, selectedLayers, workspaceConnections, getLayerId]);
 
   // Add effect to save annotations whenever they change
   useEffect(() => {
@@ -400,6 +384,85 @@ export function MapClient({ apiUrl }: MapClientProps) {
       setDrawMode(selectedEditItem.id);
     }
   }, [selectedEditItem, setDrawMode]);
+
+  // Add this effect to properly apply layer ordering when selectedLayers changes
+
+  // Effect to apply layer ordering when selectedLayers changes
+  useEffect(() => {
+    if (
+      mapRef?.current &&
+      Object.values(selectedLayers).some((selected) => selected)
+    ) {
+      console.log("Selected layers changed, reapplying layer order");
+      // Wait for any pending layer operations to complete
+      setTimeout(() => {
+        const map = mapRef.current;
+        if (map) {
+          // Re-add all layers to ensure proper ordering
+          Object.entries(selectedLayers).forEach(
+            async ([index, isSelected]) => {
+              if (isSelected && workspaceConnections[Number(index)]) {
+                try {
+                  const connection = workspaceConnections[Number(index)];
+                  const layerName = String(connection);
+                  const layerId = getLayerId(layerName);
+
+                  // Make sure the layer is visible
+                  if (map.getLayer(layerId)) {
+                    map.setLayoutProperty(layerId, "visibility", "visible");
+                  }
+                } catch (error) {
+                  console.error("Error ensuring layer visibility:", error);
+                }
+              }
+            }
+          );
+        }
+      }, 100);
+    }
+  }, [selectedLayers, mapRef, workspaceConnections, getLayerId]);
+
+  // TODO: Remove this effect in the future - it is for debugging purposes only for now!
+  useEffect(() => {
+    if (mapRef?.current && Object.keys(selectedLayers).length > 0) {
+      const map = mapRef.current;
+      const activeLayers = Object.entries(selectedLayers)
+        .filter(([, isSelected]) => isSelected)
+        .map(([index]) => {
+          const connection = workspaceConnections[Number(index)];
+          return connection ? getLayerId(String(connection)) : null;
+        })
+        .filter(Boolean) as string[];
+
+      // Log current state of layers
+      console.log("Selected layers state:", selectedLayers);
+      console.log("Active layer IDs:", activeLayers);
+
+      // Check which layers are actually on the map
+      const layersOnMap = activeLayers.filter((id) => map.getLayer(id));
+      console.log("Layers actually on map:", layersOnMap);
+
+      // Log visibility status
+      layersOnMap.forEach((id) => {
+        const visibility = map.getLayoutProperty(id, "visibility");
+        console.log(`Layer ${id} visibility: ${visibility}`);
+      });
+    }
+  }, [selectedLayers, mapRef, workspaceConnections, getLayerId]);
+
+  // Effect to ensure all selected layers are visible when they change
+  useEffect(() => {
+    if (!mapRef?.current || !isMapReady) return;
+
+    // Use a delay to ensure the map has stabilized
+    const timer = setTimeout(() => {
+      if (mapRef.current) {
+        forceShowAllSelectedLayers(mapRef.current);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [selectedLayers, isMapReady, mapRef, forceShowAllSelectedLayers]);
 
   return (
     <div className="w-full h-screen relative">
