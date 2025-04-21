@@ -95,8 +95,6 @@ pub fn create_app(app_state: AppState) -> Router {
         .with_state(shared_state.clone());
 
     let main_router = Router::new()
-        .route("/projects", get(get_projects))
-        .route("/projects", delete(delete_project))
         .route("/workspaces", get(get_workspaces))
         .route("/logout", post(logout))
         .route("/profile", get(profile))
@@ -129,7 +127,12 @@ pub fn create_app(app_state: AppState) -> Router {
             "/workspaces/:workspace_id/connections/:connection_id/sources",
             get(list_sources),
         )
-        .route("/create_project", post(create_project))
+        .route("/workspaces/:workspace_id/projects", post(create_project))
+        .route("/workspaces/:workspace_id/projects", get(get_projects))
+        .route(
+            "/workspaces/:workspace_id/projects/:project_id",
+            delete(delete_project),
+        )
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
         .layer(middleware::from_fn_with_state(
