@@ -106,7 +106,7 @@ impl TryFrom<&Row> for Workspace {
 
 impl FromSql<'_> for WorkspaceRole {
     fn accepts(ty: &Type) -> bool {
-        ty == &Type::TEXT
+        ty == &Type::VARCHAR
     }
 
     fn from_sql(ty: &Type, raw: &[u8]) -> Result<Self, Box<dyn Error + Sync + Send>> {
@@ -127,7 +127,7 @@ impl TryFrom<&Row> for WorkspaceMember {
             workspace_id: row.try_get("workspace_id")?,
             user_id: row.try_get("user_id")?,
             role: row.try_get("role")?,
-            joined_at: row.try_get("created_at")?,
+            joined_at: row.try_get("joined_at")?,
         })
     }
 }

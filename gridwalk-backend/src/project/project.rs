@@ -7,24 +7,23 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateProject {
-    pub workspace_id: Uuid,
     pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub workspace_id: Uuid,
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub owner_id: Uuid,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl Project {
-    pub fn from_req(req: CreateProject, user: &User) -> Self {
+    pub fn from_req(req: CreateProject, workspace_id: &Uuid, user: &User) -> Self {
         Project {
-            workspace_id: req.workspace_id,
-            id: Uuid::new_v4().to_string(),
+            workspace_id: *workspace_id,
+            id: Uuid::new_v4(),
             name: req.name,
             owner_id: user.id.clone(),
             created_at: chrono::Utc::now(),
@@ -56,7 +55,7 @@ impl Project {
         Ok(())
     }
 
-    pub async fn write_project_record(&self, database: &Arc<dyn Database>) -> Result<()> {
+    pub async fn save(&self, database: &Arc<dyn Database>) -> Result<()> {
         database.create_project(self).await?;
         Ok(())
     }
