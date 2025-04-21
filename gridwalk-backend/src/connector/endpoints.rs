@@ -1,4 +1,4 @@
-use super::{ConnectionDetails, Connector, PostgisConnector};
+use super::{ConnectionDetails, Connector, PostgisConnector, WorkspaceConnectionAccess};
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::connector::{ConnectionConfig, ConnectionTenancy};
@@ -191,4 +191,74 @@ pub async fn get_connection(
     };
 
     (StatusCode::OK, Json(connection)).into_response()
+}
+
+pub async fn get_connection_capacity(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(connection_id): Path<Uuid>,
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Any global role is allowed to get connections
+    match user.check_global_role().await {
+        Some(level) => level,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Get connection
+    let connection = match ConnectionConfig::from_id(&state.app_data, &connection_id).await {
+        Ok(connection) => connection,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get connection: {}", e),
+            )
+                .into_response()
+        }
+    };
+
+    // Get connection capacity
+    let connection_access =
+        match WorkspaceConnectionAccess::get_all_by_connection(&state.app_data, &connection_id)
+            .await
+        {
+            Ok(connection_access) => connection_access,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to get connection access: {}", e),
+                )
+                    .into_response()
+            }
+        };
+
+    let connection_access_count = connection_access.len();
+
+    let capacity = match connection.tenancy {
+        ConnectionTenancy::Shared { capacity } => {
+            if let Some(capacity) = capacity.into() {
+                capacity
+            } else {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Connection does not have a capacity",
+                )
+                    .into_response();
+            }
+        }
+        ConnectionTenancy::Workspace(_) => 1,
+    };
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "capacity": capacity,
+            "usage": connection_access_count,
+        })),
+    )
+        .into_response()
 }

@@ -70,6 +70,17 @@ impl ConnectionConfig {
         Ok(con.into_iter().map(|c| c.sanitize()).collect())
     }
 
+    pub async fn capacity(
+        database: &Arc<dyn Database>,
+        connection_id: &Uuid,
+    ) -> Result<Option<usize>> {
+        let con = database.get_connection(connection_id).await?;
+        match con.tenancy {
+            ConnectionTenancy::Shared { capacity } => Ok(Some(capacity)),
+            ConnectionTenancy::Workspace(_) => Ok(None),
+        }
+    }
+
     // TODO: Delete connection (after handling all dependencies)
 }
 
@@ -95,7 +106,15 @@ impl WorkspaceConnectionAccess {
         database.get_accessible_connections(wsp).await
     }
 
-    // Get
+    pub async fn get_all_by_connection(
+        database: &Arc<dyn Database>,
+        connection_id: &Uuid,
+    ) -> Result<Vec<WorkspaceConnectionAccess>> {
+        database
+            .get_accessible_connections_by_connection(connection_id)
+            .await
+    }
+
     pub async fn get(database: &Arc<dyn Database>, wsp: &Workspace, con_id: &Uuid) -> Result<Self> {
         let con = database.get_accessible_connection(wsp, con_id).await?;
         Ok(con)
