@@ -1,4 +1,4 @@
-use super::{ConnectionDetails, Connector, PostgisConnector, WorkspaceConnectionAccess};
+use super::{ConnectionDetails, Connector, PostgisConnector};
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
 use crate::connector::{ConnectionConfig, ConnectionTenancy};
@@ -221,43 +221,24 @@ pub async fn get_connection_capacity(
         }
     };
 
-    // Get connection capacity
-    let connection_access =
-        match WorkspaceConnectionAccess::get_all_by_connection(&state.app_data, &connection_id)
-            .await
-        {
-            Ok(connection_access) => connection_access,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to get connection access: {}", e),
-                )
-                    .into_response()
-            }
-        };
-
-    let connection_access_count = connection_access.len();
-
-    let capacity = match connection.tenancy {
-        ConnectionTenancy::Shared { capacity } => {
-            if let Some(capacity) = capacity.into() {
-                capacity
-            } else {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Connection does not have a capacity",
-                )
-                    .into_response();
-            }
+    // Get connection capacity info
+    let capacity_info = match connection.capacity_info(&state.app_data).await {
+        Ok(capacity) => capacity,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get connection capacity: {}", e),
+            )
+                .into_response()
         }
-        ConnectionTenancy::Workspace(_) => 1,
     };
 
     (
         StatusCode::OK,
         Json(json!({
-            "capacity": capacity,
-            "usage": connection_access_count,
+            "connection_id": connection.id,
+            "capacity": capacity_info.capacity,
+            "usage": capacity_info.usage_count,
         })),
     )
         .into_response()

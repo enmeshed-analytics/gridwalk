@@ -35,6 +35,13 @@ pub struct ConnectionConfig {
     pub active: bool,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ConnectionCapacityInfo {
+    pub connection_id: Uuid,
+    pub capacity: usize,
+    pub usage_count: usize,
+}
+
 impl ConnectionConfig {
     // Used to remove sensitive data from the connection config
     pub fn sanitize(mut self) -> Self {
@@ -70,15 +77,27 @@ impl ConnectionConfig {
         Ok(con.into_iter().map(|c| c.sanitize()).collect())
     }
 
-    pub async fn capacity(
+    pub async fn capacity_info(
+        &self,
         database: &Arc<dyn Database>,
-        connection_id: &Uuid,
-    ) -> Result<Option<usize>> {
-        let con = database.get_connection(connection_id).await?;
-        match con.tenancy {
-            ConnectionTenancy::Shared { capacity } => Ok(Some(capacity)),
-            ConnectionTenancy::Workspace(_) => Ok(None),
-        }
+    ) -> Result<ConnectionCapacityInfo> {
+        let capacity = match &self.tenancy {
+            ConnectionTenancy::Shared { capacity } => *capacity,
+            ConnectionTenancy::Workspace(_) => 1,
+        };
+
+        let usage_count = database.get_connection_usage_count(&self.id).await?;
+
+        Ok(ConnectionCapacityInfo {
+            connection_id: self.id,
+            capacity,
+            usage_count,
+        })
+    }
+
+    pub async fn usage_count(&self, database: &Arc<dyn Database>) -> Result<usize> {
+        let count = database.get_connection_usage_count(&self.id).await?;
+        Ok(count)
     }
 
     // TODO: Delete connection (after handling all dependencies)
