@@ -32,6 +32,10 @@ pub trait UserStore: Send + Sync + 'static {
     async fn get_connection(&self, connection_id: &Uuid) -> Result<ConnectionConfig>;
     async fn create_connection_access(&self, ca: &WorkspaceConnectionAccess) -> Result<()>;
     async fn get_accessible_connections(&self, wsp: &Workspace) -> Result<Vec<ConnectionConfig>>;
+    async fn get_accessible_connections_by_connection(
+        &self,
+        connection_id: &Uuid,
+    ) -> Result<Vec<WorkspaceConnectionAccess>>;
     async fn get_accessible_connection(
         &self,
         wsp: &Workspace,

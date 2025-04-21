@@ -479,6 +479,24 @@ impl UserStore for Postgres {
         Ok(connections)
     }
 
+    async fn get_accessible_connections_by_connection(
+        &self,
+        connection_id: &Uuid,
+    ) -> Result<Vec<WorkspaceConnectionAccess>> {
+        let client = self.pool.get().await?;
+        let rows = client
+            .query(
+                "SELECT * FROM connection_access WHERE connection_id = $1",
+                &[&connection_id],
+            )
+            .await?;
+        let connections: Vec<WorkspaceConnectionAccess> = rows
+            .iter()
+            .map(|row| WorkspaceConnectionAccess::try_from(row))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(connections)
+    }
+
     async fn get_accessible_connection(
         &self,
         wsp: &Workspace,
