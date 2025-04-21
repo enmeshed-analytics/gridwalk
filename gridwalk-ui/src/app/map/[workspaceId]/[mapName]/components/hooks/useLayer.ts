@@ -40,7 +40,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const [activeLayerIds, setActiveLayerIds] = useState<string[]>([]);
-  // Track layer ordering to maintain consistent z-index
+  // Track layer ordering
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
 
   // Load saved layer configs
@@ -113,7 +113,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
           break;
       }
     },
-    [mapRef, layerConfigs]
+    [mapRef, layerConfigs],
   );
 
   // Helper function to find the first symbol layer in the map style
@@ -133,7 +133,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     (layerName: string) => {
       return `source-${workspaceId}-${layerName}`;
     },
-    [workspaceId]
+    [workspaceId],
   );
 
   const addMapLayer = useCallback(
@@ -142,13 +142,13 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
       layerId: string,
       sourceUrl: string,
       sourceLayerName: string,
-      geomTypeUrl: string
+      geomTypeUrl: string,
     ) => {
       try {
         const response = await fetch(geomTypeUrl);
         if (!response.ok) {
           throw new Error(
-            `Failed to fetch geometry type: ${response.statusText}`
+            `Failed to fetch geometry type: ${response.statusText}`,
           );
         }
         const geomType = await response.text();
@@ -213,7 +213,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
             break;
           default:
             console.warn(
-              `Unknown geometry type: ${geomType}, defaulting to point`
+              `Unknown geometry type: ${geomType}, defaulting to point`,
             );
             layerConfig = {
               type: "circle",
@@ -232,7 +232,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
         if (activeLayerIds.length > 0 && layerOrder.length > 0) {
           // Find active layers that are already on the map
           const activeOrderedLayers = layerOrder.filter(
-            (id) => activeLayerIds.includes(id) && map.getLayer(id)
+            (id) => activeLayerIds.includes(id) && map.getLayer(id),
           );
 
           if (activeOrderedLayers.length > 0) {
@@ -275,7 +275,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
 
         // Add to active layer IDs
         setActiveLayerIds((prev) =>
-          prev.includes(layerId) ? prev : [...prev, layerId]
+          prev.includes(layerId) ? prev : [...prev, layerId],
         );
 
         // Add to layer order (at the top)
@@ -290,7 +290,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
         throw error;
       }
     },
-    [layerConfigs, activeLayerIds, getFirstLayerId, getSourceId, layerOrder]
+    [layerConfigs, activeLayerIds, getFirstLayerId, getSourceId, layerOrder],
   );
 
   const removeMapLayer = useCallback(
@@ -306,7 +306,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
 
       // Check if the source is still being used by other layers before removing
       const isSourceUsedElsewhere = Object.values(layerConfigs).some(
-        (config) => config.sourceId === sourceId && config.layerId !== layerId
+        (config) => config.sourceId === sourceId && config.layerId !== layerId,
       );
 
       if (!isSourceUsedElsewhere && map.getSource(sourceId)) {
@@ -319,7 +319,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
       // Update layer order
       setLayerOrder((prev) => prev.filter((id) => id !== layerId));
     },
-    [layerConfigs, getSourceId]
+    [layerConfigs, getSourceId],
   );
 
   // Add this new function to reapply the layer order to the map
@@ -364,7 +364,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
       // Note: The actual move in MapLibre will happen through the useEffect
       // So we don't need to call map.moveLayer here anymore
     },
-    [mapRef]
+    [mapRef],
   );
 
   const handleStyleClick = useCallback(
@@ -374,7 +374,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
       setSelectedLayerId(layerId);
       setIsStyleModalOpen(true);
     },
-    [layerConfigs]
+    [layerConfigs],
   );
 
   // Generate a source URL for a layer
@@ -382,7 +382,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     (layerName: string) => {
       return `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceId}/connections/primary/sources/${layerName}/tiles/{z}/{x}/{y}`;
     },
-    [workspaceId]
+    [workspaceId],
   );
 
   // Generate a geometry type URL for a layer
@@ -390,7 +390,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     (layerName: string) => {
       return `${process.env.NEXT_PUBLIC_GRIDWALK_API}/workspaces/${workspaceId}/connections/primary/sources/${layerName}/tiles/geometry`;
     },
-    [workspaceId]
+    [workspaceId],
   );
 
   // Generate a layer ID
@@ -398,7 +398,7 @@ export function useLayer({ mapRef, workspaceId }: UseLayerProps) {
     (layerName: string) => {
       return `layer-${workspaceId}-${layerName}`;
     },
-    [workspaceId]
+    [workspaceId],
   );
 
   return {

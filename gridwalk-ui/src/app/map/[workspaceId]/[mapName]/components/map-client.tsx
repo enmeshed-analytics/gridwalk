@@ -122,7 +122,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
       setSelectedItem(item);
       setIsModalOpen(true);
     },
-    []
+    [],
   );
 
   // Handle Modal Close
@@ -174,7 +174,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     (item: MapEditSidebarModalOptions) => {
       setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
     },
-    []
+    [],
   );
 
   const handleSelectLayer = useCallback(
@@ -195,7 +195,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
         JSON.stringify({
           ...selectedLayers,
           [index]: willBeEnabled,
-        })
+        }),
       );
 
       if (willBeEnabled) {
@@ -227,7 +227,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
       getLayerId,
       getLayerSourceUrl,
       getLayerGeomTypeUrl,
-    ]
+    ],
   );
 
   const handleBaseLayerSidebarClick = useCallback(
@@ -260,7 +260,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
                     layerId,
                     sourceUrl,
                     layerName,
-                    geomTypeUrl
+                    geomTypeUrl,
                   );
                 } catch (error) {
                   console.error(`Error restoring layer ${layerName}:`, error);
@@ -306,19 +306,19 @@ export function MapClient({ apiUrl }: MapClientProps) {
       annotations,
       getLayerSourceUrl,
       getLayerGeomTypeUrl,
-    ]
+    ],
   );
 
-  // Effect to fetch workspace connections
+  // Effect to fetch workspace layers
   useEffect(() => {
     const fetchWorkspaceSources = async () => {
       try {
-        console.log("Fetching connections for workspace:", workspaceId);
+        console.log("Fetching layers for workspace:", workspaceId);
         const connections = await getWorkspaceConnections(workspaceId);
-        console.log("Received connections:", connections);
+        console.log("Received layers:", connections);
         setWorkspaceConnections(connections);
       } catch (error) {
-        console.error("Failed to fetch workspace connections:", {
+        console.error("Failed to fetch workspace layers:", {
           workspaceId,
           error: error instanceof Error ? error.message : error,
           fullError: error,
@@ -347,7 +347,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
             if (isSelected && workspaceConnections[Number(index)]) {
               handleSelectLayer(
                 Number(index),
-                workspaceConnections[Number(index)]
+                workspaceConnections[Number(index)],
               );
             }
           });
