@@ -450,6 +450,18 @@ impl UserStore for Postgres {
         Ok(connection)
     }
 
+    async fn get_connection_usage_count(&self, connection_id: &Uuid) -> Result<usize> {
+        let client = self.pool.get().await?;
+        let row = client
+            .query_one(
+                "SELECT COUNT(*) FROM connection_access WHERE connection_id = $1",
+                &[&connection_id],
+            )
+            .await?;
+        let count: i64 = row.get(0);
+        Ok(count as usize)
+    }
+
     async fn create_connection_access(&self, ca: &WorkspaceConnectionAccess) -> Result<()> {
         let client = self.pool.get().await?;
         let rows_affected = client
