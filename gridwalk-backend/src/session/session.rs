@@ -1,6 +1,5 @@
 use crate::app_state::AppState;
 use crate::data::Database;
-use crate::utils::create_id;
 use crate::User;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -9,12 +8,13 @@ use axum::{
     http::{header, request::Parts, StatusCode},
 };
 use serde::Serialize;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Session {
-    pub id: String,
-    pub user_id: Option<String>,
+    pub id: Uuid,
+    pub user_id: Option<Uuid>,
 }
 
 #[async_trait]
@@ -36,8 +36,16 @@ where
                 "Missing or invalid authorization header".to_string(),
             ))?;
 
+        // Convert the auth_header to a UUID
+        let session_id = Uuid::from_str(auth_header).map_err(|_| {
+            (
+                StatusCode::UNAUTHORIZED,
+                "Invalid session token".to_string(),
+            )
+        })?;
+
         // Use the existing from_id method to validate and retrieve the session
-        match Session::from_id(&state.app_data, auth_header).await {
+        match Session::from_id(&state.app_data, &session_id).await {
             Ok(session) => Ok(session),
             Err(_) => Err((
                 StatusCode::UNAUTHORIZED,
@@ -49,12 +57,12 @@ where
 
 impl Session {
     // TODO: dead code
-    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<Self> {
+    pub async fn from_id(database: &Arc<dyn Database>, id: &Uuid) -> Result<Self> {
         database.get_session_by_id(id).await
     }
 
-    pub async fn create<T: Database>(database: T, user: Option<&User>) -> Result<Self> {
-        let session_id = create_id(30).await;
+    pub async fn create(database: &Arc<dyn Database>, user: Option<&User>) -> Result<Self> {
+        let session_id = Uuid::new_v4();
 
         match user {
             Some(u) => database.create_session(Some(u), &session_id).await?,

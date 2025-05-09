@@ -1,0 +1,177 @@
+use super::{Connector, PostgisConnection, PostgisConnector};
+use crate::{data::Database, Workspace};
+use anyhow::{anyhow, Result};
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use strum_macros::Display;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Display, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum ConnectionTenancy {
+    Shared { capacity: usize },
+    Workspace(Uuid),
+}
+
+#[derive(Debug, Display, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum ConnectionDetails {
+    Postgis(PostgisConnection),
+}
+
+// TODO: Hold metadata such as region to optimize allocation to workspaces
+// for connections with shared tenancy
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ConnectionConfig {
+    pub id: Uuid,
+    pub name: String,
+    pub tenancy: ConnectionTenancy,
+    pub config: ConnectionDetails,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ConnectionCapacityInfo {
+    pub connection_id: Uuid,
+    pub capacity: usize,
+    pub usage_count: usize,
+}
+
+impl ConnectionConfig {
+    // Used to remove sensitive data from the connection config
+    pub fn sanitize(mut self) -> Self {
+        match &mut self.config {
+            ConnectionDetails::Postgis(postgis) => {
+                postgis.sanitize();
+            }
+        }
+        self
+    }
+
+    pub async fn create(self, database: &Arc<dyn Database>) -> Result<()> {
+        // Test connection
+        match &self.config {
+            ConnectionDetails::Postgis(config) => {
+                let mut connector = PostgisConnector::new(config.clone()).unwrap();
+                connector.test_connection().await?;
+            }
+        }
+
+        // TODO: Create new Error type for connection errors
+        database.create_connection(&self).await?;
+        Ok(())
+    }
+
+    pub async fn from_id(database: &Arc<dyn Database>, connection_id: &Uuid) -> Result<Self> {
+        let con = database.get_connection(connection_id).await?;
+        Ok(con.sanitize())
+    }
+
+    pub async fn get_all(database: &Arc<dyn Database>) -> Result<Vec<Self>> {
+        let con = database.get_all_connections().await?;
+        Ok(con.into_iter().map(|c| c.sanitize()).collect())
+    }
+
+    pub async fn capacity_info(
+        &self,
+        database: &Arc<dyn Database>,
+    ) -> Result<ConnectionCapacityInfo> {
+        let capacity = match &self.tenancy {
+            ConnectionTenancy::Shared { capacity } => *capacity,
+            ConnectionTenancy::Workspace(_) => 1,
+        };
+
+        let usage_count = database.get_connection_usage_count(&self.id).await?;
+
+        Ok(ConnectionCapacityInfo {
+            connection_id: self.id,
+            capacity,
+            usage_count,
+        })
+    }
+
+    pub async fn usage_count(&self, database: &Arc<dyn Database>) -> Result<usize> {
+        let count = database.get_connection_usage_count(&self.id).await?;
+        Ok(count)
+    }
+
+    // TODO: Delete connection (after handling all dependencies)
+}
+
+// Connections with workspace tenancy will only have a single WorkspaceConnectionAccess
+// Connections with shared tenancy will have multiple WorkspaceConnectionAccess
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WorkspaceConnectionAccess {
+    pub connection_id: Uuid,
+    pub workspace_id: Uuid,
+}
+
+// The WorkspaceDataAccess struct is used to manage access to data between workspaces.
+impl WorkspaceConnectionAccess {
+    pub async fn save(&self, database: &Arc<dyn Database>) -> Result<()> {
+        database.create_connection_access(&self).await?;
+        Ok(())
+    }
+
+    pub async fn get_all(
+        database: &Arc<dyn Database>,
+        wsp: &Workspace,
+    ) -> Result<Vec<ConnectionConfig>> {
+        database.get_accessible_connections(wsp).await
+    }
+
+    pub async fn get_all_by_connection(
+        database: &Arc<dyn Database>,
+        connection_id: &Uuid,
+    ) -> Result<Vec<WorkspaceConnectionAccess>> {
+        database
+            .get_accessible_connections_by_connection(connection_id)
+            .await
+    }
+
+    pub async fn get(database: &Arc<dyn Database>, wsp: &Workspace, con_id: &Uuid) -> Result<Self> {
+        let con = database.get_accessible_connection(wsp, con_id).await?;
+        Ok(con)
+    }
+}
+
+// The ActiveConnections struct and its impl block are used to manage live connections at runtime.
+#[derive(Clone)]
+pub struct ActiveConnections {
+    sources: DashMap<Uuid, Arc<dyn Connector + Send + Sync>>,
+}
+
+impl ActiveConnections {
+    pub fn new() -> Self {
+        Self {
+            sources: DashMap::new(),
+        }
+    }
+
+    pub async fn load_connection(&self, connection: ConnectionConfig) -> Result<()> {
+        let connector: Arc<dyn Connector + Send + Sync> = match connection.config {
+            ConnectionDetails::Postgis(cfg) => Arc::new(PostgisConnector::new(cfg)?),
+        };
+
+        // TODO: connect to the source
+        self.sources.insert(connection.id, connector);
+        Ok(())
+    }
+
+    pub fn get_connection(&self, id: &Uuid) -> Result<Arc<dyn Connector + Send + Sync>> {
+        self.sources
+            .get(id)
+            .map(|entry| entry.clone()) // clone the Arc, not the connector
+            .ok_or_else(|| anyhow!("Source not found"))
+    }
+
+    pub fn remove_connection(&self, id: &Uuid) -> Result<()> {
+        self.sources.remove(id);
+        Ok(())
+    }
+}

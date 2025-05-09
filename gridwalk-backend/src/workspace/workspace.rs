@@ -1,28 +1,30 @@
 use crate::data::Database;
-use crate::utils::get_unix_timestamp;
-use crate::User;
+use crate::{ConnectionCapacityInfo, ConnectionTenancy, User, WorkspaceConnectionAccess};
 use anyhow::{anyhow, Result};
+use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
+use uuid::Uuid;
 
-use crate::{ConnectionAccess, ConnectionAccessConfig, GeoConnector};
+//use crate::{ConnectionAccess, ConnectionAccessConfig};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
-    pub owner: String,
-    pub created_at: u64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
     pub active: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WorkspaceMember {
-    pub workspace_id: String,
-    pub user_id: String,
+    pub workspace_id: Uuid,
+    pub user_id: Uuid,
     pub role: WorkspaceRole,
+    pub joined_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -67,43 +69,67 @@ pub struct RemoveOrgMember {
 }
 
 impl Workspace {
-    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<Self> {
+    pub async fn from_id(database: &Arc<dyn Database>, id: &Uuid) -> Result<Self> {
         Ok(database.get_workspace_by_id(id).await?)
     }
 
-    pub async fn create(
-        database: &Arc<dyn Database>,
-        connection: &Arc<dyn GeoConnector>,
-        wsp: &Workspace,
-    ) -> Result<()> {
-        // Check for existing org with same name
-        let db_resp = database.create_workspace(wsp).await;
+    pub async fn save(&self, database: &Arc<dyn Database>, admin: &User) -> Result<()> {
+        // TODO: Use transaction
 
+        let connections = database
+            // Capacity value is not used in the query
+            .get_connections_by_tenancy(&ConnectionTenancy::Shared { capacity: 0 })
+            .await?;
+
+        // For each connection, check if it has spare capacity. Get futures first
+        let capacity_futures = connections.iter().map(|c| async move {
+            match c.capacity_info(&database).await {
+                Ok(capacity) => Ok(capacity),
+                Err(_) => Err(anyhow::anyhow!("failed to get connection capacity")),
+            }
+        });
+
+        let connection_capacity_vec: Vec<Result<ConnectionCapacityInfo, anyhow::Error>> =
+            join_all(capacity_futures).await;
+
+        // Filter out Errors
+        let connection_capacity_vec: Vec<ConnectionCapacityInfo> = connection_capacity_vec
+            .into_iter()
+            .filter_map(|x| x.ok())
+            .collect();
+
+        // Pick the connection with highest percentage of free capacity
+        let mut connection_capacity_vec = connection_capacity_vec
+            .into_iter()
+            .filter(|c| c.usage_count < c.capacity)
+            .collect::<Vec<ConnectionCapacityInfo>>();
+        connection_capacity_vec.sort_by(|a, b| {
+            let a_percentage = (a.capacity - a.usage_count) as f64 / a.capacity as f64;
+            let b_percentage = (b.capacity - b.usage_count) as f64 / b.capacity as f64;
+            a_percentage
+                .partial_cmp(&b_percentage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        connection_capacity_vec.reverse();
+        let selected_connection = connection_capacity_vec
+            .get(0)
+            .ok_or_else(|| anyhow!("No connections with spare capacity"))?;
+
+        database.create_workspace(&self, admin).await?;
         // Create ConnectionAccess to shared primary db
-        let connection_access = ConnectionAccess {
-            connection_id: "primary".to_string(),
-            workspace_id: wsp.id.clone(),
-            access_config: ConnectionAccessConfig::ReadWrite(wsp.id.clone()),
-        };
-        connection_access.create_record(database).await?;
-        let _ = &connection.create_namespace(&wsp.id).await?;
-
-        match db_resp {
-            Ok(_) => Ok(()),
-            Err(_) => Err(anyhow!("failed to create workspace")),
+        WorkspaceConnectionAccess {
+            connection_id: selected_connection.connection_id,
+            workspace_id: self.id.clone(),
         }
+        .save(database)
+        .await?;
+
+        Ok(())
     }
 
-    pub async fn delete(database: &Arc<dyn Database>, workspace_id: &str) -> Result<()> {
-        database
-            .delete_workspace(&Workspace {
-                id: workspace_id.to_string(),
-                name: String::new(),
-                owner: String::new(),
-                created_at: 0,
-                active: false,
-            })
-            .await
+    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
+        // TODO: Fix this - leaves dangling references (cascade delete in db and add checks in logic)
+        database.delete_workspace(self).await
     }
 
     pub async fn add_member(
@@ -118,10 +144,7 @@ impl Workspace {
             Err(anyhow!("Only Admin can add members"))?
         }
 
-        let now = get_unix_timestamp();
-        database
-            .add_workspace_member(&self, user, role, now)
-            .await?;
+        database.add_workspace_member(&self, user, role).await?;
         Ok(())
     }
 
@@ -141,10 +164,9 @@ impl Workspace {
     pub async fn remove_member(
         self,
         database: &Arc<dyn Database>,
-        req_user: &User,
+        requesting_member: &WorkspaceMember,
         user: &User,
     ) -> Result<()> {
-        let requesting_member = self.clone().get_member(&database, &req_user).await?;
         if requesting_member.role != WorkspaceRole::Admin {
             Err(anyhow!("Only Admin can remove members"))?
         }
@@ -156,8 +178,8 @@ impl Workspace {
     pub async fn get_user_workspaces(
         database: &Arc<dyn Database>,
         user: &User,
-    ) -> Result<Vec<String>> {
-        database.get_workspaces(user).await
+    ) -> Result<Vec<Workspace>> {
+        database.get_user_workspaces(user).await
     }
 }
 

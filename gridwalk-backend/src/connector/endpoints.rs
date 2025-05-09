@@ -1,31 +1,90 @@
+use super::{ConnectionDetails, Connector, PostgisConnector};
 use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::connector::{Connection, ConnectionAccess, PostgisConnector, PostgresConnection};
-use crate::{GlobalRole, Workspace, WorkspaceMember};
+use crate::connector::{ConnectionConfig, ConnectionTenancy};
+use crate::GlobalRole;
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde_json::json;
 use std::sync::Arc;
+use uuid::Uuid;
 
 // TODO: Allow other connector types
 #[derive(Debug, Deserialize)]
 pub struct CreateGlobalConnectionRequest {
     name: String,
-    display_name: String,
-    config: PostgresConnection,
+    tenancy: ConnectionTenancy,
+    config: ConnectionDetails,
 }
 
-impl Connection {
+impl ConnectionConfig {
     pub fn from_req(req: CreateGlobalConnectionRequest) -> Self {
-        Connection {
-            id: req.name,
-            name: req.display_name,
-            connector_type: "postgis".into(),
+        ConnectionConfig {
+            id: Uuid::new_v4(),
+            name: req.name,
+            tenancy: req.tenancy,
             config: req.config,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            active: true,
+        }
+    }
+}
+
+pub async fn test_connection(
+    Extension(auth_user): Extension<AuthUser>,
+    Json(req): Json<CreateGlobalConnectionRequest>,
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Check support level
+    let global_role = match user.check_global_role().await {
+        Some(level) => level,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Only allow user with Super global role to create connections
+    if global_role != GlobalRole::Super {
+        return (StatusCode::FORBIDDEN, "Unauthorized").into_response();
+    }
+
+    // Create connection info
+    let connection_config = ConnectionConfig::from_req(req);
+
+    // Test connection
+    match connection_config.config {
+        ConnectionDetails::Postgis(config) => {
+            let mut connector = PostgisConnector::new(config).unwrap();
+            match connector.test_connection().await {
+                Ok(_) => {
+                    return (
+                        StatusCode::OK,
+                        Json(json!({
+                            "status": "success",
+                            "message": "Connection test successful"
+                        })),
+                    )
+                        .into_response()
+                }
+                Err(e) => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({
+                            "status": "error",
+                            "message": format!("Connection test failed: {}", e)
+                        })),
+                    )
+                        .into_response()
+                }
+            }
         }
     }
 }
@@ -52,29 +111,13 @@ pub async fn create_connection(
     }
 
     // Create connection info
-    let connection_info = Connection::from_req(req);
-
-    // Check if connection already exists
-    if state
-        .app_data
-        .get_connection(&connection_info.id)
-        .await
-        .is_ok()
-    {
-        return (StatusCode::CONFLICT, "Connection already exists").into_response();
-    }
-
-    // Create postgis connector
-    let postgis_connector = PostgisConnector::new(connection_info.clone().config).unwrap();
+    let connection_config = ConnectionConfig::from_req(req);
 
     // Attempt to create record
-    match connection_info.clone().create_record(&state.app_data).await {
+    match connection_config.clone().create(&state.app_data).await {
         Ok(_) => {
-            // Add connection to geo_connections
-            state
-                .geo_connections
-                .add_connection(connection_info.id, postgis_connector)
-                .await;
+            // Add connection to connections
+            let _ = state.connections.load_connection(connection_config).await;
             (StatusCode::OK, "Connection creation submitted").into_response()
         }
         Err(e) => (
@@ -85,97 +128,118 @@ pub async fn create_connection(
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ConnectionResponse {
-    pub id: String,
-    pub name: String,
-    pub connector_type: String,
-}
-
-// TODO: Switch to using Connection after retrieving the connection from the database
-impl From<ConnectionAccess> for ConnectionResponse {
-    fn from(con: ConnectionAccess) -> Self {
-        ConnectionResponse {
-            id: con.connection_id.clone(),
-            name: con.connection_id,
-            connector_type: "postgis".into(),
-        }
-    }
-}
-
-pub async fn list_connections(
+pub async fn get_all_connections(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<String>,
 ) -> impl IntoResponse {
-    match auth_user.user {
-        Some(user) => {
-            let workspace = Workspace::from_id(&state.app_data, &workspace_id)
-                .await
-                .map_err(|_| (StatusCode::NOT_FOUND, "".to_string()))?;
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
 
-            // Check if the requesting user is a member of the workspace
-            WorkspaceMember::get(&state.app_data, &workspace, &user)
-                .await
-                .map_err(|_| (StatusCode::FORBIDDEN, "unauthorized".to_string()))?;
+    // Any global role is allowed to get connections
+    match user.check_global_role().await {
+        Some(level) => level,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
 
-            let connection_access_list = ConnectionAccess::get_all(&state.app_data, &workspace)
-                .await
-                .ok()
-                .unwrap();
+    // Get all connections
+    let connections = ConnectionConfig::get_all(&state.app_data).await;
 
-            // Convert Vec<Connection> to Vec<ConnectionResponse>
-            // Removes the config from the response
-            let connection_responses: Vec<ConnectionResponse> = connection_access_list
-                .into_iter()
-                .map(ConnectionResponse::from)
-                .collect();
-
-            Ok(Json(connection_responses))
+    let connections = match connections {
+        Ok(connections) => connections,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get connections: {}", e),
+            )
+                .into_response()
         }
-        None => Err((StatusCode::FORBIDDEN, "unauthorized".to_string())),
-    }
+    };
+
+    (StatusCode::OK, Json(connections)).into_response()
 }
 
-pub async fn list_sources(
+pub async fn get_connection(
     State(state): State<Arc<AppState>>,
     Extension(auth_user): Extension<AuthUser>,
-    Path((workspace_id, connection_id)): Path<(String, String)>,
+    Path(connection_id): Path<Uuid>,
 ) -> impl IntoResponse {
-    match auth_user.user {
-        Some(user) => {
-            let workspace = Workspace::from_id(&state.app_data, &workspace_id)
-                .await
-                .map_err(|_| (StatusCode::NOT_FOUND, "".to_string()))?;
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
 
-            // Check if the requesting user is a member of the workspace
-            WorkspaceMember::get(&state.app_data, &workspace, &user)
-                .await
-                .map_err(|_| (StatusCode::FORBIDDEN, "unauthorized".to_string()))?;
+    // Any global role is allowed to get connections
+    match user.check_global_role().await {
+        Some(level) => level,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
 
-            // TODO: Check Access Level
-            let _connection_access =
-                ConnectionAccess::get(&state.app_data, &workspace, &connection_id)
-                    .await
-                    .map_err(|_| (StatusCode::NOT_FOUND, "".to_string()))?;
+    // Get connection
+    let connection = ConnectionConfig::from_id(&state.app_data, &connection_id).await;
 
-            let connection = state
-                .geo_connections
-                .get_connection(&connection_id)
-                .await
-                .unwrap();
-
-            match connection.list_sources(&workspace.id).await {
-                Ok(sources) => Ok(Json(sources)),
-                Err(e) => {
-                    eprintln!("Error listing sources: {:?}", e);
-                    Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Failed to list sources".to_string(),
-                    ))
-                }
-            }
+    let connection = match connection {
+        Ok(connection) => connection,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get connection: {}", e),
+            )
+                .into_response()
         }
-        None => Err((StatusCode::FORBIDDEN, "unauthorized".to_string())),
-    }
+    };
+
+    (StatusCode::OK, Json(connection)).into_response()
+}
+
+pub async fn get_connection_capacity(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path(connection_id): Path<Uuid>,
+) -> impl IntoResponse {
+    let user = match auth_user.user {
+        Some(user) => user,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Any global role is allowed to get connections
+    match user.check_global_role().await {
+        Some(level) => level,
+        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+    };
+
+    // Get connection
+    let connection = match ConnectionConfig::from_id(&state.app_data, &connection_id).await {
+        Ok(connection) => connection,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get connection: {}", e),
+            )
+                .into_response()
+        }
+    };
+
+    // Get connection capacity info
+    let capacity_info = match connection.capacity_info(&state.app_data).await {
+        Ok(capacity) => capacity,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to get connection capacity: {}", e),
+            )
+                .into_response()
+        }
+    };
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "connection_id": connection.id,
+            "capacity": capacity_info.capacity,
+            "usage": capacity_info.usage_count,
+        })),
+    )
+        .into_response()
 }
