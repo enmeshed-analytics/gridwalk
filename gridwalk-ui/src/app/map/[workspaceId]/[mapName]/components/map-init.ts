@@ -22,6 +22,9 @@ export interface MapConfig {
   zoom?: number;
   styleUrl?: string;
   apiUrl: string;
+  enable3D?: boolean;
+  pitch?: number;
+  bearing?: number;
 }
 
 export interface UseMapInitResult {
@@ -29,6 +32,7 @@ export interface UseMapInitResult {
   map: React.RefObject<maplibregl.Map | null>;
   mapError: string | null;
   isMapReady: boolean;
+  toggle3DMode: (enable: boolean) => void;
 }
 
 // Fetch api tokens in order to load OS maps
@@ -81,6 +85,8 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
           center: config?.center ?? DEFAULT_CENTER,
           zoom: config?.zoom ?? DEFAULT_ZOOM,
           minZoom: MIN_ZOOM,
+          pitch: config?.enable3D ? config?.pitch || 60 : 0,
+          bearing: config?.enable3D ? config?.bearing || 0 : 0,
           maxBounds: [
             [-10.7, 49.5],
             [1.9, 61.0],
@@ -127,6 +133,9 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
 
         mapInstance.on("load", () => {
           console.log("Map loaded successfully");
+          if (config?.enable3D) {
+            enable3DBuildings(mapInstance);
+          }
           setIsMapReady(true);
         });
       } catch (error) {
@@ -175,5 +184,80 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
     updateMapStyle();
   }, [config?.styleUrl]);
 
-  return { mapContainer, map, mapError, isMapReady };
+  // Function to enable 3D buildings
+  const enable3DBuildings = (mapInstance: maplibregl.Map) => {
+    // Wait for the style to be fully loaded
+    if (!mapInstance.isStyleLoaded()) {
+      mapInstance.once("style.load", () => enable3DBuildings(mapInstance));
+      return;
+    }
+
+    try {
+      // Get the fill color from the existing building layer
+      const fillColor = mapInstance.getPaintProperty(
+        "OS/TopographicArea_2/Building/1",
+        "fill-color"
+      );
+
+      // Add 3D building layer
+      if (!mapInstance.getLayer("OS/TopographicArea_2/Building/1_3D")) {
+        mapInstance.addLayer({
+          id: "OS/TopographicArea_2/Building/1_3D",
+          type: "fill-extrusion",
+          source: "esri",
+          "source-layer": "TopographicArea_2",
+          filter: ["==", "_symbol", 4],
+          minzoom: 15,
+          paint: {
+            "fill-extrusion-color": (fillColor as string) || "#D6D6D6",
+            "fill-extrusion-height": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              15,
+              0,
+              15.05,
+              ["get", "RelHMax"],
+            ],
+            "fill-extrusion-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              15,
+              0,
+              16,
+              0.9,
+            ],
+          },
+        });
+
+        // Set camera pitch and bearing for 3D effect
+        mapInstance.setPitch(60);
+        mapInstance.setBearing(45);
+      }
+    } catch (error) {
+      console.error("Error enabling 3D buildings:", error);
+    }
+  };
+
+  // Function to toggle 3D mode
+  const toggle3DMode = (enable: boolean) => {
+    if (!map.current) return;
+
+    if (enable) {
+      // Enable 3D buildings
+      enable3DBuildings(map.current);
+    } else {
+      // Disable 3D buildings - reset pitch and bearing
+      map.current.setPitch(0);
+      map.current.setBearing(0);
+
+      // Remove 3D layer if it exists
+      if (map.current.getLayer("OS/TopographicArea_2/Building/1_3D")) {
+        map.current.removeLayer("OS/TopographicArea_2/Building/1_3D");
+      }
+    }
+  };
+
+  return { mapContainer, map, mapError, isMapReady, toggle3DMode };
 };

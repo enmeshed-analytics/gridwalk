@@ -71,6 +71,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     map: mapRef,
     mapError,
     isMapReady,
+    toggle3DMode,
   } = useMapInit({
     ...INITIAL_MAP_CONFIG,
     styleUrl: currentStyle,
@@ -117,6 +118,9 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
   // Initial Load Complete
   const initialLoadComplete = useRef(false);
+
+  // State for 3D mode
+  const [is3DEnabled, setIs3DEnabled] = useState(false);
 
   // Main Sidebar Modal Open
   const handleMainSidebarModalOpen = useCallback(
@@ -268,6 +272,11 @@ export function MapClient({ apiUrl }: MapClientProps) {
                   addAnnotationLayer(map, annotation);
                 });
 
+                // Re-enable 3D mode if it was active
+                if (is3DEnabled) {
+                  toggle3DMode(true);
+                }
+
                 // Remove the handler
                 map.off("styledata", styleDataHandler);
               }, 100);
@@ -281,7 +290,14 @@ export function MapClient({ apiUrl }: MapClientProps) {
           });
       }
     },
-    [mapRef, forceShowAllSelectedLayers, annotations, addAnnotationLayer]
+    [
+      mapRef,
+      forceShowAllSelectedLayers,
+      annotations,
+      addAnnotationLayer,
+      is3DEnabled,
+      toggle3DMode,
+    ]
   );
 
   // Effect to fetch workspace layers
@@ -464,6 +480,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
     return () => clearTimeout(timer);
   }, [selectedLayers, isMapReady, mapRef, forceShowAllSelectedLayers]);
 
+  // Handle 3D mode toggle
+  const handle3DToggle = useCallback(() => {
+    const newState = !is3DEnabled;
+    setIs3DEnabled(newState);
+    toggle3DMode(newState);
+  }, [is3DEnabled, toggle3DMode]);
+
   return (
     <div className="w-full h-screen relative">
       {mapError && (
@@ -501,6 +524,21 @@ export function MapClient({ apiUrl }: MapClientProps) {
         onStyleClick={handleStyleClick}
         workspaceId={workspaceId}
       />
+
+      {/* 3D Mode toggle button */}
+      <div className="absolute bottom-16 right-4 z-10">
+        <button
+          onClick={handle3DToggle}
+          className={`px-4 py-2 rounded-md shadow-lg font-medium transition-colors ${
+            is3DEnabled
+              ? "bg-blue-600 hover:bg-blue-700 text-white"
+              : "bg-white hover:bg-gray-100 text-gray-800"
+          }`}
+        >
+          {is3DEnabled ? "2D Mode" : "3D Mode"}
+        </button>
+      </div>
+
       <BaseLayerSidebar
         onBaseItemClick={handleBaseLayerSidebarClick}
         selectedBaseItem={selectedBaseItem}
