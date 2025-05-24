@@ -48,9 +48,40 @@ export function MapClient({ apiUrl }: MapClientProps) {
   const [selectedEditItem, setSelectedEditItem] =
     useState<MapEditSidebarModalOptions | null>(null);
   const [selectedBaseItem, setSelectedBaseItem] =
-    useState<BaseLayerSidebarModalOptions>(defaultBaseLayer);
+    useState<BaseLayerSidebarModalOptions>(() => {
+      if (typeof window !== "undefined") {
+        const savedBaseLayer = localStorage.getItem("selectedBaseLayer");
+        if (savedBaseLayer) {
+          try {
+            const parsed = JSON.parse(savedBaseLayer);
+            console.log("Initialising with saved base layer:", parsed);
+            return parsed;
+          } catch (error) {
+            console.error("Error parsing saved base layer:", error);
+          }
+        }
+      }
+      return defaultBaseLayer;
+    });
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentStyle, setCurrentStyle] = useState<string>(MAP_STYLES.light);
+  const [currentStyle, setCurrentStyle] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const savedBaseLayer = localStorage.getItem("selectedBaseLayer");
+      if (savedBaseLayer) {
+        try {
+          const parsed = JSON.parse(savedBaseLayer);
+          const styleKey = parsed.id as MapStyleKey;
+          if (Object.keys(MAP_STYLES).includes(styleKey)) {
+            console.log("Initialising with saved style:", MAP_STYLES[styleKey]);
+            return MAP_STYLES[styleKey];
+          }
+        } catch (error) {
+          console.error("Error parsing saved base layer for style:", error);
+        }
+      }
+    }
+    return MAP_STYLES.light;
+  });
 
   // File Upload States
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -122,6 +153,10 @@ export function MapClient({ apiUrl }: MapClientProps) {
 
   // State for 3D mode - this is used to toggle the 3D mode on the map
   const [is3DEnabled, setIs3DEnabled] = useState(false);
+
+  // State for hydration - this is used to ensure that the map is loaded before the layers are added
+  // safe to read local storage after this point
+  const [isHydrated, setIsHydrated] = useState(false);
 
   // Main Sidebar Modal Open
   const handleMainSidebarModalOpen = useCallback(
@@ -261,30 +296,38 @@ export function MapClient({ apiUrl }: MapClientProps) {
             map.setStyle(styleJson, { diff: true });
             setCurrentStyle(MAP_STYLES[styleKey]);
 
-            // After style changes, we need to wait for the map to stabilize
-            const styleDataHandler = () => {
-              // Once style is loaded, wait a bit more for things to stabilize
-              setTimeout(() => {
-                // Force all selected layers to be visible
-                forceShowAllSelectedLayers(map);
+            // Wait for style to be completely loaded
+            const handleStyleLoad = () => {
+              // First restore all layers
+              forceShowAllSelectedLayers(map);
 
-                // Add annotations too
-                annotations.forEach((annotation) => {
-                  addAnnotationLayer(map, annotation);
+              // Add annotations
+              annotations.forEach((annotation) => {
+                addAnnotationLayer(map, annotation);
+              });
+
+              // Now handle 3D mode if it is enabled
+              if (is3DEnabled) {
+                console.log("Re-applying 3D mode after base layer change");
+
+                // Give the layers a moment to settle, then apply 3D!!
+                requestAnimationFrame(() => {
+                  if (map.isStyleLoaded()) {
+                    toggle3DMode(true);
+                  } else {
+                    // This shouldn't happen, but just in case...
+                    console.warn("Style not loaded when expected!");
+                    map.once("idle", () => {
+                      toggle3DMode(true);
+                    });
+                  }
                 });
-
-                // Re-enable 3D mode if it was active
-                if (is3DEnabled) {
-                  toggle3DMode(true);
-                }
-
-                // Remove the handler
-                map.off("styledata", styleDataHandler);
-              }, 100);
+              }
             };
 
-            // Listen for style changes
-            map.on("styledata", styleDataHandler);
+            // Use 'idle' event instead of 'styledata'
+            // 'idle' fires when the map has finished loading and is idle
+            map.once("idle", handleStyleLoad);
           })
           .catch((error) => {
             console.error("Error loading style:", error);
@@ -325,10 +368,68 @@ export function MapClient({ apiUrl }: MapClientProps) {
     }
   }, [workspaceId]);
 
+  // Effect to save map view state (zoom and center) when it changes
+  useEffect(() => {
+    if (!mapRef.current || !isMapReady) return;
+
+    const map = mapRef.current;
+
+    const saveMapView = () => {
+      const zoom = map.getZoom();
+      const center = map.getCenter();
+
+      localStorage.setItem("mapZoom", JSON.stringify(zoom));
+      localStorage.setItem(
+        "mapCenter",
+        JSON.stringify([center.lng, center.lat])
+      );
+    };
+
+    // Save view state when zoom or pan ends
+    map.on("zoomend", saveMapView);
+    map.on("moveend", saveMapView);
+
+    return () => {
+      map.off("zoomend", saveMapView);
+      map.off("moveend", saveMapView);
+    };
+  }, [mapRef, isMapReady]);
+
+  // Effect to restore map view state from localStorage
+  useEffect(() => {
+    if (isMapReady && mapRef.current) {
+      const map = mapRef.current;
+
+      try {
+        const savedZoom = localStorage.getItem("mapZoom");
+        const savedCenter = localStorage.getItem("mapCenter");
+
+        if (savedZoom && savedCenter) {
+          const zoom = JSON.parse(savedZoom);
+          const center = JSON.parse(savedCenter);
+
+          console.log("Restoring map view - Zoom:", zoom, "Center:", center);
+
+          // Restore the map view
+          map.setCenter(center);
+          map.setZoom(zoom);
+        }
+      } catch (error) {
+        console.error("Error restoring map view:", error);
+      }
+    }
+  }, [isMapReady, mapRef]);
+
+  // Effect to save selected base layer when it changes
+  useEffect(() => {
+    localStorage.setItem("selectedBaseLayer", JSON.stringify(selectedBaseItem));
+  }, [selectedBaseItem]);
+
   // Effect to load active layers back onto the map after page refresh
   // This uses local storage to store the selected layers and then restores them
   useEffect(() => {
     if (!initialLoadComplete.current && isMapReady && mapRef.current) {
+      // Restore saved layers
       const savedLayers = localStorage.getItem("selectedLayers");
       if (savedLayers) {
         try {
@@ -347,6 +448,27 @@ export function MapClient({ apiUrl }: MapClientProps) {
           console.error("Error restoring saved layers:", error);
         }
       }
+
+      // Restore saved 3D mode state
+      const saved3DMode = localStorage.getItem("is3DEnabled");
+      if (saved3DMode) {
+        try {
+          const is3D = JSON.parse(saved3DMode);
+          setIs3DEnabled(is3D);
+
+          if (is3D && mapRef.current) {
+            setTimeout(() => {
+              if (mapRef.current) {
+                console.log("Restoring 3D mode from localStorage");
+                toggle3DMode(true);
+              }
+            }, 500);
+          }
+        } catch (error) {
+          console.error("Error restoring 3D mode:", error);
+        }
+      }
+
       initialLoadComplete.current = true;
     }
   }, [
@@ -355,6 +477,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     selectedLayers,
     isMapReady,
     mapRef,
+    toggle3DMode,
   ]);
 
   // Effect to clean up layers when the map is unmounted
@@ -484,7 +607,34 @@ export function MapClient({ apiUrl }: MapClientProps) {
     const newState = !is3DEnabled;
     setIs3DEnabled(newState);
     toggle3DMode(newState);
+
+    // Save 3D mode state to localStorage
+    localStorage.setItem("is3DEnabled", JSON.stringify(newState));
   }, [is3DEnabled, toggle3DMode]);
+
+  // Effect to mark component as hydrated and restore localStorage state
+  // this means it is safe to read local storage after this point!!
+  // TODO: Remove this effect in the future - it is very choppy at the moment
+  useEffect(() => {
+    setIsHydrated(true);
+
+    // Restore base layer state
+    const savedBaseLayer = localStorage.getItem("selectedBaseLayer");
+    if (savedBaseLayer) {
+      try {
+        const parsed = JSON.parse(savedBaseLayer);
+        console.log("Restoring base layer after hydration:", parsed);
+        setSelectedBaseItem(parsed);
+
+        const styleKey = parsed.id as MapStyleKey;
+        if (Object.keys(MAP_STYLES).includes(styleKey)) {
+          setCurrentStyle(MAP_STYLES[styleKey]);
+        }
+      } catch (error) {
+        console.error("Error restoring base layer:", error);
+      }
+    }
+  }, []);
 
   return (
     <div className="w-full h-screen relative">
@@ -529,6 +679,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
       <BaseLayerSidebar
         onBaseItemClick={handleBaseLayerSidebarClick}
         selectedBaseItem={selectedBaseItem}
+        isHydrated={isHydrated}
       />
       <StyleModal
         isOpen={isStyleModalOpen || annotationsStyleModalOpen}

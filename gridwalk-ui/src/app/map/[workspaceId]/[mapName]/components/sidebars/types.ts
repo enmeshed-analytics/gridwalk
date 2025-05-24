@@ -54,6 +54,7 @@ export interface BaseLayerSidebarModalOptions {
 export interface BaseLayerSidebarProps {
   onBaseItemClick: (item: BaseLayerSidebarModalOptions) => void;
   selectedBaseItem: BaseLayerSidebarModalOptions | null;
+  isHydrated?: boolean;
 }
 
 export interface SourceProps {

@@ -232,8 +232,8 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
         });
 
         // Set camera pitch and bearing for 3D effect
-        mapInstance.setPitch(60);
-        mapInstance.setBearing(45);
+        mapInstance.setPitch(40);
+        mapInstance.setBearing(0);
       }
     } catch (error) {
       console.error("Error enabling 3D buildings:", error);
