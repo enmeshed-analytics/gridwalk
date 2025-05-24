@@ -1,6 +1,14 @@
 "use client";
 import React from "react";
-import { Layers, File, X, Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
+import {
+  Layers,
+  File,
+  X,
+  Upload,
+  ArrowLeft,
+  CheckCircle2,
+  Box,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   MainSidebarProps,
@@ -84,7 +92,48 @@ const LayersTable = ({
   );
 };
 
-// Modals for uploading files, viewing layers etc
+// 3D Toggle Switch Component
+const Toggle3DSwitch = ({
+  is3DEnabled,
+  on3DToggle,
+}: {
+  is3DEnabled: boolean;
+  on3DToggle: () => void;
+}) => (
+  <div className="flex flex-col items-center mb-3">
+    <div className="mb-2">
+      <Box
+        className={`w-5 h-5 ${
+          is3DEnabled ? "text-green-400" : "text-gray-400"
+        }`}
+      />
+    </div>
+    <button
+      onClick={on3DToggle}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-offset-1 ${
+        is3DEnabled ? "bg-green-500" : "bg-gray-600"
+      }`}
+      role="switch"
+      aria-checked={is3DEnabled}
+    >
+      <span className="sr-only">Toggle 3D mode</span>
+      <span
+        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+          is3DEnabled ? "translate-x-4" : "translate-x-0"
+        }`}
+      />
+    </button>
+    <span
+      className={`text-xs mt-1 transition-colors ${
+        is3DEnabled ? "text-green-400" : "text-gray-400"
+      }`}
+    >
+      3D
+    </span>
+  </div>
+);
+
+// Main Sidebar Component
 const MainSidebar = ({
   isOpen,
   onClose,
@@ -106,6 +155,8 @@ const MainSidebar = ({
   onLayerToggle,
   onStyleClick,
   workspaceId,
+  is3DEnabled,
+  on3DToggle,
 }: MainSidebarProps) => {
   const router = useRouter();
   const [uploadKey, setUploadKey] = React.useState(0);
@@ -338,6 +389,11 @@ const MainSidebar = ({
             </span>
           </button>
         ))}
+
+        {/* 3D Toggle */}
+        <div className="mt-4 mb-4">
+          <Toggle3DSwitch is3DEnabled={is3DEnabled} on3DToggle={on3DToggle} />
+        </div>
 
         {/* Back Button */}
         <div className="mt-auto mb-6">

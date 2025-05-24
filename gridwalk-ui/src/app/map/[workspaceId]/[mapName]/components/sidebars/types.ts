@@ -20,6 +20,8 @@ export interface MainSidebarProps {
   onLayerToggle: (index: number, connection: WorkspaceConnection) => void;
   onStyleClick: (layerId: string) => void;
   workspaceId: string;
+  is3DEnabled: boolean;
+  on3DToggle: () => void;
 }
 
 export interface MainSidebarModalOptions {

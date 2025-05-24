@@ -117,9 +117,10 @@ export function MapClient({ apiUrl }: MapClientProps) {
   });
 
   // Initial Load Complete
+  // This is used to ensure that the map is loaded before the layers are added
   const initialLoadComplete = useRef(false);
 
-  // State for 3D mode
+  // State for 3D mode - this is used to toggle the 3D mode on the map
   const [is3DEnabled, setIs3DEnabled] = useState(false);
 
   // Main Sidebar Modal Open
@@ -401,8 +402,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     }
   }, [selectedEditItem, setDrawMode]);
 
-  // Add this effect to properly apply layer ordering when selectedLayers changes
-
   // Effect to apply layer ordering when selectedLayers changes
   useEffect(() => {
     if (
@@ -523,21 +522,9 @@ export function MapClient({ apiUrl }: MapClientProps) {
         onLayerToggle={handleSelectLayer}
         onStyleClick={handleStyleClick}
         workspaceId={workspaceId}
+        is3DEnabled={is3DEnabled}
+        on3DToggle={handle3DToggle}
       />
-
-      {/* 3D Mode toggle button */}
-      <div className="absolute bottom-16 right-4 z-10">
-        <button
-          onClick={handle3DToggle}
-          className={`px-4 py-2 rounded-md shadow-lg font-medium transition-colors ${
-            is3DEnabled
-              ? "bg-blue-600 hover:bg-blue-700 text-white"
-              : "bg-white hover:bg-gray-100 text-gray-800"
-          }`}
-        >
-          {is3DEnabled ? "2D Mode" : "3D Mode"}
-        </button>
-      </div>
 
       <BaseLayerSidebar
         onBaseItemClick={handleBaseLayerSidebarClick}
