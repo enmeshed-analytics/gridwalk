@@ -9,7 +9,11 @@ export interface ApiResponse {
 export interface CreateMapModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (name: string) => Promise<void>;
+  onSubmit: (
+    name: string,
+    description?: string,
+    status?: string
+  ) => Promise<void>;
 }
 
 export interface DeleteMapModalProps {
@@ -42,6 +46,8 @@ export interface Map {
   workspace_id: string;
   id: string;
   name: string;
+  description?: string;
+  status?: string;
   uploaded_by: string;
   updated_at: number;
   created_at: number;

@@ -6,6 +6,7 @@ import { Map } from "../types";
 
 export type CreateMapRequest = {
   name: string;
+  description?: string;
   workspace_id: string;
 };
 
@@ -30,6 +31,7 @@ export async function createMap(data: CreateMapRequest): Promise<MapData> {
     body: JSON.stringify({
       workspace_id: data.workspace_id,
       name: data.name.trim(),
+      ...(data.description && { description: data.description.trim() }),
     }),
   });
 
@@ -44,9 +46,6 @@ export async function createMap(data: CreateMapRequest): Promise<MapData> {
   return mapData;
 }
 
-/**
- * Fetches maps for a specific workspace
- */
 export async function getMaps(workspaceId: string): Promise<Map[]> {
   if (!workspaceId) {
     throw new Error("Workspace ID is required");

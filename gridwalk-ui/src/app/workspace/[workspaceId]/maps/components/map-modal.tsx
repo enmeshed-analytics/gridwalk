@@ -27,7 +27,9 @@ export const CreateMapModal: React.FC<CreateMapModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const [mapId, setMapId] = useState("");
+  const [mapName, setMapName] = useState("");
+  const [description, setDescription] = useState("");
+  const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,9 +38,15 @@ export const CreateMapModal: React.FC<CreateMapModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      await onSubmit(mapId.trim());
+      await onSubmit(
+        mapName.trim(),
+        description.trim() || undefined,
+        status.trim() || undefined
+      );
       onClose();
-      setMapId("");
+      setMapName("");
+      setDescription("");
+      setStatus("");
     } catch (err) {
       setError(
         err instanceof Error
@@ -63,15 +71,35 @@ export const CreateMapModal: React.FC<CreateMapModalProps> = ({
         )}
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="mapId">Map Name</Label>
+            <Label htmlFor="mapName">Map Name</Label>
             <Input
-              id="mapId"
-              value={mapId}
-              onChange={(e) => setMapId(e.target.value)}
+              id="mapName"
+              value={mapName}
+              onChange={(e) => setMapName(e.target.value)}
               placeholder="Enter map name..."
               minLength={3}
               maxLength={50}
               required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (Optional)</Label>
+            <Input
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Enter a brief description of this map..."
+              maxLength={500}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="status">Status (Optional)</Label>
+            <Input
+              id="status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              placeholder="e.g., Draft, In Progress, Complete..."
+              maxLength={50}
             />
           </div>
         </div>
@@ -79,7 +107,10 @@ export const CreateMapModal: React.FC<CreateMapModalProps> = ({
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading || !mapId.trim()}>
+          <Button
+            onClick={handleSubmit}
+            disabled={isLoading || !mapName.trim()}
+          >
             {isLoading ? (
               <>
                 <LoadingSpinner />

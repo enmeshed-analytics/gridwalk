@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -24,6 +24,9 @@ interface WorkspaceMapClientProps {
   currentWorkspace: { id: string; name: string };
 }
 
+// TODO: Descriptions and statuses are not being saved to the database for now
+// We need to add them to the database and update the API to handle them when the backend is refactored
+// Local storage is a temporary solution to store descriptions and statuses until the backend is updated
 export default function WorkspaceMapClient({
   workspaceId,
   initialMaps = [],
@@ -35,17 +38,104 @@ export default function WorkspaceMapClient({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Map | null>(null);
 
+  // Add state to store temporary descriptions with localStorage
+  const [tempDescriptions, setTempDescriptions] = useState<
+    Record<string, string>
+  >({});
+  const [tempStatuses, setTempStatuses] = useState<Record<string, string>>({});
+
+  // Add editing state
+  const [editingField, setEditingField] = useState<{
+    mapId: string;
+    field: "description" | "status";
+  } | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  // Load descriptions from localStorage on component mount
+  useEffect(() => {
+    const descriptionsKey = `map-descriptions-${workspaceId}`;
+    const statusesKey = `map-statuses-${workspaceId}`;
+
+    const storedDescriptions = localStorage.getItem(descriptionsKey);
+    const storedStatuses = localStorage.getItem(statusesKey);
+
+    if (storedDescriptions) {
+      try {
+        setTempDescriptions(JSON.parse(storedDescriptions));
+      } catch (error) {
+        console.error("Failed to parse stored descriptions:", error);
+      }
+    }
+
+    if (storedStatuses) {
+      try {
+        setTempStatuses(JSON.parse(storedStatuses));
+      } catch (error) {
+        console.error("Failed to parse stored statuses:", error);
+      }
+    }
+  }, [workspaceId]);
+
+  // Save descriptions to localStorage whenever they change
+  const saveDescriptionToStorage = (mapId: string, description: string) => {
+    const storageKey = `map-descriptions-${workspaceId}`;
+    const newDescriptions = {
+      ...tempDescriptions,
+      [mapId]: description,
+    };
+    setTempDescriptions(newDescriptions);
+    localStorage.setItem(storageKey, JSON.stringify(newDescriptions));
+  };
+
+  const saveStatusToStorage = (mapId: string, status: string) => {
+    const storageKey = `map-statuses-${workspaceId}`;
+    const newStatuses = { ...tempStatuses, [mapId]: status };
+    setTempStatuses(newStatuses);
+    localStorage.setItem(storageKey, JSON.stringify(newStatuses));
+  };
+
+  // Remove description from localStorage
+  const removeDescriptionFromStorage = (mapId: string) => {
+    const storageKey = `map-descriptions-${workspaceId}`;
+    const newDescriptions = { ...tempDescriptions };
+    delete newDescriptions[mapId];
+    setTempDescriptions(newDescriptions);
+    localStorage.setItem(storageKey, JSON.stringify(newDescriptions));
+  };
+
+  // Add remove status function
+  const removeStatusFromStorage = (mapId: string) => {
+    const storageKey = `map-statuses-${workspaceId}`;
+    const newStatuses = { ...tempStatuses };
+    delete newStatuses[mapId];
+    setTempStatuses(newStatuses);
+    localStorage.setItem(storageKey, JSON.stringify(newStatuses));
+  };
+
   // Filter projects based on search query
   const filteredMaps = initialMaps.filter((map) =>
     map.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCreateProject = async (name: string) => {
+  const handleCreateProject = async (
+    name: string,
+    description?: string,
+    status?: string
+  ) => {
     try {
-      await createMap({
+      const result = await createMap({
         name: name.trim(),
+        description: description?.trim() || undefined,
         workspace_id: workspaceId,
       });
+
+      if (description?.trim()) {
+        saveDescriptionToStorage(result.id, description.trim());
+      }
+      if (status?.trim()) {
+        saveStatusToStorage(result.id, status.trim());
+      }
+
       setIsProjectDialogOpen(false);
       router.refresh();
     } catch (error: unknown) {
@@ -67,6 +157,11 @@ export default function WorkspaceMapClient({
     if (!selectedProject) return;
     try {
       await deleteMap(selectedProject.workspace_id, selectedProject.id);
+
+      // Remove description from localStorage when map is deleted
+      removeDescriptionFromStorage(selectedProject.id);
+      removeStatusFromStorage(selectedProject.id);
+
       router.refresh();
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -87,6 +182,37 @@ export default function WorkspaceMapClient({
       day: "numeric",
       year: "numeric",
     }).format(date);
+  };
+
+  // Handle inline editing
+  const startEditing = (mapId: string, field: "description" | "status") => {
+    const currentValue =
+      field === "description" ? tempDescriptions[mapId] : tempStatuses[mapId];
+    setEditValue(currentValue || "");
+    setEditingField({ mapId, field });
+  };
+
+  const saveEdit = (mapId: string, field: "description" | "status") => {
+    if (field === "description") {
+      if (editValue.trim()) {
+        saveDescriptionToStorage(mapId, editValue.trim());
+      } else {
+        removeDescriptionFromStorage(mapId);
+      }
+    } else {
+      if (editValue.trim()) {
+        saveStatusToStorage(mapId, editValue.trim());
+      } else {
+        removeStatusFromStorage(mapId);
+      }
+    }
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue("");
   };
 
   return (
@@ -136,6 +262,18 @@ export default function WorkspaceMapClient({
                     scope="col"
                     className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                   >
+                    Description
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
+                    Status
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Created
                   </th>
                   <th
@@ -164,13 +302,114 @@ export default function WorkspaceMapClient({
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {map.name}
                           </div>
-                          {/* Mobile-only date display */}
                           <div className="md:hidden text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Created: {formatDate(map.created_at)}
                           </div>
                         </div>
                       </div>
                     </td>
+
+                    {/* Editable Description Column */}
+                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <div className="max-w-xs">
+                        {editingField?.mapId === map.id &&
+                        editingField?.field === "description" ? (
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="text-xs h-8"
+                              placeholder="Enter description..."
+                              maxLength={500}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  saveEdit(map.id, "description");
+                                } else if (e.key === "Escape") {
+                                  cancelEdit();
+                                }
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-green-600"
+                              onClick={() => saveEdit(map.id, "description")}
+                            >
+                              ✓
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-red-600"
+                              onClick={cancelEdit}
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                        ) : (
+                          <div
+                            className="truncate cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded"
+                            onClick={() => startEditing(map.id, "description")}
+                            title="Click to edit description"
+                          >
+                            {tempDescriptions[map.id] ||
+                              "Click to add description..."}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Editable Status Column */}
+                    <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <div className="max-w-xs">
+                        {editingField?.mapId === map.id &&
+                        editingField?.field === "status" ? (
+                          <div className="flex items-center space-x-2">
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="text-xs h-8"
+                              placeholder="Enter status..."
+                              maxLength={50}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  saveEdit(map.id, "status");
+                                } else if (e.key === "Escape") {
+                                  cancelEdit();
+                                }
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-green-600"
+                              onClick={() => saveEdit(map.id, "status")}
+                            >
+                              ✓
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-red-600"
+                              onClick={cancelEdit}
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                        ) : (
+                          <div
+                            className="truncate cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded"
+                            onClick={() => startEditing(map.id, "status")}
+                            title="Click to edit status"
+                          >
+                            {tempStatuses[map.id] || "Click to add status..."}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
                     <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {formatDate(map.created_at)}
                     </td>
