@@ -25,6 +25,7 @@ import { StyleModal } from "./sidebars/layer-style-modal";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import { useAnnotations } from "./hooks/useAnnotations";
 import { useLayer } from "./hooks/useLayer";
+import { useFeatureSelection } from "./hooks/useFeatureSelection";
 
 const defaultBaseLayer: BaseLayerSidebarModalOptions = {
   id: "light",
@@ -119,9 +120,11 @@ export function MapClient({ apiUrl }: MapClientProps) {
     updateAnnotationStyle,
     setSelectedAnnotation,
     setDrawMode,
+    deleteSelectedAnnotations,
   } = useAnnotations({
     mapRef,
     isMapReady,
+    onDrawComplete: () => setSelectedEditItem(null),
   });
 
   // Layer Hook
@@ -636,8 +639,91 @@ export function MapClient({ apiUrl }: MapClientProps) {
     }
   }, []);
 
+  // Add the feature selection hook
+  const {
+    selectedFeature,
+    isFeatureModalOpen,
+    clearSelection,
+    closeFeatureModal,
+  } = useFeatureSelection({
+    mapRef,
+    isMapReady,
+    onFeatureClick: (feature) => {
+      if (feature) {
+        console.log("Feature clicked:", feature.properties);
+      }
+    },
+  });
+
+  const handleLayerDeactivate = useCallback(() => {
+    if (!selectedFeature) return;
+
+    const layerId = selectedFeature.layerId;
+
+    // Remove glow effect first if it exists
+    if (mapRef.current) {
+      const map = mapRef.current;
+      const glowLayerId = `${layerId}-glow`;
+      if (map.getLayer(glowLayerId)) {
+        map.removeLayer(glowLayerId);
+      }
+    }
+
+    // Find which layer index this corresponds to
+    const layerIndex = workspaceConnections.findIndex((connection) => {
+      const connectionLayerId = getLayerId(String(connection));
+      return connectionLayerId === layerId;
+    });
+
+    if (layerIndex !== -1) {
+      // Deactivate the layer using existing toggle function
+      handleSelectLayer(layerIndex, workspaceConnections[layerIndex]);
+
+      // Close the modal
+      closeFeatureModal();
+      clearSelection();
+    }
+  }, [
+    selectedFeature,
+    workspaceConnections,
+    getLayerId,
+    handleSelectLayer,
+    closeFeatureModal,
+    clearSelection,
+    mapRef,
+  ]);
+
+  // Handle keyboard remove of the selected feature
+  useEffect(() => {
+    if (!mapRef?.current || !isMapReady) return;
+
+    const mapContainer = mapRef.current.getContainer();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        handleLayerDeactivate();
+      }
+    };
+
+    mapContainer.addEventListener("keydown", handleKeyDown);
+    mapContainer.setAttribute("tabindex", "0");
+
+    return () => {
+      mapContainer.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mapRef, isMapReady, handleLayerDeactivate]);
+
+  // TODO: this effect should actually pull in attribute details for the selected feature
+  // It should be improved to use the selectedFeature hook and not rely on the selectedFeature state???
+  useEffect(() => {
+    if (selectedFeature) {
+      console.log("Currently selected:", selectedFeature.properties);
+    }
+  }, [selectedFeature]);
+
   return (
-    <div className="w-full h-screen relative">
+    <div className="relative w-full h-screen">
       {mapError && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50">
           {mapError}
@@ -698,7 +784,103 @@ export function MapClient({ apiUrl }: MapClientProps) {
             updateAnnotationStyle(selectedAnnotation.id, style);
           }
         }}
+        onAnnotationDelete={
+          selectedAnnotation ? deleteSelectedAnnotations : undefined
+        }
       />
+
+      {/* Feature Modal - TODO: this needs moving to a separate component */}
+      {/* TODO: the css is wrong and the modal is not being displayed correctly */}
+      {isFeatureModalOpen && selectedFeature && (
+        <div className="absolute bottom-32 right-4 bg-gray-100 dark:bg-gray-800 p-4 rounded z-50 w-80">
+          <div className="flex justify-between mb-3">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+              Feature Details
+            </h2>
+            <button
+              onClick={() => {
+                closeFeatureModal();
+                clearSelection();
+              }}
+              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-xl"
+            >
+              ×
+            </button>
+          </div>
+          <div className="space-y-2 text-sm">
+            <p className="text-gray-900 dark:text-gray-100">
+              <strong>Layer:</strong>{" "}
+              <span className="text-gray-600 dark:text-gray-300">
+                {selectedFeature.layerId}
+              </span>
+            </p>
+            <p className="text-gray-900 dark:text-gray-100">
+              <strong>Feature ID:</strong>{" "}
+              <span className="text-gray-600 dark:text-gray-300">
+                {selectedFeature.id || "N/A"}
+              </span>
+            </p>
+
+            {Object.keys(selectedFeature.properties).length > 0 && (
+              <div>
+                <strong className="text-gray-900 dark:text-gray-100">
+                  Properties:
+                </strong>
+                <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                  {Object.entries(selectedFeature.properties).map(
+                    ([key, value]) => (
+                      <div key={key} className="flex justify-between text-xs">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                          {key}:
+                        </span>
+                        <span className="text-gray-600 dark:text-gray-400 truncate ml-2">
+                          {String(value)}
+                        </span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <div className="flex justify-between gap-2">
+              {selectedFeature.layerId.startsWith("layer-") && (
+                <button
+                  onClick={handleLayerDeactivate}
+                  className="px-4 py-2 text-sm bg-red-500 dark:bg-red-600 text-white rounded-md hover:bg-red-600 dark:hover:bg-red-500 transition-colors flex items-center gap-2 font-medium shadow-md"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L12 12m-3.122-3.122l4.242 4.242M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  Remove Layer
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  closeFeatureModal();
+                  clearSelection();
+                }}
+                className="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

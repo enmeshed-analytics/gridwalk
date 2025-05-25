@@ -276,6 +276,11 @@ const MainSidebar = ({
                       type="text"
                       value={fileName}
                       onChange={(e) => onFileNameChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleUploadClick();
+                        }
+                      }}
                       className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="Enter layer name"
                     />

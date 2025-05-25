@@ -15,6 +15,7 @@ interface StyleModalProps {
   layerConfig: LayerConfig | null;
   annotation?: Annotation | null;
   onStyleUpdate: (style: LayerStyle) => void;
+  onAnnotationDelete?: () => void;
 }
 
 export function StyleModal({
@@ -23,6 +24,7 @@ export function StyleModal({
   layerConfig,
   annotation,
   onStyleUpdate,
+  onAnnotationDelete,
 }: StyleModalProps) {
   if (!isOpen || (!layerConfig && !annotation)) return null;
 
@@ -47,6 +49,13 @@ export function StyleModal({
 
     onStyleUpdate(newStyle);
     onClose();
+  };
+
+  const handleDelete = () => {
+    if (onAnnotationDelete) {
+      onAnnotationDelete();
+      onClose();
+    }
   };
 
   const currentStyle = layerConfig?.style ||
@@ -118,6 +127,33 @@ export function StyleModal({
                 />
               </div>
             )}
+
+            {/* Delete button for annotations - TODO: change styles */}
+            {annotation && onAnnotationDelete && (
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="w-full px-3 py-2 text-sm bg-red-500 dark:bg-red-600 text-white rounded-md hover:bg-red-600 dark:hover:bg-red-500 transition-colors flex items-center justify-center gap-2 font-medium"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  Delete Annotation
+                </button>
+              </div>
+            )}
+
             <div className="flex justify-end space-x-2 pt-2">
               <button
                 type="button"

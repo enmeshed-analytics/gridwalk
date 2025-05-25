@@ -45,16 +45,10 @@ export function useLayer({
   const [layerConfigs, setLayerConfigs] = useState<{
     [key: string]: LayerConfig;
   }>({});
-  // Selected layer ID
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-
-  // Style modal open
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
-
-  // Track layer ordering
   const [layerOrder, setLayerOrder] = useState<string[]>([]);
 
-  // Get active layer IDs from selectedLayers when needed
   const getActiveLayerIds = useCallback(() => {
     return Object.entries(selectedLayers)
       .filter(([, isSelected]) => isSelected)
@@ -65,26 +59,22 @@ export function useLayer({
       .filter(Boolean) as string[];
   }, [selectedLayers, workspaceConnections, workspaceId]);
 
-  // Load saved layer configs
   useEffect(() => {
     const savedConfigs = localStorage.getItem("layerConfigs");
     if (savedConfigs) {
       setLayerConfigs(JSON.parse(savedConfigs));
     }
 
-    // Load saved layer order if available
     const savedOrder = localStorage.getItem("layerOrder");
     if (savedOrder) {
       setLayerOrder(JSON.parse(savedOrder));
     }
   }, []);
 
-  // Save layer configs when they change
   useEffect(() => {
     localStorage.setItem("layerConfigs", JSON.stringify(layerConfigs));
   }, [layerConfigs]);
 
-  // Save layer order when it changes
   useEffect(() => {
     localStorage.setItem("layerOrder", JSON.stringify(layerOrder));
   }, [layerOrder]);

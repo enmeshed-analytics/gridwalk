@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Dot, Square, Trash, GitBranch } from "lucide-react";
+import { Dot, Square, GitBranch } from "lucide-react";
 import { MapEditSidebarModalOptions, MapEditsProps } from "./types";
 
 const MapEditSidebar = ({
@@ -25,12 +25,6 @@ const MapEditSidebar = ({
       icon: "square",
       description: "Draw polygons",
     },
-    {
-      id: "delete",
-      title: "Delete",
-      icon: "delete",
-      description: "Delete selected feature",
-    },
   ];
 
   const getIconComponent = (iconName: string) => {
@@ -41,8 +35,6 @@ const MapEditSidebar = ({
         return <GitBranch className="w-4 h-4" />;
       case "square":
         return <Square className="w-4 h-4" />;
-      case "delete":
-        return <Trash className="w-4 h-4" />;
       default:
         return null;
     }
@@ -60,8 +52,6 @@ const MapEditSidebar = ({
         selectedEditItem?.id === "line"
       ) {
         mapElement.style.cursor = "crosshair";
-      } else if (selectedEditItem?.id === "delete") {
-        mapElement.style.cursor = "pointer";
       } else {
         mapElement.style.cursor = "grab";
       }

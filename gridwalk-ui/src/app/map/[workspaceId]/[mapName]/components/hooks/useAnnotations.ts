@@ -18,9 +18,14 @@ export interface Annotation extends GeoJSON.Feature {
 interface AnnotationsProps {
   mapRef?: React.MutableRefObject<maplibregl.Map | null>;
   isMapReady?: boolean;
+  onDrawComplete?: () => void;
 }
 
-export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
+export function useAnnotations({
+  mapRef,
+  isMapReady,
+  onDrawComplete,
+}: AnnotationsProps = {}) {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [selectedAnnotation, setSelectedAnnotation] =
     useState<Annotation | null>(null);
@@ -117,7 +122,7 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
     []
   );
 
-  // Effect to initialise the draw control
+  // Set up the draw control
   useEffect(() => {
     if (!mapRef?.current || !isMapReady) return;
 
@@ -297,6 +302,25 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
     map.addControl(draw);
     drawRef.current = draw;
 
+    return () => {
+      try {
+        if (map && drawRef.current && map.getStyle()) {
+          map.removeControl(drawRef.current);
+          drawRef.current = null;
+        }
+      } catch (err) {
+        console.warn("Error removing draw control during cleanup:", err);
+      }
+    };
+  }, [mapRef, isMapReady]);
+
+  // Load annotations from localStorage
+  useEffect(() => {
+    if (!mapRef?.current || !isMapReady || !drawRef.current) return;
+
+    const map = mapRef.current;
+    const draw = drawRef.current;
+
     try {
       const savedAnnotations = localStorage.getItem("mapAnnotations");
       if (savedAnnotations) {
@@ -304,6 +328,9 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
         parsed.forEach((feature: GeoJSON.Feature) => {
           try {
             draw.add(feature);
+            if (feature.id) {
+              addAnnotationLayer(map, feature as Annotation);
+            }
           } catch (err) {
             console.error("Error adding feature:", err, feature);
           }
@@ -313,6 +340,13 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
     } catch (error) {
       console.error("Error loading annotations:", error);
     }
+  }, [mapRef, isMapReady, addAnnotationLayer]);
+
+  // Set up draw event handlers
+  useEffect(() => {
+    if (!mapRef?.current || !isMapReady || !drawRef.current) return;
+
+    const map = mapRef.current;
 
     function updateAnnotations() {
       if (!drawRef.current) return;
@@ -394,13 +428,9 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
         setAnnotations(annotations);
         localStorage.setItem("mapAnnotations", JSON.stringify(annotations));
 
-        // Create custom layers for newly drawn features
         if (map && drawRef.current) {
-          // For each annotation, ensure it has a custom layer
           annotations.forEach((annotation) => {
-            // First check if the source exists but needs updating
             if (map.getSource(annotation.id)) {
-              // Update the source data with the new position
               (
                 map.getSource(annotation.id) as maplibregl.GeoJSONSource
               ).setData(annotation);
@@ -429,9 +459,8 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
       }
     }
 
-    // IMPORTANT: Register event handlers in this order
-    // First our direct handler for creating custom layers immediately
-    map.on("draw.create", (e: { features: GeoJSON.Feature[] }) => {
+    // Direct handler for immediate layer creation
+    const handleDrawCreate = (e: { features: GeoJSON.Feature[] }) => {
       console.log("Direct draw.create handler called with:", e);
       if (!e.features.length) return;
 
@@ -482,41 +511,28 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
           console.error(`Error creating custom layer for new feature:`, err);
         }
       });
-    });
 
-    // Then register the updateAnnotations handler for state management
+      // Call the callback to clear selected edit item
+      if (onDrawComplete) {
+        onDrawComplete();
+      }
+    };
+
+    // Register event handlers
+    map.on("draw.create", handleDrawCreate);
     map.on("draw.create", updateAnnotations);
     map.on("draw.update", updateAnnotations);
     map.on("draw.delete", updateAnnotations);
     map.on("draw.selectionchange", updateAnnotations);
 
     return () => {
-      // Clean up all handlers
+      map.off("draw.create", handleDrawCreate);
       map.off("draw.create", updateAnnotations);
       map.off("draw.update", updateAnnotations);
       map.off("draw.delete", updateAnnotations);
       map.off("draw.selectionchange", updateAnnotations);
-
-      // Also remove our direct create handler
-      map.off("draw.create", () => {});
-
-      try {
-        if (map && drawRef.current && map.getStyle()) {
-          map.removeControl(drawRef.current);
-          drawRef.current = null;
-        }
-      } catch (err) {
-        console.warn("Error removing draw control during cleanup:", err);
-      }
     };
-  }, [mapRef, isMapReady, addAnnotationLayer]);
-
-  // Effect to save annotations whenever they change
-  useEffect(() => {
-    if (annotations.length > 0) {
-      localStorage.setItem("mapAnnotations", JSON.stringify(annotations));
-    }
-  }, [annotations]);
+  }, [mapRef, isMapReady, addAnnotationLayer, onDrawComplete]);
 
   const deleteSelectedAnnotations = useCallback(() => {
     if (!drawRef.current || !mapRef?.current) return;
@@ -559,6 +575,34 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
       if (map.getSource(id)) map.removeSource(id);
     });
   }, [mapRef]);
+
+  // Handle keyboard delete of the selected annotation
+  useEffect(() => {
+    if (!mapRef?.current || !isMapReady) return;
+
+    const mapContainer = mapRef.current.getContainer();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        deleteSelectedAnnotations();
+      }
+    };
+
+    mapContainer.addEventListener("keydown", handleKeyDown);
+    mapContainer.setAttribute("tabindex", "0");
+
+    return () => {
+      mapContainer.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mapRef, isMapReady, deleteSelectedAnnotations]);
+
+  // Save annotations to localStorage
+  useEffect(() => {
+    if (annotations.length > 0) {
+      localStorage.setItem("mapAnnotations", JSON.stringify(annotations));
+    }
+  }, [annotations]);
 
   const updateAnnotationStyle = useCallback(
     (annotationId: string, newStyle: LayerStyle) => {
@@ -774,14 +818,6 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
           case "circle":
             draw.changeMode("draw_polygon");
             break;
-          case "delete":
-            const selectedIds = draw.getSelectedIds();
-            if (selectedIds.length > 0) {
-              deleteSelectedAnnotations();
-            } else {
-              draw.changeMode("simple_select");
-            }
-            break;
           case "select":
           default:
             draw.changeMode("simple_select");
@@ -796,7 +832,7 @@ export function useAnnotations({ mapRef, isMapReady }: AnnotationsProps = {}) {
         }
       }
     },
-    [mapRef, deleteSelectedAnnotations]
+    [mapRef]
   );
 
   return {
