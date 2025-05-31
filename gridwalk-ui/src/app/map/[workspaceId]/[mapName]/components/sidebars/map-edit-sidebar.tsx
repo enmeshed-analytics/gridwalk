@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Dot, Square, GitBranch, Box } from "lucide-react";
+import { Dot, Square, GitBranch, NetworkIcon } from "lucide-react";
 import { MapEditSidebarModalOptions, MapEditsProps } from "./types";
 
 const MapEditSidebar = ({
@@ -29,7 +29,7 @@ const MapEditSidebar = ({
       id: "bbox",
       title: "Bounding Box",
       icon: "bbox",
-      description: "Draw polygon and log bounding box",
+      description: "Call National Geographical Database",
     },
   ];
 
@@ -42,7 +42,7 @@ const MapEditSidebar = ({
       case "square":
         return <Square className="w-4 h-4" />;
       case "bbox":
-        return <Box className="w-4 h-4" />;
+        return <NetworkIcon className="w-4 h-4" />;
       default:
         return null;
     }

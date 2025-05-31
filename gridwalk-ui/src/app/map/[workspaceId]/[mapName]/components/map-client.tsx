@@ -134,6 +134,8 @@ export function MapClient({ apiUrl }: MapClientProps) {
     deleteSelectedAnnotations,
     osApiFeatures,
     clearOSApiLayer,
+    addOSApiLayer,
+    osApiLayerId,
   } = useAnnotations({
     mapRef,
     isMapReady,
@@ -323,6 +325,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
                 addAnnotationLayer(map, annotation);
               });
 
+              // Restore OS API layers if they exist
+              if (osApiFeatures.length > 0 && osApiLayerId) {
+                const layerId = "os-api-streets";
+                addOSApiLayer(map, osApiFeatures, layerId);
+              }
+
               // Now handle 3D mode if it is enabled
               if (is3DEnabled) {
                 console.log("Re-applying 3D mode after base layer change");
@@ -358,6 +366,9 @@ export function MapClient({ apiUrl }: MapClientProps) {
       addAnnotationLayer,
       is3DEnabled,
       toggle3DMode,
+      osApiFeatures,
+      addOSApiLayer,
+      osApiLayerId,
     ]
   );
 

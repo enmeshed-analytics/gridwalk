@@ -1078,5 +1078,6 @@ export function useAnnotations({
     osApiFeatures,
     osApiLayerId,
     clearOSApiLayer,
+    addOSApiLayer,
   };
 }
