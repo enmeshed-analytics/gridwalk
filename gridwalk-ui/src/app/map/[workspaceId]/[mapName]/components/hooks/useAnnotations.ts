@@ -66,7 +66,6 @@ export function useAnnotations({
           data: featureCollection,
         });
 
-        // Add layer with styling for streets/roads
         map.addLayer({
           id: layerId,
           type: "line",

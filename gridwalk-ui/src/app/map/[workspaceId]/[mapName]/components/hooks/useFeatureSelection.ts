@@ -12,12 +12,14 @@ export interface UseFeatureSelectionProps {
   mapRef: React.RefObject<maplibregl.Map | null>;
   isMapReady: boolean;
   onFeatureClick?: (feature: SelectedFeature | null) => void;
+  osApiFeatures?: GeoJSON.Feature[];
 }
 
 export function useFeatureSelection({
   mapRef,
   isMapReady,
   onFeatureClick,
+  osApiFeatures = [],
 }: UseFeatureSelectionProps) {
   const [selectedFeature, setSelectedFeature] =
     useState<SelectedFeature | null>(null);
@@ -114,20 +116,40 @@ export function useFeatureSelection({
       const map = mapRef.current;
       const features = map.queryRenderedFeatures(e.point);
 
-      // Filter out base map features - only get our custom layers
-      const customFeatures = features.filter((feature) =>
-        feature.layer.id.startsWith("layer-")
+      // Filter out base map features - include our custom layers AND OS API layers
+      const customFeatures = features.filter(
+        (feature) =>
+          feature.layer.id.startsWith("layer-") ||
+          feature.layer.id.startsWith("os-api-")
       );
 
       if (customFeatures.length > 0) {
         const feature = customFeatures[0];
 
-        const selectedFeature: SelectedFeature = {
+        let selectedFeature: SelectedFeature = {
           id: feature.id,
           layerId: feature.layer.id,
           properties: feature.properties || {},
           geometry: feature.geometry,
         };
+
+        // If it's an OS API feature, enhance with full properties
+        if (
+          feature.layer.id.startsWith("os-api-") &&
+          osApiFeatures.length > 0
+        ) {
+          const fullFeature = osApiFeatures.find(
+            (f) =>
+              f.properties && f.properties.usrn === feature.properties?.usrn
+          );
+
+          if (fullFeature && fullFeature.properties) {
+            selectedFeature = {
+              ...selectedFeature,
+              properties: fullFeature.properties,
+            };
+          }
+        }
 
         setSelectedFeature(selectedFeature);
         setIsModalOpen(true);
@@ -136,8 +158,10 @@ export function useFeatureSelection({
         console.log("Selected feature:", selectedFeature);
         map.getCanvas().style.cursor = "pointer";
 
-        // Add glow effect
-        addGlowEffect(map, feature);
+        // Only add glow effect for regular layers, not OS API features
+        if (feature.layer.id.startsWith("layer-")) {
+          addGlowEffect(map, feature);
+        }
       } else {
         // Clear selection
         if (selectedFeature) {
@@ -149,7 +173,14 @@ export function useFeatureSelection({
         map.getCanvas().style.cursor = "";
       }
     },
-    [mapRef, onFeatureClick, addGlowEffect, removeGlowEffect, selectedFeature]
+    [
+      mapRef,
+      onFeatureClick,
+      addGlowEffect,
+      removeGlowEffect,
+      selectedFeature,
+      osApiFeatures,
+    ]
   );
 
   const clearSelection = useCallback(() => {

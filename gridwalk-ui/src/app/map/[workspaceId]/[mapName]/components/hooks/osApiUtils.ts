@@ -88,7 +88,7 @@ export async function getSingleCollectionFeature(
     const urlParams = new URLSearchParams(queryParams);
     endpoint = `${endpoint}?${urlParams.toString()}`;
 
-    console.log("🌐 Making simplified OS API request to:", endpoint);
+    console.log("🌐 Making OS API request");
 
     const response = await fetch(endpoint, {
       method: "GET",
