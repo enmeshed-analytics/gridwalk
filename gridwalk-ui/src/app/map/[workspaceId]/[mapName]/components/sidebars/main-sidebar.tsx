@@ -92,47 +92,6 @@ const LayersTable = ({
   );
 };
 
-// 3D Toggle Switch Component
-const Toggle3DSwitch = ({
-  is3DEnabled,
-  on3DToggle,
-}: {
-  is3DEnabled: boolean;
-  on3DToggle: () => void;
-}) => (
-  <div className="flex flex-col items-center mb-3">
-    <div className="mb-2">
-      <Box
-        className={`w-5 h-5 ${
-          is3DEnabled ? "text-green-400" : "text-gray-400"
-        }`}
-      />
-    </div>
-    <button
-      onClick={on3DToggle}
-      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-offset-1 ${
-        is3DEnabled ? "bg-green-500" : "bg-gray-600"
-      }`}
-      role="switch"
-      aria-checked={is3DEnabled}
-    >
-      <span className="sr-only">Toggle 3D mode</span>
-      <span
-        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-          is3DEnabled ? "translate-x-4" : "translate-x-0"
-        }`}
-      />
-    </button>
-    <span
-      className={`text-xs mt-1 transition-colors ${
-        is3DEnabled ? "text-green-400" : "text-gray-400"
-      }`}
-    >
-      3D
-    </span>
-  </div>
-);
-
 // Main Sidebar Component
 const MainSidebar = ({
   isOpen,
@@ -180,6 +139,12 @@ const MainSidebar = ({
       icon: "file",
       description: "Upload files and add a layer to the map.",
     },
+    {
+      id: "3d-toggle",
+      title: "3D View",
+      icon: "box",
+      description: "Toggle between 2D and 3D map view",
+    },
   ];
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -201,6 +166,8 @@ const MainSidebar = ({
         return <Layers className="w-5 h-5" />;
       case "file":
         return <File className="w-5 h-5" />;
+      case "box":
+        return <Box className="w-5 h-5" />;
       default:
         return null;
     }
@@ -241,8 +208,6 @@ const MainSidebar = ({
             <h2 className="text-l font-bold mb-4 text-blue-500 dark:text-blue-400">
               File Upload
             </h2>
-
-            {/* Upload Section */}
             {!selectedFile ? (
               <div className="mb-6">
                 <label
@@ -284,8 +249,6 @@ const MainSidebar = ({
                       className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="Enter layer name"
                     />
-
-                    {/* Public/Private Toggle with reduced spacing */}
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         Visibility:
@@ -361,23 +324,27 @@ const MainSidebar = ({
 
   return (
     <>
-      {/* Navigation Bar */}
       <div className="fixed left-0 top-0 h-full w-10 bg-gray-900 shadow-lg z-10 flex flex-col items-center py-6 rounded-r-lg">
-        {/* GW Text at top */}
         <div className="py-4 text-gray-300 font-bold">GW</div>
-        {/* Separator line */}
         <div className="w-8 h-px bg-gray-600 mb-4"></div>
-        {/* Navigation Items */}
         {MainSidebarModalOptions.map((item) => (
           <button
             key={item.id}
-            onClick={() => onItemClick(item)}
+            onClick={() => {
+              if (item.id === "3d-toggle") {
+                on3DToggle();
+              } else {
+                onItemClick(item);
+              }
+            }}
             className={`
-              w-10 h-8 mb-4 flex items-center justify-center rounded-lg
+              w-8 h-8 mb-4 flex items-center justify-center rounded-lg
               transition-colors group relative
               ${
                 selectedItem?.id === item.id
                   ? "bg-blue-400 text-white"
+                  : item.id === "3d-toggle" && is3DEnabled
+                  ? "bg-green-500 text-white"
                   : "text-gray-300 hover:bg-blue-400 hover:text-white"
               }
             `}
@@ -394,21 +361,14 @@ const MainSidebar = ({
             </span>
           </button>
         ))}
-
-        {/* 3D Toggle */}
-        <div className="mt-4 mb-4">
-          <Toggle3DSwitch is3DEnabled={is3DEnabled} on3DToggle={on3DToggle} />
-        </div>
-
-        {/* Back Button */}
-        <div className="mt-auto mb-6">
+        <div className="mt-auto mb-8">
           <button
             onClick={() => {
               const pathParts = window.location.pathname.split("/");
               const workspaceId = pathParts[2];
               router.push(`/workspace/${workspaceId}/maps`);
             }}
-            className="w-10 h-8 flex items-center justify-center text-white bg-blue-400 hover:text-white hover:bg-blue-500 group relative transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-white bg-blue-400 hover:text-white hover:bg-blue-500 group relative transition-colors rounded-lg"
             aria-label="Back to workspace"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -418,8 +378,6 @@ const MainSidebar = ({
           </button>
         </div>
       </div>
-
-      {/* Modal Content */}
       {isOpen && selectedItem && (
         <div
           className="fixed left-12 z-50"
@@ -434,7 +392,6 @@ const MainSidebar = ({
           }}
         >
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-sm relative border border-zinc-300 dark:border-zinc-700">
-            {/* Close button */}
             <button
               onClick={onClose}
               className="absolute right-2 top-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
@@ -442,7 +399,6 @@ const MainSidebar = ({
             >
               <X className="h-5 w-5 text-black dark:text-gray-300" />
             </button>
-            {/* Content with text color override */}
             <div className="max-h-[50vh] overflow-y-auto p-4">
               <div className="text-gray-900 dark:text-gray-100">
                 {renderModalContent()}
