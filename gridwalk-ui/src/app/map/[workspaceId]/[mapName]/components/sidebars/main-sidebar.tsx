@@ -247,7 +247,7 @@ const MainSidebar = ({
               <div className="mb-6">
                 <label
                   key={uploadKey}
-                  className="flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-colors"
+                  className="flex flex-col items-center px-4 py-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-800 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-colors"
                 >
                   <Upload className="w-4 h-4 text-gray-400 dark:text-gray-500 mb-2" />
                   <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -362,7 +362,7 @@ const MainSidebar = ({
   return (
     <>
       {/* Navigation Bar */}
-      <div className="fixed left-0 top-0 h-full w-10 bg-gray-800 shadow-lg z-10 flex flex-col items-center py-6 rounded-r-lg">
+      <div className="fixed left-0 top-0 h-full w-10 bg-gray-900 shadow-lg z-10 flex flex-col items-center py-6 rounded-r-lg">
         {/* GW Text at top */}
         <div className="py-4 text-gray-300 font-bold">GW</div>
         {/* Separator line */}
