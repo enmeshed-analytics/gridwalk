@@ -125,6 +125,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     mapRef,
     isMapReady,
     onDrawComplete: () => setSelectedEditItem(null),
+    apiUrl,
   });
 
   // Layer Hook

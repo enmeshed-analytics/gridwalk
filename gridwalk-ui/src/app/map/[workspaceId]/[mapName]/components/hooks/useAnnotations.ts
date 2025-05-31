@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import { LayerStyle } from "../types";
+import { getCollectionFeaturesByBbox } from "./osApiUtils";
 
 export interface Annotation extends GeoJSON.Feature {
   id: string;
@@ -19,6 +20,7 @@ interface AnnotationsProps {
   mapRef?: React.MutableRefObject<maplibregl.Map | null>;
   isMapReady?: boolean;
   onDrawComplete?: () => void;
+  apiUrl?: string;
 }
 
 export function useAnnotations({
@@ -35,6 +37,58 @@ export function useAnnotations({
   // Add a state to track if we're in bbox mode
   // This needs to be used for the OS DataHub query
   const [isBboxMode, setIsBboxMode] = useState(false);
+
+  const [osApiFeatures, setOsApiFeatures] = useState<GeoJSON.Feature[]>([]);
+  const [osApiLayerId, setOsApiLayerId] = useState<string | null>(null);
+
+  const addOSApiLayer = useCallback(
+    (map: maplibregl.Map, features: GeoJSON.Feature[], layerId: string) => {
+      try {
+        console.log(
+          `Adding OS API layer: ${layerId} with ${features.length} features`
+        );
+
+        if (map.getLayer(layerId)) {
+          map.removeLayer(layerId);
+        }
+        if (map.getSource(layerId)) {
+          map.removeSource(layerId);
+        }
+
+        // Create GeoJSON feature collection
+        const featureCollection: GeoJSON.FeatureCollection = {
+          type: "FeatureCollection",
+          features: features,
+        };
+
+        map.addSource(layerId, {
+          type: "geojson",
+          data: featureCollection,
+        });
+
+        // Add layer with styling for streets/roads
+        map.addLayer({
+          id: layerId,
+          type: "line",
+          source: layerId,
+          paint: {
+            "line-color": "#3880ff",
+            "line-width": 3,
+            "line-opacity": 0.8,
+          },
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+        });
+
+        console.log(`Successfully added OS API layer: ${layerId}`);
+      } catch (error) {
+        console.error("Error adding OS API layer:", error);
+      }
+    },
+    []
+  );
 
   const addAnnotationLayer = useCallback(
     (map: maplibregl.Map, annotation: Annotation) => {
@@ -346,6 +400,38 @@ export function useAnnotations({
     }
   }, [mapRef, isMapReady, addAnnotationLayer]);
 
+  // Load OS API data from localStorage
+  // TODO: this will probably have to be moved to a different hook in the future?
+  // Should be stored elswhere and not in localStorage
+  useEffect(() => {
+    if (!mapRef?.current || !isMapReady) return;
+
+    const map = mapRef.current;
+
+    try {
+      const savedOsApiData = localStorage.getItem("osApiFeatures");
+      if (savedOsApiData) {
+        const parsed = JSON.parse(savedOsApiData);
+        if (parsed.features && parsed.features.length > 0) {
+          const geoJsonFeatures = parsed.features.map(
+            (feature: GeoJSON.Feature) => ({
+              ...feature,
+              type: "Feature" as const,
+            })
+          ) as GeoJSON.Feature[];
+
+          setOsApiFeatures(geoJsonFeatures);
+
+          const layerId = "os-api-streets";
+          setOsApiLayerId(layerId);
+          addOSApiLayer(map, geoJsonFeatures, layerId);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading OS API data:", error);
+    }
+  }, [mapRef, isMapReady, addOSApiLayer]);
+
   // Set up draw event handlers
   useEffect(() => {
     if (!mapRef?.current || !isMapReady || !drawRef.current) return;
@@ -354,6 +440,11 @@ export function useAnnotations({
 
     function updateAnnotations() {
       if (!drawRef.current) return;
+
+      if (isBboxMode) {
+        console.log("BBOX MODE - SKIPPING ANNOTATION UPDATES");
+        return;
+      }
 
       try {
         const data = drawRef.current.getAll();
@@ -464,11 +555,11 @@ export function useAnnotations({
     }
 
     // Direct handler for immediate layer creation
-    const handleDrawCreate = (e: { features: GeoJSON.Feature[] }) => {
+    const handleDrawCreate = async (e: { features: GeoJSON.Feature[] }) => {
       console.log("Direct draw.create handler called with:", e);
       if (!e.features.length) return;
 
-      e.features.forEach((feature) => {
+      for (const feature of e.features) {
         // Check if we're in bbox mode
         if (isBboxMode && feature.geometry?.type === "Polygon") {
           // Calculate and log bounding box
@@ -502,23 +593,77 @@ export function useAnnotations({
           console.log("🔲 BOUNDING BOX CALCULATED:", bbox);
           console.log("📍 Polygon coordinates:", coordinates);
 
-          // Clear the drawn polygon immediately since it's just for logging
+          // Call OS API with the calculated bbox
+          try {
+            console.log("🚀 Calling OS API with bbox...");
+
+            // Collection ID for street network data
+            const collectionId = "trn-ntwk-street-1";
+
+            const osData = await getCollectionFeaturesByBbox(
+              collectionId,
+              bbox
+            );
+
+            console.log("📊 OS API Data received:", {
+              collectionId,
+              numberReturned: osData.numberReturned,
+              numberMatched: osData.numberMatched,
+              featuresCount: osData.features?.length || 0,
+              bbox: bbox,
+            });
+
+            // Log the first few features for inspection
+            if (osData.features && osData.features.length > 0) {
+              console.log("🔍 First 3 features:", osData.features.slice(0, 3));
+              console.log("📋 Full OS API response:", osData);
+
+              // Store OS API data in state and localStorage
+              const geoJsonFeatures = osData.features.map((feature) => ({
+                ...feature,
+                type: "Feature" as const,
+              })) as GeoJSON.Feature[];
+
+              setOsApiFeatures(geoJsonFeatures);
+              localStorage.setItem(
+                "osApiFeatures",
+                JSON.stringify({
+                  timestamp: Date.now(),
+                  bbox: bbox,
+                  collectionId: collectionId,
+                  features: geoJsonFeatures,
+                })
+              );
+
+              // Add OS API data as a layer on the map
+              if (mapRef?.current) {
+                const currentMap = mapRef.current;
+                const layerId = "os-api-streets";
+                setOsApiLayerId(layerId);
+                addOSApiLayer(currentMap, geoJsonFeatures, layerId);
+              }
+            } else {
+              console.log("⚠️ No features found in the bbox area");
+            }
+          } catch (error) {
+            console.error("❌ Failed to fetch OS data:", error);
+          }
+
           if (drawRef.current) {
             drawRef.current.deleteAll();
           }
 
-          // Reset bbox mode
           setIsBboxMode(false);
 
-          // Call completion callback
           if (onDrawComplete) {
             onDrawComplete();
           }
 
-          return; // Don't create annotation for bbox mode
+          // IMPORTANT: Return early to prevent normal annotation creation!!
+          return;
         }
 
-        // Normal annotation creation logic
+        // Normal annotation creation logic (only runs if NOT in bbox mode)
         const id = String(
           feature.id ||
             `feature-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -546,7 +691,6 @@ export function useAnnotations({
           } as Annotation["properties"]["style"];
         }
 
-        // Create an annotation object with styling
         const annotation: Annotation = {
           ...feature,
           id,
@@ -556,17 +700,15 @@ export function useAnnotations({
           },
         };
 
-        // Directly create the custom layer
         try {
           addAnnotationLayer(map, annotation);
           console.log(`Successfully created custom layer with ID: ${id}`);
         } catch (err) {
           console.error(`Error creating custom layer for new feature:`, err);
         }
-      });
+      }
 
-      // Call the callback to clear selected edit item
-      if (onDrawComplete) {
+      if (!isBboxMode && onDrawComplete) {
         onDrawComplete();
       }
     };
@@ -585,7 +727,14 @@ export function useAnnotations({
       map.off("draw.delete", updateAnnotations);
       map.off("draw.selectionchange", updateAnnotations);
     };
-  }, [mapRef, isMapReady, addAnnotationLayer, onDrawComplete, isBboxMode]);
+  }, [
+    mapRef,
+    isMapReady,
+    addAnnotationLayer,
+    onDrawComplete,
+    isBboxMode,
+    addOSApiLayer,
+  ]);
 
   const deleteSelectedAnnotations = useCallback(() => {
     if (!drawRef.current || !mapRef?.current) return;
@@ -892,6 +1041,29 @@ export function useAnnotations({
     [mapRef]
   );
 
+  const clearOSApiLayer = useCallback(() => {
+    if (!mapRef?.current || !osApiLayerId) return;
+
+    const map = mapRef.current;
+
+    try {
+      if (map.getLayer(osApiLayerId)) {
+        map.removeLayer(osApiLayerId);
+      }
+      if (map.getSource(osApiLayerId)) {
+        map.removeSource(osApiLayerId);
+      }
+
+      setOsApiFeatures([]);
+      setOsApiLayerId(null);
+      localStorage.removeItem("osApiFeatures");
+
+      console.log("OS API layer cleared");
+    } catch (error) {
+      console.error("Error clearing OS API layer:", error);
+    }
+  }, [mapRef, osApiLayerId]);
+
   return {
     annotations,
     selectedAnnotation,
@@ -903,5 +1075,9 @@ export function useAnnotations({
     setSelectedAnnotation,
     setDrawMode,
     drawRef,
+    // Add OS API related exports
+    osApiFeatures,
+    osApiLayerId,
+    clearOSApiLayer,
   };
 }
