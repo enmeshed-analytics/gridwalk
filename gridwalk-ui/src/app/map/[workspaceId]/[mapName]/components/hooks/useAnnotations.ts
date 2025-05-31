@@ -32,6 +32,10 @@ export function useAnnotations({
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const drawRef = useRef<MapboxDraw | null>(null);
 
+  // Add a state to track if we're in bbox mode
+  // This needs to be used for the OS DataHub query
+  const [isBboxMode, setIsBboxMode] = useState(false);
+
   const addAnnotationLayer = useCallback(
     (map: maplibregl.Map, annotation: Annotation) => {
       try {
@@ -465,7 +469,56 @@ export function useAnnotations({
       if (!e.features.length) return;
 
       e.features.forEach((feature) => {
-        // Ensure the feature has an ID
+        // Check if we're in bbox mode
+        if (isBboxMode && feature.geometry?.type === "Polygon") {
+          // Calculate and log bounding box
+          const coordinates = feature.geometry.coordinates[0]; // Get outer ring
+
+          let minLng = Infinity;
+          let maxLng = -Infinity;
+          let minLat = Infinity;
+          let maxLat = -Infinity;
+
+          coordinates.forEach(([lng, lat]) => {
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+          });
+
+          const bbox = {
+            west: minLng,
+            south: minLat,
+            east: maxLng,
+            north: maxLat,
+            width: maxLng - minLng,
+            height: maxLat - minLat,
+            center: {
+              lng: (minLng + maxLng) / 2,
+              lat: (minLat + maxLat) / 2,
+            },
+          };
+
+          console.log("🔲 BOUNDING BOX CALCULATED:", bbox);
+          console.log("📍 Polygon coordinates:", coordinates);
+
+          // Clear the drawn polygon immediately since it's just for logging
+          if (drawRef.current) {
+            drawRef.current.deleteAll();
+          }
+
+          // Reset bbox mode
+          setIsBboxMode(false);
+
+          // Call completion callback
+          if (onDrawComplete) {
+            onDrawComplete();
+          }
+
+          return; // Don't create annotation for bbox mode
+        }
+
+        // Normal annotation creation logic
         const id = String(
           feature.id ||
             `feature-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -532,7 +585,7 @@ export function useAnnotations({
       map.off("draw.delete", updateAnnotations);
       map.off("draw.selectionchange", updateAnnotations);
     };
-  }, [mapRef, isMapReady, addAnnotationLayer, onDrawComplete]);
+  }, [mapRef, isMapReady, addAnnotationLayer, onDrawComplete, isBboxMode]);
 
   const deleteSelectedAnnotations = useCallback(() => {
     if (!drawRef.current || !mapRef?.current) return;
@@ -805,6 +858,9 @@ export function useAnnotations({
 
       console.log("Changing to drawing mode:", mode);
 
+      // Set bbox mode flag
+      setIsBboxMode(mode === "bbox");
+
       try {
         switch (mode) {
           case "point":
@@ -816,6 +872,7 @@ export function useAnnotations({
           case "square":
           case "hexagon":
           case "circle":
+          case "bbox":
             draw.changeMode("draw_polygon");
             break;
           case "select":

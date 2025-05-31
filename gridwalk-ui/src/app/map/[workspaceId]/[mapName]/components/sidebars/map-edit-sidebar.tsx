@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Dot, Square, GitBranch } from "lucide-react";
+import { Dot, Square, GitBranch, Box } from "lucide-react";
 import { MapEditSidebarModalOptions, MapEditsProps } from "./types";
 
 const MapEditSidebar = ({
@@ -25,6 +25,12 @@ const MapEditSidebar = ({
       icon: "square",
       description: "Draw polygons",
     },
+    {
+      id: "bbox",
+      title: "Bounding Box",
+      icon: "bbox",
+      description: "Draw polygon and log bounding box",
+    },
   ];
 
   const getIconComponent = (iconName: string) => {
@@ -35,6 +41,8 @@ const MapEditSidebar = ({
         return <GitBranch className="w-4 h-4" />;
       case "square":
         return <Square className="w-4 h-4" />;
+      case "bbox":
+        return <Box className="w-4 h-4" />;
       default:
         return null;
     }
@@ -49,7 +57,8 @@ const MapEditSidebar = ({
         selectedEditItem?.id === "hexagon" ||
         selectedEditItem?.id === "circle" ||
         selectedEditItem?.id === "point" ||
-        selectedEditItem?.id === "line"
+        selectedEditItem?.id === "line" ||
+        selectedEditItem?.id === "bbox"
       ) {
         mapElement.style.cursor = "crosshair";
       } else {
