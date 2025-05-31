@@ -1,5 +1,6 @@
 import WorkspaceMembersClient from "./components/client";
 import { getWorkspaceMembers } from "./actions";
+import { getProfile } from "../actions";
 
 export function formatDate(dateString: string) {
   const date = new Date(dateString);
@@ -14,13 +15,13 @@ export function formatDate(dateString: string) {
 export function getRoleBadgeColor(role: string) {
   switch (role.toLowerCase()) {
     case "admin":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300";
+      return "bg-blue-100 text-white dark:bg-blue-900/50 dark:text-white";
     case "editor":
-      return "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300";
+      return "bg-green-100 text-white dark:bg-green-900/50 dark:text-white";
     case "viewer":
-      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
+      return "bg-gray-100 text-white dark:bg-gray-800 dark:text-white";
     default:
-      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
+      return "bg-gray-100 text-white dark:bg-gray-800 dark:text-white";
   }
 }
 
@@ -50,7 +51,16 @@ export default async function WorkspaceMembersPage({ params }: PageProps) {
   const { workspaceId } = await params;
 
   // Fetch data server-side
-  const members = await getWorkspaceMembers(workspaceId);
+  const [members, profile] = await Promise.all([
+    getWorkspaceMembers(workspaceId),
+    getProfile(),
+  ]);
 
-  return <WorkspaceMembersClient workspaceId={workspaceId} members={members} />;
+  return (
+    <WorkspaceMembersClient
+      workspaceId={workspaceId}
+      members={members}
+      currentUserEmail={profile.email}
+    />
+  );
 }
