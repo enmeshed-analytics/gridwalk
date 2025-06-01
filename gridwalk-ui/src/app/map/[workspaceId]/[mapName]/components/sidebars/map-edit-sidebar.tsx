@@ -69,7 +69,7 @@ const MapEditSidebar = ({
 
   return (
     <div className="absolute top-0.4 left-1/2 transform -translate-x-1/2 z-10">
-      <div className="bg-gray-800 rounded-lg shadow-lg px-2 py-1 flex items-center space-x-1 relative">
+      <div className="bg-gray-900 rounded-lg shadow-lg px-2 py-1 flex items-center space-x-1 relative">
         {editItems.map((item) => (
           <button
             key={item.id}
