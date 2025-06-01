@@ -1,32 +1,4 @@
-interface OSAPIResponse {
-  type: string;
-  features: Array<{
-    type: string;
-    geometry: GeoJSON.Geometry;
-    properties: Record<string, unknown>;
-    id?: string;
-  }>;
-  links?: Array<{
-    href: string;
-    rel: string;
-    type?: string;
-  }>;
-  numberReturned?: number;
-  numberMatched?: number;
-}
-
-interface BoundingBox {
-  west: number;
-  south: number;
-  east: number;
-  north: number;
-  width: number;
-  height: number;
-  center: {
-    lng: number;
-    lat: number;
-  };
-}
+import { BoundingBox, OSAPIResponse } from "./types";
 
 function formatBboxForAPI(bbox: BoundingBox): string {
   return `${bbox.west},${bbox.south},${bbox.east},${bbox.north}`;

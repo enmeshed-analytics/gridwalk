@@ -56,3 +56,27 @@ export interface LayerConfig {
   geomType: string;
   style: LayerStyle;
 }
+
+export interface TokenData {
+  access_token: string;
+  issued_at: number;
+  expires_in: number;
+}
+
+export interface MapConfig {
+  center?: [number, number];
+  zoom?: number;
+  styleUrl?: string;
+  apiUrl: string;
+  enable3D?: boolean;
+  pitch?: number;
+  bearing?: number;
+}
+
+export interface UseMapInitResult {
+  mapContainer: React.RefObject<HTMLDivElement>;
+  map: React.RefObject<maplibregl.Map | null>;
+  mapError: string | null;
+  isMapReady: boolean;
+  toggle3DMode: (enable: boolean) => void;
+}

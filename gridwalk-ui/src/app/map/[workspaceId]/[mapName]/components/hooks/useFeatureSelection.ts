@@ -1,19 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import maplibregl from "maplibre-gl";
-
-export interface SelectedFeature {
-  id: string | number | undefined;
-  layerId: string;
-  properties: Record<string, unknown>;
-  geometry: GeoJSON.Geometry;
-}
-
-export interface UseFeatureSelectionProps {
-  mapRef: React.RefObject<maplibregl.Map | null>;
-  isMapReady: boolean;
-  onFeatureClick?: (feature: SelectedFeature | null) => void;
-  osApiFeatures?: GeoJSON.Feature[];
-}
+import { SelectedFeature, UseFeatureSelectionProps } from "./types";
 
 export function useFeatureSelection({
   mapRef,
