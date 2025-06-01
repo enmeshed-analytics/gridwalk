@@ -34,7 +34,7 @@ export function useAnnotations({
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const drawRef = useRef<MapboxDraw | null>(null);
 
-  // Add a state to track if we're in bbox mode
+  // Add a state to track if we're in bbox mode...
   // This needs to be used for the OS DataHub query
   const [isBboxMode, setIsBboxMode] = useState(false);
 
