@@ -166,7 +166,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
   // safe to read local storage after this point
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Main Sidebar Modal Open
   const handleMainSidebarModalOpen = useCallback(
     (item: MainSidebarModalOptions) => {
       setSelectedItem(item);
@@ -175,7 +174,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     []
   );
 
-  // Handle Modal Close
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
     setSelectedItem(null);
@@ -185,13 +183,11 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setFileName("");
   }, []);
 
-  // Handle File Selection
   const handleFileSelection = useCallback((file: File) => {
     setSelectedFile(file);
     setUploadError(null);
   }, []);
 
-  // Handle File Upload
   const { handleFileUpload } = useFileUploader({
     fileName,
     workspaceId,
@@ -203,7 +199,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     handleModalClose,
   });
 
-  // Handle Abort Upload
   const handleAbortUpload = useCallback(() => {
     setIsUploading(false);
     setUploadProgress(0);
@@ -212,14 +207,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
     setFileName("");
   }, []);
 
-  // Handle Cancel Selection
   const handleCancelSelection = useCallback(() => {
     setSelectedFile(null);
     setFileName("");
     setUploadError(null);
   }, []);
 
-  // Handle Edit Map Sidebar Click
   const handleEditMapSidebarClick = useCallback(
     (item: MapEditSidebarModalOptions) => {
       setSelectedEditItem((prev) => (prev?.id === item.id ? null : item));
@@ -241,7 +234,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
         } layer: ${layerName} (${layerId})`
       );
 
-      // Update state with new selection
       const updatedLayers = {
         ...selectedLayers,
         [index]: willBeEnabled,
@@ -438,7 +430,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
   // This uses local storage to store the selected layers and then restores them
   useEffect(() => {
     if (!initialLoadComplete.current && isMapReady && mapRef.current) {
-      // Restore saved layers
       const savedLayers = localStorage.getItem("selectedLayers");
       if (savedLayers) {
         try {
@@ -458,7 +449,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
         }
       }
 
-      // Restore saved 3D mode state
       const saved3DMode = localStorage.getItem("is3DEnabled");
       if (saved3DMode) {
         try {
@@ -496,7 +486,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
     return () => {
       if (!currentMap) return;
 
-      // Derive active layer IDs from selectedLayers
       const activeLayers = Object.entries(selectedLayers)
         .filter(([, isSelected]) => isSelected)
         .map(([index]) => {
@@ -581,15 +570,12 @@ export function MapClient({ apiUrl }: MapClientProps) {
         })
         .filter(Boolean) as string[];
 
-      // Log current state of layers
       console.log("Selected layers state:", selectedLayers);
       console.log("Active layer IDs:", activeLayers);
 
-      // Check which layers are actually on the map
       const layersOnMap = activeLayers.filter((id) => map.getLayer(id));
       console.log("Layers actually on map:", layersOnMap);
 
-      // Log visibility status
       layersOnMap.forEach((id) => {
         const visibility = map.getLayoutProperty(id, "visibility");
         console.log(`Layer ${id} visibility: ${visibility}`);
@@ -601,7 +587,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
   useEffect(() => {
     if (!mapRef?.current || !isMapReady) return;
 
-    // Use a delay to ensure the map has stabilized
     const timer = setTimeout(() => {
       if (mapRef.current) {
         forceShowAllSelectedLayers(mapRef.current);
@@ -668,6 +653,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
     const layerId = selectedFeature.layerId;
 
     // Remove glow effect first if it exists
+    // TODO: this is a temporary - think I want to get rid of the glow effect entirely...
     if (mapRef.current) {
       const map = mapRef.current;
       const glowLayerId = `${layerId}-glow`;
@@ -676,17 +662,13 @@ export function MapClient({ apiUrl }: MapClientProps) {
       }
     }
 
-    // Find which layer index this corresponds to
     const layerIndex = workspaceConnections.findIndex((connection) => {
       const connectionLayerId = getLayerId(String(connection));
       return connectionLayerId === layerId;
     });
 
     if (layerIndex !== -1) {
-      // Deactivate the layer using existing toggle function
       handleSelectLayer(layerIndex, workspaceConnections[layerIndex]);
-
-      // Close the modal
       closeFeatureModal();
       clearSelection();
     }
@@ -711,8 +693,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
         e.preventDefault();
 
         // If an OS API feature is selected, clear the OS layer!!
-        // TODO: this should be moved to a separate component at some point
-        // could stay here though...
         if (selectedFeature && selectedFeature.layerId.startsWith("os-api-")) {
           clearOSApiLayer();
           closeFeatureModal();
@@ -720,7 +700,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
           return;
         }
 
-        // If a regular layer feature is selected, deactivate the layer
+        // If a regular layer feature is selected, just deactivate the layer - don't delete it!
         if (selectedFeature && selectedFeature.layerId.startsWith("layer-")) {
           handleLayerDeactivate();
           return;
