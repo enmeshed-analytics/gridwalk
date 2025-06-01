@@ -2,26 +2,7 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import { LayerStyle } from "../types";
 import { getCollectionFeaturesByBbox } from "./osApiUtils";
-
-export interface Annotation extends GeoJSON.Feature {
-  id: string;
-  properties: {
-    type?: "square" | "hexagon" | "circle" | "line" | "polygon" | "point";
-    style?: {
-      color: string;
-      opacity: number;
-      width?: number;
-      radius?: number;
-    };
-  };
-}
-
-interface AnnotationsProps {
-  mapRef?: React.MutableRefObject<maplibregl.Map | null>;
-  isMapReady?: boolean;
-  onDrawComplete?: () => void;
-  apiUrl?: string;
-}
+import { Annotation, AnnotationsProps } from "./types";
 
 export function useAnnotations({
   mapRef,
@@ -34,7 +15,7 @@ export function useAnnotations({
   const [isStyleModalOpen, setIsStyleModalOpen] = useState(false);
   const drawRef = useRef<MapboxDraw | null>(null);
 
-  // Add a state to track if we're in bbox mode
+  // Add a state to track if we're in bbox mode...
   // This needs to be used for the OS DataHub query
   const [isBboxMode, setIsBboxMode] = useState(false);
 

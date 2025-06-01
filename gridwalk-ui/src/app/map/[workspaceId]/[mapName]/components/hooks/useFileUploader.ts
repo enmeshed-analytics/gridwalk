@@ -1,20 +1,7 @@
 import { useCallback } from "react";
-import { useSingleFileUploader, useShapefileUploader } from "./fileUpload";
-import {
-  getWorkspaceConnections,
-  WorkspaceConnection,
-} from "../actions/getSources";
-
-interface UseFileUploaderProps {
-  fileName: string;
-  workspaceId: string;
-  setUploadError: (error: string | null) => void;
-  setUploadSuccess: (success: boolean) => void;
-  setUploadProgress: (progress: number) => void;
-  setIsUploading: (isUploading: boolean) => void;
-  setWorkspaceConnections: (connections: WorkspaceConnection[]) => void;
-  handleModalClose: () => void;
-}
+import { useSingleFileUploader, useShapefileUploader } from "./fileUploadUtils";
+import { getWorkspaceConnections } from "../actions/getSources";
+import { UseFileUploaderProps } from "./types";
 
 export const useFileUploader = ({
   fileName,

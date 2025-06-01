@@ -2,38 +2,13 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { MapConfig, TokenData, UseMapInitResult } from "./types";
 
-// Constants
 const REFRESH_THRESHOLD = 30;
 const DEFAULT_CENTER: [number, number] = [-0.1278, 51.5074];
 const DEFAULT_ZOOM = 11;
 const MIN_ZOOM = 6;
 const defaultStyleUrl = "/OS_VTS_3857_Light.json";
-
-// Interfaces
-export interface TokenData {
-  access_token: string;
-  issued_at: number;
-  expires_in: number;
-}
-
-export interface MapConfig {
-  center?: [number, number];
-  zoom?: number;
-  styleUrl?: string;
-  apiUrl: string;
-  enable3D?: boolean;
-  pitch?: number;
-  bearing?: number;
-}
-
-export interface UseMapInitResult {
-  mapContainer: React.RefObject<HTMLDivElement>;
-  map: React.RefObject<maplibregl.Map | null>;
-  mapError: string | null;
-  isMapReady: boolean;
-  toggle3DMode: (enable: boolean) => void;
-}
 
 // Fetch api tokens in order to load OS maps
 const getToken = (apiUrl: string): TokenData => {
@@ -63,7 +38,6 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
   const [isMapReady, setIsMapReady] = useState(false);
   const tokenRef = useRef<TokenData | null>(null);
 
-  // Initial map setup
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
 
@@ -184,16 +158,15 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
     updateMapStyle();
   }, [config?.styleUrl]);
 
-  // Function to enable 3D buildings
   const enable3DBuildings = (mapInstance: maplibregl.Map) => {
     // Wait for the style to be fully loaded
+    // Waiting for this type of event is really important for loading things in the right order at the right time
     if (!mapInstance.isStyleLoaded()) {
       mapInstance.once("style.load", () => enable3DBuildings(mapInstance));
       return;
     }
 
     try {
-      // Get the fill color from the existing building layer
       const fillColor = mapInstance.getPaintProperty(
         "OS/TopographicArea_2/Building/1",
         "fill-color"
@@ -245,14 +218,10 @@ export const useMapInit = (config: MapConfig): UseMapInitResult => {
     if (!map.current) return;
 
     if (enable) {
-      // Enable 3D buildings
       enable3DBuildings(map.current);
     } else {
-      // Disable 3D buildings - reset pitch and bearing
       map.current.setPitch(0);
       map.current.setBearing(0);
-
-      // Remove 3D layer if it exists
       if (map.current.getLayer("OS/TopographicArea_2/Building/1_3D")) {
         map.current.removeLayer("OS/TopographicArea_2/Building/1_3D");
       }

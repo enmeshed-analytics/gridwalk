@@ -1,40 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { LayerConfig, LayerStyle } from "../types";
-import { WorkspaceConnection } from "../actions/getSources";
-
-type LayerConfigType =
-  | {
-      type: "line";
-      paint: {
-        "line-color": string;
-        "line-opacity": number;
-        "line-width": number;
-      };
-    }
-  | {
-      type: "fill";
-      paint: {
-        "fill-color": string;
-        "fill-opacity": number;
-        "fill-outline-color": string;
-      };
-    }
-  | {
-      type: "circle";
-      paint: {
-        "circle-color": string;
-        "circle-opacity": number;
-        "circle-radius": number;
-      };
-    };
-
-interface UseLayerProps {
-  mapRef?: React.MutableRefObject<maplibregl.Map | null>;
-  isMapReady?: boolean;
-  workspaceId: string;
-  selectedLayers?: { [key: number]: boolean };
-  workspaceConnections?: WorkspaceConnection[];
-}
+import { LayerConfigType, UseLayerProps } from "./types";
 
 export function useLayer({
   mapRef,

@@ -1,32 +1,4 @@
-interface OSAPIResponse {
-  type: string;
-  features: Array<{
-    type: string;
-    geometry: GeoJSON.Geometry;
-    properties: Record<string, unknown>;
-    id?: string;
-  }>;
-  links?: Array<{
-    href: string;
-    rel: string;
-    type?: string;
-  }>;
-  numberReturned?: number;
-  numberMatched?: number;
-}
-
-interface BoundingBox {
-  west: number;
-  south: number;
-  east: number;
-  north: number;
-  width: number;
-  height: number;
-  center: {
-    lng: number;
-    lat: number;
-  };
-}
+import { BoundingBox, OSAPIResponse } from "./types";
 
 function formatBboxForAPI(bbox: BoundingBox): string {
   return `${bbox.west},${bbox.south},${bbox.east},${bbox.north}`;
@@ -81,9 +53,10 @@ export async function getSingleCollectionFeature(
       queryParams["filter"] = `${queryAttr}=${queryAttrValue}`;
     }
 
-    // limit the number of features returned to 75
+    // limit the number of features returned to 1
+    // Change this back to 75 when we want to deploy to production
     // OS limit is 100 anyway
-    queryParams["limit"] = "75";
+    queryParams["limit"] = "1";
 
     const urlParams = new URLSearchParams(queryParams);
     endpoint = `${endpoint}?${urlParams.toString()}`;

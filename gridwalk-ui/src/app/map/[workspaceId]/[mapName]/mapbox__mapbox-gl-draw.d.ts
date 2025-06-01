@@ -1,5 +1,5 @@
-// THIS NEEDS TO MOVE
-// ALSO NEED TO UNDERSTAND WHY THIS IS NEEDED IN MORE DETAIL
+// THIS NEEDS TO MOVE?
+// DECLARE THE TYPES OF THE MAPBOX DRAW LIBRARY HERE
 
 declare module "@mapbox/mapbox-gl-draw" {
   import { IControl, Map as MaplibreMap } from "maplibre-gl";

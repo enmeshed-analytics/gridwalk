@@ -71,7 +71,7 @@ const BaseLayerSidebar = ({
 
   return (
     <div className="fixed bottom-0 right-0 z-10">
-      <div className="bg-gray-800 rounded-t-lg shadow-lg px-2 py-1 flex items-center space-x-1">
+      <div className="bg-gray-900 rounded-t-lg shadow-lg px-2 py-1 flex items-center space-x-1">
         {baseItems.map((item) => (
           <button
             key={item.id}
