@@ -2,6 +2,8 @@
 
 Tidy up all the log statements in useAnnotations.ts
 
-Move the feature informaiton modal for OS data into a separate component
+Break use annotations into smaller hooks
+
+Move the feature information modal for OS data into a separate component - take it out of map client
 
 Fix bug on point features that don't have glow when selected

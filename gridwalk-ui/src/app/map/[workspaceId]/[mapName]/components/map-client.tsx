@@ -46,7 +46,6 @@ const defaultBaseLayer: BaseLayerSidebarModalOptions = {
 };
 
 export function MapClient({ apiUrl }: MapClientProps) {
-  // APP STATE AND FUNCTIONS
   // Connections State
   const [workspaceConnections, setWorkspaceConnections] = useState<
     WorkspaceConnection[]
@@ -283,7 +282,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
           );
         }
       } else {
-        // Use removeMapLayer instead of directly setting layout property
         removeMapLayer(map, layerId);
       }
     },
@@ -311,27 +309,21 @@ export function MapClient({ apiUrl }: MapClientProps) {
         fetch(MAP_STYLES[styleKey])
           .then((response) => response.json())
           .then((styleJson) => {
-            // Apply the new style
             map.setStyle(styleJson, { diff: true });
             setCurrentStyle(MAP_STYLES[styleKey]);
 
-            // Wait for style to be completely loaded
             const handleStyleLoad = () => {
-              // First restore all layers
               forceShowAllSelectedLayers(map);
 
-              // Add annotations
               annotations.forEach((annotation) => {
                 addAnnotationLayer(map, annotation);
               });
 
-              // Restore OS API layers if they exist
               if (osApiFeatures.length > 0 && osApiLayerId) {
                 const layerId = "os-api-streets";
                 addOSApiLayer(map, osApiFeatures, layerId);
               }
 
-              // Now handle 3D mode if it is enabled
               if (is3DEnabled) {
                 console.log("Re-applying 3D mode after base layer change");
 
@@ -340,7 +332,6 @@ export function MapClient({ apiUrl }: MapClientProps) {
                   if (map.isStyleLoaded()) {
                     toggle3DMode(true);
                   } else {
-                    // This shouldn't happen, but just in case...
                     console.warn("Style not loaded when expected!");
                     map.once("idle", () => {
                       toggle3DMode(true);
@@ -673,7 +664,7 @@ export function MapClient({ apiUrl }: MapClientProps) {
   } = useFeatureSelection({
     mapRef,
     isMapReady,
-    osApiFeatures, // Pass the OS API features here
+    osApiFeatures,
     onFeatureClick: (feature) => {
       if (feature) {
         console.log("Feature clicked:", feature.properties);

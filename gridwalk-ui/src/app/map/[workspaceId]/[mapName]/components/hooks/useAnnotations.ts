@@ -130,42 +130,55 @@ export function useAnnotations({
         const geomType = annotation.geometry.type.toLowerCase();
         console.log(`Adding annotation of type ${geomType}:`, annotation);
 
+        // TODO: This is a hack to ensure annotations stay on top of the OS API layer
+        // This is a temporary fix and will be removed in the future -  need to make it more robust!!
+        const beforeLayerId = osApiLayerId || undefined;
+
         if (geomType.includes("linestring")) {
           console.log(`Creating line layer with color: ${style.color}`);
-          map.addLayer({
-            id: annotation.id,
-            type: "line",
-            source: annotation.id,
-            paint: {
-              "line-color": style.color || "#3880ff",
-              "line-opacity": style.opacity || 0.8,
-              "line-width": style.width || 3,
+          map.addLayer(
+            {
+              id: annotation.id,
+              type: "line",
+              source: annotation.id,
+              paint: {
+                "line-color": style.color || "#3880ff",
+                "line-opacity": style.opacity || 0.8,
+                "line-width": style.width || 3,
+              },
             },
-          });
+            beforeLayerId
+          );
         } else if (geomType.includes("point")) {
           console.log(`Creating point layer with color: ${style.color}`);
-          map.addLayer({
-            id: annotation.id,
-            type: "circle",
-            source: annotation.id,
-            paint: {
-              "circle-color": style.color || "#3880ff",
-              "circle-opacity": style.opacity || 0.8,
-              "circle-radius": style.radius || 5,
+          map.addLayer(
+            {
+              id: annotation.id,
+              type: "circle",
+              source: annotation.id,
+              paint: {
+                "circle-color": style.color || "#3880ff",
+                "circle-opacity": style.opacity || 0.8,
+                "circle-radius": style.radius || 5,
+              },
             },
-          });
+            beforeLayerId
+          );
         } else if (geomType.includes("polygon")) {
           console.log(`Creating polygon layer with color: ${style.color}`);
-          map.addLayer({
-            id: annotation.id,
-            type: "fill",
-            source: annotation.id,
-            paint: {
-              "fill-color": style.color || "#3880ff",
-              "fill-opacity": style.opacity || 0.5,
-              "fill-outline-color": style.color || "#3880ff",
+          map.addLayer(
+            {
+              id: annotation.id,
+              type: "fill",
+              source: annotation.id,
+              paint: {
+                "fill-color": style.color || "#3880ff",
+                "fill-opacity": style.opacity || 0.5,
+                "fill-outline-color": style.color || "#3880ff",
+              },
             },
-          });
+            beforeLayerId
+          );
           console.log(`Polygon layer created with ID: ${annotation.id}`);
         } else {
           console.warn(`Unknown geometry type: ${geomType}`);
@@ -176,7 +189,7 @@ export function useAnnotations({
         console.error("Error in addAnnotationLayer:", err, annotation);
       }
     },
-    []
+    [osApiLayerId]
   );
 
   // Set up the draw control
@@ -592,11 +605,9 @@ export function useAnnotations({
           console.log("🔲 BOUNDING BOX CALCULATED:", bbox);
           console.log("📍 Polygon coordinates:", coordinates);
 
-          // Call OS API with the calculated bbox
           try {
             console.log("🚀 Calling OS API with bbox...");
 
-            // Collection ID for street network data
             const collectionId = "trn-ntwk-street-1";
 
             const osData = await getCollectionFeaturesByBbox(
@@ -612,12 +623,10 @@ export function useAnnotations({
               bbox: bbox,
             });
 
-            // Log the first few features for inspection
             if (osData.features && osData.features.length > 0) {
               console.log("🔍 First 3 features:", osData.features.slice(0, 3));
               console.log("📋 Full OS API response:", osData);
 
-              // Store OS API data in state and localStorage
               const geoJsonFeatures = osData.features.map((feature) => ({
                 ...feature,
                 type: "Feature" as const,
@@ -634,7 +643,6 @@ export function useAnnotations({
                 })
               );
 
-              // Add OS API data as a layer on the map
               if (mapRef?.current) {
                 const currentMap = mapRef.current;
                 const layerId = "os-api-streets";
@@ -833,10 +841,8 @@ export function useAnnotations({
 
       console.log("Current feature before update:", currentFeature);
 
-      // Remember selected IDs to restore selection later
       const selectedIds = draw.getSelectedIds();
 
-      // Create updated annotations array with new style
       const updatedAnnotations = annotations.map((annotation, index) => {
         if (index === annotationIndex) {
           return {
@@ -850,7 +856,6 @@ export function useAnnotations({
         return annotation;
       });
 
-      // Update state and localStorage
       setAnnotations(updatedAnnotations);
       localStorage.setItem(
         "mapAnnotations",
