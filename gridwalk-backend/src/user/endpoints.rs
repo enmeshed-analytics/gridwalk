@@ -77,7 +77,14 @@ pub async fn login(
 
     // Check creds
     match verify_password(&user.hash, &req.password) {
-        Ok(password_verified) => password_verified,
+        Ok(password_verified) => {
+            if !password_verified {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({ "error": "UNAUTHORIZED" })),
+                );
+            }
+        },
         Err(_) => {
             return (
                 StatusCode::UNAUTHORIZED,
