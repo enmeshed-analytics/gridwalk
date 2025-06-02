@@ -134,16 +134,51 @@ pub async fn add_workspace_member(
     // Get the workspace
     let workspace = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
         Ok(ws) => ws,
-        Err(_) => return (StatusCode::FORBIDDEN, "".to_string()).into_response(),
+        Err(_) => return (StatusCode::NOT_FOUND, "Workspace not found").into_response(),
     };
 
-    // Add memeber workspace
+    let workspace_id = workspace.id;
+    let workspace_name = workspace.name.clone();
+
     match workspace
         .add_member(&state.app_data, &requesting_user, &user_to_add, req.role)
         .await
     {
-        Ok(_) => (StatusCode::OK, "").into_response(),
-        Err(_) => (StatusCode::BAD_REQUEST, "").into_response(), // TODO: Add proper error handling
+        Ok(_) => {
+            tracing::info!(
+                "User {} added to workspace {} ({}) by {}",
+                user_to_add.email,
+                workspace_name,
+                workspace_id,
+                requesting_user.email
+            );
+            (StatusCode::OK, Json(json!({
+                "message": "Member added successfully"
+            }))).into_response()
+        }
+        Err(e) => {
+            let error_message = e.to_string();
+            tracing::warn!(
+                "Failed to add user {} to workspace {}: {}",
+                user_to_add.email,
+                workspace_id,
+                error_message
+            );
+            
+            if error_message.contains("Only Admin can add members") {
+                (StatusCode::FORBIDDEN, Json(json!({
+                    "error": "Only workspace administrators can add members"
+                }))).into_response()
+            } else if error_message.contains("not found") || error_message.contains("member") {
+                (StatusCode::FORBIDDEN, Json(json!({
+                    "error": "You are not a member of this workspace"
+                }))).into_response()
+            } else {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
+                    "error": "Failed to add member to workspace"
+                }))).into_response()
+            }
+        }
     }
 }
 
