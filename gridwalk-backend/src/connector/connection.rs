@@ -104,7 +104,10 @@ impl ConnectionConfig {
         self
     }
 
-    pub async fn save(&self, pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
+    pub async fn save<'e, E>(&self, executor: E) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let tenancy_str = match &self.tenancy {
             crate::ConnectionTenancy::Workspace(_) => "workspace",
             crate::ConnectionTenancy::Shared { .. } => "shared",
@@ -136,7 +139,7 @@ impl ConnectionConfig {
             .bind("postgis") // Currently only Postgis is supported
             .bind(config_json)
             .bind(self.active)
-            .execute(pool)
+            .execute(executor)
             .await?;
 
         Ok(())
@@ -161,7 +164,10 @@ impl ConnectionConfig {
         Ok(connections.into_iter().map(|c| c.sanitize()).collect())
     }
 
-    pub async fn capacity_info(&self, pool: &sqlx::PgPool) -> Result<ConnectionCapacityInfo> {
+    pub async fn capacity_info(
+        &self,
+        pool: &sqlx::PgPool,
+    ) -> Result<ConnectionCapacityInfo, sqlx::Error> {
         let capacity = match &self.tenancy {
             ConnectionTenancy::Shared { capacity } => *capacity,
             ConnectionTenancy::Workspace(_) => 1,
@@ -179,6 +185,30 @@ impl ConnectionConfig {
             usage_count: usage_count as usize,
         })
     }
+
+    // Find connections with shared tenancy that have spare capacity
+    pub async fn get_shared_with_spare_capacity(
+        pool: &sqlx::PgPool,
+    ) -> Result<Vec<ConnectionCapacityInfo>, sqlx::Error> {
+        let query = "
+            SELECT id, name, tenancy, shared_capacity, workspace_id, connector_type, config, active
+            FROM connections
+            WHERE tenancy = 'shared' AND active = true";
+
+        let connections = sqlx::query_as::<_, ConnectionConfig>(query)
+            .fetch_all(pool)
+            .await?;
+
+        let mut results = Vec::new();
+        for connection in connections {
+            let capacity_info = connection.capacity_info(&pool).await?;
+            if capacity_info.usage_count < capacity_info.capacity {
+                results.push(capacity_info);
+            }
+        }
+
+        Ok(results)
+    }
     // TODO: Delete connection (after handling all dependencies)
 }
 
@@ -192,8 +222,27 @@ pub struct WorkspaceConnectionAccess {
 
 // The WorkspaceDataAccess struct is used to manage access to data between workspaces.
 impl WorkspaceConnectionAccess {
-    pub async fn save(&self, database: &Arc<dyn Database>) -> Result<()> {
-        database.create_connection_access(&self).await?;
+    pub fn new(connection_id: Uuid, workspace_id: Uuid) -> Self {
+        Self {
+            connection_id,
+            workspace_id,
+        }
+    }
+
+    pub async fn save<'e, E>(&self, executor: E) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "
+            INSERT INTO workspace_connection_access (workspace_id, connection_id)
+            VALUES ($1, $2)";
+
+        sqlx::query(query)
+            .bind(&self.workspace_id)
+            .bind(&self.connection_id)
+            .execute(executor)
+            .await?;
+
         Ok(())
     }
 
