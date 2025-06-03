@@ -29,8 +29,7 @@ mod embedded {
 }
 
 impl Postgres {
-    // Create a new Postgres connection read config from env vars and call the new_with_config
-    // function
+    // Create a new Postgres connection read config from env vars and call the new_with_config function
     pub async fn new() -> Result<Arc<dyn Database>> {
         let config = PostgresConnection {
             host: std::env::var("POSTGRES_HOST").unwrap_or("localhost".to_string()),

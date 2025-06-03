@@ -1,88 +1,69 @@
-use crate::app_state::AppState;
-use crate::data::Database;
 use crate::User;
 use anyhow::Result;
-use async_trait::async_trait;
-use axum::{
-    extract::FromRequestParts,
-    http::{header, request::Parts, StatusCode},
-};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
-use std::{str::FromStr, sync::Arc};
+use sqlx::postgres::PgRow;
+use sqlx::{FromRow, Row};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Session {
     pub id: Uuid,
-    pub user_id: Option<Uuid>,
+    pub user_id: Uuid,
+    pub expiry: chrono::DateTime<chrono::Utc>,
 }
 
-#[async_trait]
-impl<S> FromRequestParts<S> for Session
-where
-    S: Send + Sync,
-    S: std::ops::Deref<Target = Arc<AppState>>,
-{
-    type Rejection = (StatusCode, String);
+impl<'r> FromRow<'r, PgRow> for Session {
+    fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
+        // Extract each field from the row
+        // Refresh token may be null, so we need to handle it as an Option
+        let id: Uuid = row.try_get("id")?;
+        let user_id = row.try_get("user_id")?;
+        let expiry: DateTime<Utc> = row.try_get("session_expiry")?;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let auth_header = parts
-            .headers
-            .get(header::AUTHORIZATION)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.strip_prefix("Bearer "))
-            .ok_or((
-                StatusCode::UNAUTHORIZED,
-                "Missing or invalid authorization header".to_string(),
-            ))?;
-
-        // Convert the auth_header to a UUID
-        let session_id = Uuid::from_str(auth_header).map_err(|_| {
-            (
-                StatusCode::UNAUTHORIZED,
-                "Invalid session token".to_string(),
-            )
-        })?;
-
-        // Use the existing from_id method to validate and retrieve the session
-        match Session::from_id(&state.app_data, &session_id).await {
-            Ok(session) => Ok(session),
-            Err(_) => Err((
-                StatusCode::UNAUTHORIZED,
-                "Invalid session token".to_string(),
-            )),
-        }
+        // Construct the Session struct
+        Ok(Session {
+            id,
+            user_id,
+            expiry,
+        })
     }
 }
 
 impl Session {
-    // TODO: dead code
-    pub async fn from_id(database: &Arc<dyn Database>, id: &Uuid) -> Result<Self> {
-        database.get_session_by_id(id).await
+    pub async fn create(
+        pool: &sqlx::Pool<sqlx::Postgres>,
+        user: &User,
+    ) -> Result<Self, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let expiry = chrono::Utc::now() + chrono::Duration::days(30);
+        let query = "INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, $3)";
+        sqlx::query(query)
+            .bind(id)
+            .bind(user.id)
+            .bind(expiry)
+            .execute(pool)
+            .await?;
+
+        Ok(Self {
+            id,
+            user_id: user.id,
+            expiry,
+        })
     }
 
-    pub async fn create(database: &Arc<dyn Database>, user: Option<&User>) -> Result<Self> {
-        let session_id = Uuid::new_v4();
-
-        match user {
-            Some(u) => database.create_session(Some(u), &session_id).await?,
-            None => database.create_session(None, &session_id).await?,
-        };
-
-        match user {
-            Some(u) => Ok(Session {
-                id: session_id,
-                user_id: Some(u.clone().id),
-            }),
-            None => Ok(Session {
-                id: session_id,
-                user_id: None,
-            }),
-        }
+    pub async fn from_id(pool: &sqlx::PgPool, id: Uuid) -> Result<Self, sqlx::Error> {
+        let query = "SELECT * FROM app_data.sessions WHERE id = $1";
+        let row = sqlx::query_as::<_, Session>(query)
+            .bind(id)
+            .fetch_one(pool)
+            .await?;
+        Ok(row)
     }
 
-    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
-        database.delete_session(&self.id).await?;
+    pub async fn delete(&self, pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
+        let query = "DELETE FROM app_data.sessions WHERE id = $1";
+        sqlx::query(query).bind(&self.id).execute(pool).await?;
         Ok(())
     }
 }

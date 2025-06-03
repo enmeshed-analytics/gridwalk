@@ -1,7 +1,7 @@
-use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::utils::verify_password;
-use crate::{CreateUser, Profile, Session, User};
+use crate::error::ApiError;
+use crate::AppState;
+use crate::{Profile, Session, User, UserPassword};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
+use tracing::{error, info};
 use uuid::Uuid;
 
 pub async fn health_check() -> Json<serde_json::Value> {
@@ -33,80 +34,99 @@ pub struct RegisterRequest {
 pub async fn register(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterRequest>,
-) -> Response {
-    let user = CreateUser {
-        email: req.email,
-        first_name: req.first_name,
-        last_name: req.last_name,
-        global_role: None,
-        password: req.password,
-    };
-    match User::create(&state.app_data, &user).await {
-        Ok(_) => "registration succeeded".into_response(),
-        Err(_) => "registration failed".into_response(),
-    }
+) -> Result<StatusCode, ApiError> {
+    // TODO: Check if the user already exists
+    let mut tx = state.pool.begin().await.map_err(|e| {
+        error!("Failed to begin transaction: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+    let user = User::new(req.email, req.first_name, req.last_name, None);
+
+    user.save(&mut tx).await.map_err(|e| {
+        error!("Failed to create user: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    let user_password = UserPassword::new(user.id, req.password);
+    user_password.save(&mut tx).await.map_err(|e| {
+        error!("Failed to create user password: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    tx.commit().await.map_err(|e| {
+        error!("Failed to commit transaction: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    Ok(StatusCode::CREATED)
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct LoginRequest {
     email: String,
     password: String,
 }
 
+#[derive(Serialize)]
+pub struct SessionResponse {
+    sid: String,
+    expiry: String,
+}
+
+impl From<Session> for SessionResponse {
+    fn from(session: Session) -> Self {
+        Self {
+            sid: session.id.to_string(),
+            expiry: session.expiry.to_string(),
+        }
+    }
+}
+
+// Endpoint to login with username and password
 pub async fn login(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<LoginRequest>,
-) -> impl IntoResponse {
-    // Get user from app db, if Error, early return 401
-    let user = match User::from_email(&state.app_data, &req.email).await {
-        Ok(user) => user,
-        Err(_) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({ "error": "UNAUTHORIZED" })),
-            )
-        }
-    };
+    State(state): State<AppState>,
+    params: Json<LoginRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    info!("Login request received for email: {}", params.email);
 
-    if !user.active {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(json!({ "error": "UNAUTHORIZED" })),
-        );
+    // Check if the user exists in the database
+    let user = User::from_email(&*state.pool, &params.email.clone())
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch user: {:?}", e);
+            ApiError::InternalServerError
+        })?;
+
+    let user_password = UserPassword::from_user(&*state.pool, &user)
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch user password: {:?}", e);
+            ApiError::InternalServerError
+        })?;
+
+    match user_password.validate_password(&params.password).await {
+        Ok(true) => {
+            info!("Password is valid");
+        }
+        Ok(false) => {
+            error!("Invalid password");
+            return Err(ApiError::Unauthorized);
+        }
+        Err(e) => {
+            error!("Failed to validate password: {:?}", e);
+            return Err(ApiError::InternalServerError);
+        }
     }
 
-    // Check creds
-    match verify_password(&user.hash, &req.password) {
-        Ok(password_verified) => {
-            if !password_verified {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({ "error": "UNAUTHORIZED" })),
-                );
-            }
-        },
-        Err(_) => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({ "error": "UNAUTHORIZED" })),
-            )
-        }
-    };
-
-    // Create session
-    match Session::create(&state.app_data, Some(&user)).await {
-        Ok(session) => {
-            let token = session.id.to_string();
-            let response = json!({
-                "apiKey": token,
-            });
-            (StatusCode::OK, Json(response))
-        }
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": "Failed to create session" })),
-        ),
-    }
+    let expires_at = chrono::Utc::now() + chrono::Duration::days(90);
+    let session = Session::create(&*state.pool, user.id, None, None, expires_at)
+        .await
+        .map_err(|e| {
+            error!("Failed to create session: {:?}", e);
+            ApiError::InternalServerError
+        })?;
+    let session = SessionResponse::from(session);
+    return Ok((StatusCode::OK, Json(session)).into_response());
 }
 
 pub async fn logout(
