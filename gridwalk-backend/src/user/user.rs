@@ -116,61 +116,37 @@ impl User {
         Ok(())
     }
 
-    pub async fn from_id(pg_pool: &sqlx::PgPool, user_id: Uuid) -> Result<User, sqlx::Error> {
+    pub async fn from_id(pool: &sqlx::PgPool, user_id: Uuid) -> Result<User, sqlx::Error> {
         let query = "SELECT * FROM app_data.users WHERE id = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(user_id)
-            .fetch_one(pg_pool)
+            .fetch_one(pool)
             .await?;
 
         Ok(user)
     }
 
-    pub async fn from_email(pg_pool: &sqlx::PgPool, email: &str) -> Result<User, sqlx::Error> {
+    pub async fn from_email(pool: &sqlx::PgPool, email: &str) -> Result<User, sqlx::Error> {
         let query = "SELECT * FROM app_data.users WHERE email = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(email)
-            .fetch_one(pg_pool)
+            .fetch_one(pool)
             .await?;
 
         Ok(user)
     }
 
-    fn from_create_user(create_user: &CreateUser, active: bool) -> User {
-        // Generate password hash
-        let password_hash = hash_password(&create_user.password).unwrap();
-
-        User {
-            id: Uuid::new_v4(),
-            email: create_user.email.to_string(),
-            first_name: create_user.first_name.to_string(),
-            last_name: create_user.last_name.to_string(),
-            global_role: create_user.clone().global_role,
-            active,
-            created_at: chrono::Utc::now(),
-            hash: password_hash,
-        }
-    }
-
-    pub async fn update_password(
-        &mut self,
-        database: &Arc<dyn Database>,
-        new_password: &str,
-    ) -> Result<()> {
+    pub async fn change_password(&self, pool: &sqlx::PgPool, new_password: &str) -> Result<()> {
         let new_hash = hash_password(new_password)?;
-        self.hash = new_hash;
-        database.update_user_password(self).await
-    }
-
-    pub async fn reset_password(
-        database: &Arc<dyn Database>,
-        email: &str,
-        new_password: &str,
-    ) -> Result<User> {
-        let mut user = Self::from_email(database, email).await?;
-        user.update_password(database, new_password).await?;
-
-        Ok(user)
+        let updated_at = Utc::now();
+        let query = "UPDATE app_data.user_passwords SET hash = $1, updated_at = $2 WHERE id = $3";
+        sqlx::query(query)
+            .bind(new_hash)
+            .bind(updated_at)
+            .bind(self.id)
+            .execute(pool)
+            .await?;
+        Ok(())
     }
 
     pub async fn check_global_role(&self) -> Option<GlobalRole> {

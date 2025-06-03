@@ -52,7 +52,7 @@ impl Session {
         })
     }
 
-    pub async fn from_id(pool: &sqlx::PgPool, id: Uuid) -> Result<Self, sqlx::Error> {
+    pub async fn from_id(pool: &sqlx::PgPool, id: &Uuid) -> Result<Self, sqlx::Error> {
         let query = "SELECT * FROM app_data.sessions WHERE id = $1";
         let row = sqlx::query_as::<_, Session>(query)
             .bind(id)

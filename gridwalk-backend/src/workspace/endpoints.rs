@@ -1,5 +1,5 @@
-use crate::app_state::AppState;
 use crate::auth::AuthUser;
+use crate::AppState;
 use crate::{
     ConnectionConfig, User, Workspace, WorkspaceConnectionAccess, WorkspaceMember, WorkspaceRole,
 };
@@ -152,9 +152,13 @@ pub async fn add_workspace_member(
                 workspace_id,
                 requesting_user.email
             );
-            (StatusCode::OK, Json(json!({
-                "message": "Member added successfully"
-            }))).into_response()
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "message": "Member added successfully"
+                })),
+            )
+                .into_response()
         }
         Err(e) => {
             let error_message = e.to_string();
@@ -164,19 +168,31 @@ pub async fn add_workspace_member(
                 workspace_id,
                 error_message
             );
-            
+
             if error_message.contains("Only Admin can add members") {
-                (StatusCode::FORBIDDEN, Json(json!({
-                    "error": "Only workspace administrators can add members"
-                }))).into_response()
+                (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "error": "Only workspace administrators can add members"
+                    })),
+                )
+                    .into_response()
             } else if error_message.contains("not found") || error_message.contains("member") {
-                (StatusCode::FORBIDDEN, Json(json!({
-                    "error": "You are not a member of this workspace"
-                }))).into_response()
+                (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "error": "You are not a member of this workspace"
+                    })),
+                )
+                    .into_response()
             } else {
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
-                    "error": "Failed to add member to workspace"
-                }))).into_response()
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": "Failed to add member to workspace"
+                    })),
+                )
+                    .into_response()
             }
         }
     }

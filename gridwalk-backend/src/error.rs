@@ -4,8 +4,7 @@ use serde_json::json;
 use sqlx::Error as SqlxError;
 use std::collections::HashMap;
 use thiserror::Error;
-use tracing::{debug, error};
-use validator::ValidationErrors;
+use tracing::error;
 
 #[derive(Serialize)]
 struct ErrorResponse {
@@ -30,8 +29,6 @@ pub enum ApiError {
     BadRequest(String),
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    #[error("Validation error: {0}")]
-    Validation(#[from] ValidationErrors),
     #[error("Unauthorized")]
     Unauthorized,
     #[error("Conflict")]
@@ -104,31 +101,6 @@ impl axum::response::IntoResponse for ApiError {
                         code: "SERIALIZATION_ERROR".into(),
                         message: "Failed to process data".into(),
                         details: None,
-                    }),
-                )
-            }
-            ApiError::Validation(ref e) => {
-                debug!("Validation error: {}", e.to_string().replace("\n", "; "));
-                let details: Vec<serde_json::Value> = e
-                    .field_errors()
-                    .iter()
-                    .flat_map(|(field, errors)| {
-                        errors.iter().map(move |error| {
-                            let msg = error
-                                .message
-                                .clone()
-                                .unwrap_or_else(|| std::borrow::Cow::from(error.code.clone()));
-                            serde_json::Value::String(format!("{}: {}", field, msg))
-                        })
-                    })
-                    .collect();
-
-                (
-                    axum::http::StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse {
-                        code: "VALIDATION_ERROR".into(),
-                        message: "Invalid input data".into(),
-                        details: Some(serde_json::Value::Array(details)),
                     }),
                 )
             }
