@@ -73,7 +73,7 @@ impl Workspace {
         Ok(database.get_workspace_by_id(id).await?)
     }
 
-    pub async fn save(&self, database: &Arc<dyn Database>, admin: &User) -> Result<()> {
+    pub async fn save(&self, database: &sqlx::PgPool, admin: &User) -> Result<()> {
         // TODO: Use transaction
 
         let connections = database

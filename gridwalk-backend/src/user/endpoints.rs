@@ -5,7 +5,7 @@ use crate::{Profile, Session, User, UserPassword};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     Json,
 };
 use axum_extra::{
@@ -13,7 +13,6 @@ use axum_extra::{
     TypedHeader,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -118,13 +117,10 @@ pub async fn login(
         }
     }
 
-    let expires_at = chrono::Utc::now() + chrono::Duration::days(90);
-    let session = Session::create(&*state.pool, user.id, None, None, expires_at)
-        .await
-        .map_err(|e| {
-            error!("Failed to create session: {:?}", e);
-            ApiError::InternalServerError
-        })?;
+    let session = Session::create(&*state.pool, &user).await.map_err(|e| {
+        error!("Failed to create session: {:?}", e);
+        ApiError::InternalServerError
+    })?;
     let session = SessionResponse::from(session);
     return Ok((StatusCode::OK, Json(session)).into_response());
 }
@@ -140,12 +136,12 @@ pub async fn logout(
         Err(_) => return (StatusCode::UNAUTHORIZED, "invalid token".to_string()).into_response(),
     };
 
-    let session = match Session::from_id(&state.app_data, &session_id).await {
+    let session = match Session::from_id(&state.pool, &session_id).await {
         Ok(session) => session,
         Err(_) => return (StatusCode::UNAUTHORIZED, "".to_string()).into_response(),
     };
 
-    match session.delete(&state.app_data).await {
+    match session.delete(&state.pool).await {
         Ok(_) => (StatusCode::OK, "logout succeeded".to_string()).into_response(),
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -165,52 +161,22 @@ pub async fn profile(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ResetPasswordRequest {
-    email: String,
+pub struct ChangePasswordRequest {
     new_password: String,
 }
 
-pub async fn reset_password(
+pub async fn change_password(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-    Json(req): Json<ResetPasswordRequest>,
-) -> impl IntoResponse {
-    // Ensure user is authenticated
-    let user = match auth_user.user {
-        Some(user) => user,
-        None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({
-                    "error": "Authentication required"
-                })),
-            )
-        }
-    };
+    Extension(auth): Extension<AuthUser>,
+    Json(req): Json<ChangePasswordRequest>,
+) -> Result<StatusCode, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
 
-    // Only allow users to reset their own password
-    if user.email != req.email {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(json!({
-                "error": "Can only reset your own password"
-            })),
-        );
-    }
-
-    // Use the static method to handle the update
-    match User::reset_password(&state.app_data, &req.email, &req.new_password).await {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(json!({
-                "message": "Password updated successfully"
-            })),
-        ),
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": "Failed to update password"
-            })),
-        ),
+    match user.change_password(&state.pool, &req.new_password).await {
+        Ok(_) => Ok(StatusCode::OK),
+        Err(_) => Err(ApiError::InternalServerError),
     }
 }
