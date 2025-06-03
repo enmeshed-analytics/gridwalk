@@ -34,6 +34,7 @@ reqwest = { version = "0.12", features = ["json"] }
 rustls = { version = "0.23.13", features = ["std"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sqlx = { version = "0.8.2", features = [ "chrono", "runtime-tokio", "tls-rustls", "postgres", "uuid" ] }
 strum = "0.26"
 strum_macros = "0.26"
 tokio = { version = "1.40.0", features = ["full"] }

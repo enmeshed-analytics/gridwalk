@@ -1,7 +1,9 @@
 use crate::data::Database;
 use crate::utils::hash_password;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::Row;
 use std::sync::Arc;
 use strum_macros::{Display, EnumString};
 use uuid::Uuid;
@@ -21,9 +23,27 @@ pub struct User {
     pub first_name: String,
     pub last_name: String,
     pub global_role: Option<GlobalRole>,
-    pub active: bool,
     pub created_at: chrono::DateTime<chrono::Utc>,
-    pub hash: String,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub is_active: bool,
+}
+
+impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for User {
+    fn from_row(row: &'r sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+        let role_str: Option<String> = row.try_get("global_role")?;
+        // Convert the string to the enum, or bind None if no role.
+        let global_role = role_str.map(|role| role.parse::<GlobalRole>().unwrap());
+        Ok(Self {
+            id: row.try_get("id")?,
+            email: row.try_get("email")?,
+            first_name: row.try_get("first_name")?,
+            last_name: row.try_get("last_name")?,
+            global_role,
+            created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
+            is_active: row.try_get("is_active")?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -35,19 +55,13 @@ pub struct CreateUser {
     pub password: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct Email {
-    pub email: String,
-    pub user_id: Uuid,
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Profile {
     pub id: Uuid,
     pub email: String,
     pub first_name: String,
     pub last_name: String,
-    pub active: bool,
+    pub is_active: bool,
 }
 
 impl From<User> for Profile {
@@ -57,26 +71,69 @@ impl From<User> for Profile {
             email: user.email,
             first_name: user.first_name,
             last_name: user.last_name,
-            active: user.active,
+            is_active: user.is_active,
         }
     }
 }
 
 impl User {
-    pub async fn create(database: &Arc<dyn Database>, user: &CreateUser) -> Result<()> {
-        let new_user = User::from_create_user(user, true);
-        match database.get_user_by_email(&new_user.email).await {
-            Ok(_) => Err(anyhow!("email address already registered")),
-            Err(_) => database.create_user(&new_user).await,
+    pub fn new(
+        email: String,
+        first_name: String,
+        last_name: String,
+        global_role: Option<GlobalRole>,
+    ) -> Self {
+        let created_at = Utc::now();
+        let updated_at = created_at;
+        Self {
+            id: Uuid::new_v4(),
+            email,
+            first_name,
+            last_name,
+            global_role,
+            created_at,
+            updated_at,
+            is_active: true,
         }
     }
 
-    pub async fn from_id(database: &Arc<dyn Database>, id: &Uuid) -> Result<User> {
-        database.get_user_by_id(id).await
+    pub async fn save(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ) -> Result<(), sqlx::Error> {
+        let query = "INSERT INTO app_data.users (id, email, first_name, last_name, is_active, global_role) VALUES ($1, $2, $3, $4, $5, $6)";
+        sqlx::query(query)
+            .bind(&self.id)
+            .bind(&self.email)
+            .bind(&self.first_name)
+            .bind(&self.last_name)
+            .bind(&self.is_active)
+            // Convert the enum to its string representation, or bind None if no role.
+            .bind(self.global_role.clone().map(|role| role.to_string()))
+            .execute(&mut **tx)
+            .await?;
+
+        Ok(())
     }
 
-    pub async fn from_email(database: &Arc<dyn Database>, email: &str) -> Result<User> {
-        database.get_user_by_email(email).await
+    pub async fn from_id(pg_pool: &sqlx::PgPool, user_id: Uuid) -> Result<User, sqlx::Error> {
+        let query = "SELECT * FROM app_data.users WHERE id = $1";
+        let user = sqlx::query_as::<_, User>(query)
+            .bind(user_id)
+            .fetch_one(pg_pool)
+            .await?;
+
+        Ok(user)
+    }
+
+    pub async fn from_email(pg_pool: &sqlx::PgPool, email: &str) -> Result<User, sqlx::Error> {
+        let query = "SELECT * FROM app_data.users WHERE email = $1";
+        let user = sqlx::query_as::<_, User>(query)
+            .bind(email)
+            .fetch_one(pg_pool)
+            .await?;
+
+        Ok(user)
     }
 
     fn from_create_user(create_user: &CreateUser, active: bool) -> User {
@@ -121,5 +178,91 @@ impl User {
             Some(support_level) => Some(support_level.clone()),
             None => None,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UserPassword {
+    pub user_id: Uuid,
+    pub hashed_password: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for UserPassword {
+    fn from_row(row: &'r sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+        Ok(Self {
+            user_id: row.try_get("user_id")?,
+            hashed_password: row.try_get("hash")?,
+            created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
+        })
+    }
+}
+
+use argon2::password_hash::{rand_core::OsRng, SaltString};
+use argon2::{Argon2, PasswordHasher, PasswordVerifier};
+
+impl UserPassword {
+    pub fn new(user_id: Uuid, new_password: String) -> Self {
+        let salt = SaltString::generate(&mut OsRng);
+
+        let argon2 = Argon2::default();
+
+        let hashed_password = argon2
+            .hash_password(new_password.as_bytes(), &salt)
+            .expect("Failed to hash password")
+            .to_string();
+
+        let now: DateTime<Utc> = Utc::now();
+
+        Self {
+            user_id,
+            hashed_password,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    pub async fn save(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ) -> Result<(), sqlx::Error> {
+        let query = "
+        INSERT INTO app_data.user_passwords (user_id, hash, created_at, updated_at)
+        VALUES ($1, $2, $3, $4)";
+
+        sqlx::query(query)
+            .bind(&self.user_id)
+            .bind(&self.hashed_password)
+            .bind(&self.created_at)
+            .bind(&self.updated_at)
+            .execute(&mut **tx)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn from_user(pool: &sqlx::PgPool, user: &User) -> Result<UserPassword, sqlx::Error> {
+        let query = "
+        SELECT * FROM app_data.user_passwords WHERE user_id = $1";
+        let user_password = sqlx::query_as::<_, UserPassword>(query)
+            .bind(user.id)
+            .fetch_one(pool)
+            .await?;
+
+        Ok(user_password)
+    }
+
+    pub async fn validate_password(
+        &self,
+        password: &str,
+    ) -> Result<bool, argon2::password_hash::Error> {
+        let argon2 = Argon2::default();
+        let parsed_hash = argon2::PasswordHash::new(&self.hashed_password)?;
+        argon2
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .map(|_| true)
+            .or_else(|_| Ok(false))
     }
 }
