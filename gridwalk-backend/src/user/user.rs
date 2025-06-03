@@ -126,11 +126,14 @@ impl User {
         Ok(user)
     }
 
-    pub async fn from_email(pool: &sqlx::PgPool, email: &str) -> Result<User, sqlx::Error> {
+    pub async fn from_email<'e, E>(executor: E, email: &str) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let query = "SELECT * FROM app_data.users WHERE email = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(email)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await?;
 
         Ok(user)

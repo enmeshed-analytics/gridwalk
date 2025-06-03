@@ -23,8 +23,8 @@ pub enum ApiError {
     Database(#[from] SqlxError),
     #[error("Internal server error")]
     InternalServerError,
-    //#[error("Not found")]
-    //NotFound,
+    #[error("Not found")]
+    NotFound(String),
     #[error("Invalid request: {0}")]
     BadRequest(String),
     #[error("Serialization error: {0}")]
@@ -109,6 +109,14 @@ impl axum::response::IntoResponse for ApiError {
                 Json(ErrorResponse {
                     code: "INTERNAL_SERVER_ERROR".into(),
                     message: "An internal server error occurred".into(),
+                    details: None,
+                }),
+            ),
+            ApiError::NotFound(ref msg) => (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    code: "NOT_FOUND".into(),
+                    message: msg.clone(),
                     details: None,
                 }),
             ),

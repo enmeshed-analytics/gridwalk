@@ -125,7 +125,7 @@ pub async fn create_connection(
     }
 
     // Attempt to create record
-    match connection_config.clone().save(&state.pool).await {
+    match connection_config.clone().save(&*state.pool).await {
         Ok(_) => {
             // Add connection to connections
             let _ = state.connections.load_connection(connection_config).await;
