@@ -147,11 +147,4 @@ impl WorkspaceMember {
 
         Ok(())
     }
-
-    pub fn is_admin(&self) -> bool {
-        if self.role == WorkspaceRole::Admin || self.role == WorkspaceRole::Owner {
-            return true;
-        }
-        false
-    }
 }

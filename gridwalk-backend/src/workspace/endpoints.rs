@@ -90,7 +90,10 @@ pub async fn create_workspace(
         error!("Failed to add workspace member: {:?}", e);
         ApiError::InternalServerError
     })?;
-    connection_access.save(&mut *tx).await;
+    connection_access.save(&mut *tx).await.map_err(|e| {
+        error!("Failed to create workspace connection access: {:?}", e);
+        ApiError::InternalServerError
+    })?;
 
     match tx.commit().await {
         Ok(_) => Ok(StatusCode::CREATED),
@@ -101,22 +104,36 @@ pub async fn create_workspace(
     }
 }
 
-// TODO: fix the implementation. Removed as it leaves dangling references and data
 pub async fn delete_workspace(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
     Path(workspace_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let _user = auth.user.ok_or_else(|| {
+    let user = auth.user.ok_or_else(|| {
         error!("Unauthorized access: no valid user found in middleware");
         ApiError::Unauthorized
     })?;
 
-    // Retrieve the workspace
-    let _workspace = match Workspace::from_id(&*state.pool, &workspace_id).await {
+    let workspace = match Workspace::from_id(&*state.pool, &workspace_id).await {
         Ok(ws) => ws,
-        Err(_) => return Err(ApiError::Unauthorized),
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
     };
+
+    match WorkspaceMember::get(&*state.pool, &workspace, &user).await {
+        Ok(member) if member.role == WorkspaceRole::Owner => member,
+        Ok(_) => {
+            error!("User is not an owner of the workspace: {:?}", workspace_id);
+            return Err(ApiError::Unauthorized);
+        }
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
+    };
+
+    // TODO: Remove all members and connections associated with the workspace
+    // TODO: Implement proper deletion logic, does not do anything currently
+    workspace.delete(&*state.pool).await.map_err(|e| {
+        error!("Failed to delete workspace: {:?}", e);
+        ApiError::InternalServerError
+    })?;
 
     Ok(StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -174,7 +191,6 @@ pub async fn add_workspace_member(
 
 #[derive(Debug, Deserialize)]
 pub struct ReqRemoveWorkspaceMember {
-    workspace_id: Uuid,
     email: String,
 }
 
