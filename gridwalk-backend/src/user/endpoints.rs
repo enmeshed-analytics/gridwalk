@@ -60,12 +60,6 @@ pub async fn register(
     Ok(StatusCode::CREATED)
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LoginRequest {
-    email: String,
-    password: String,
-}
-
 #[derive(Serialize)]
 pub struct SessionResponse {
     sid: String,
@@ -81,9 +75,15 @@ impl From<Session> for SessionResponse {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct LoginRequest {
+    email: String,
+    password: String,
+}
+
 // Endpoint to login with username and password
 pub async fn login(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     params: Json<LoginRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     info!("Login request received for email: {}", params.email);
@@ -136,7 +136,7 @@ pub async fn logout(
         Err(_) => return (StatusCode::UNAUTHORIZED, "invalid token".to_string()).into_response(),
     };
 
-    let session = match Session::from_id(&state.pool, &session_id).await {
+    let session = match Session::from_id(&*state.pool, &session_id).await {
         Ok(session) => session,
         Err(_) => return (StatusCode::UNAUTHORIZED, "".to_string()).into_response(),
     };

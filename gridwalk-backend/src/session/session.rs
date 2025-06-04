@@ -1,6 +1,5 @@
 use crate::User;
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::postgres::PgRow;
 use sqlx::{FromRow, Row};
@@ -15,26 +14,19 @@ pub struct Session {
 
 impl<'r> FromRow<'r, PgRow> for Session {
     fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
-        // Extract each field from the row
-        // Refresh token may be null, so we need to handle it as an Option
-        let id: Uuid = row.try_get("id")?;
-        let user_id = row.try_get("user_id")?;
-        let expiry: DateTime<Utc> = row.try_get("session_expiry")?;
-
-        // Construct the Session struct
         Ok(Session {
-            id,
-            user_id,
-            expiry,
+            id: row.try_get("id")?,
+            user_id: row.try_get("user_id")?,
+            expiry: row.try_get("session_expiry")?,
         })
     }
 }
 
 impl Session {
-    pub async fn create(
-        pool: &sqlx::Pool<sqlx::Postgres>,
-        user: &User,
-    ) -> Result<Self, sqlx::Error> {
+    pub async fn create<'e, E>(executor: E, user: &User) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let id = Uuid::new_v4();
         let expiry = chrono::Utc::now() + chrono::Duration::days(30);
         let query = "INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, $3)";
@@ -42,7 +34,7 @@ impl Session {
             .bind(id)
             .bind(user.id)
             .bind(expiry)
-            .execute(pool)
+            .execute(executor)
             .await?;
 
         Ok(Self {
@@ -52,11 +44,14 @@ impl Session {
         })
     }
 
-    pub async fn from_id(pool: &sqlx::PgPool, id: &Uuid) -> Result<Self, sqlx::Error> {
+    pub async fn from_id<'e, E>(executor: E, id: &Uuid) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let query = "SELECT * FROM app_data.sessions WHERE id = $1";
         let row = sqlx::query_as::<_, Session>(query)
             .bind(id)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await?;
         Ok(row)
     }

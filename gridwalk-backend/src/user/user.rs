@@ -1,10 +1,8 @@
-use crate::data::Database;
 use crate::utils::hash_password;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
-use std::sync::Arc;
 use strum_macros::{Display, EnumString};
 use uuid::Uuid;
 
@@ -116,7 +114,7 @@ impl User {
         Ok(())
     }
 
-    pub async fn from_id(pool: &sqlx::PgPool, user_id: Uuid) -> Result<User, sqlx::Error> {
+    pub async fn from_id(pool: &sqlx::PgPool, user_id: &Uuid) -> Result<User, sqlx::Error> {
         let query = "SELECT * FROM app_data.users WHERE id = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(user_id)
