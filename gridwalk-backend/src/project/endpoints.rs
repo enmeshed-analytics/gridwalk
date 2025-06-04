@@ -62,10 +62,10 @@ pub async fn create_project(
     let project = Project::new(&workspace, &user, req.name);
 
     match project.save(&*state.pool).await {
-        Ok(_) => return Ok((StatusCode::CREATED, Json(project)).into_response()),
+        Ok(_) => Ok((StatusCode::CREATED, Json(project)).into_response()),
         Err(e) => {
             error!("Failed to create project: {:?}", e);
-            return Err(ApiError::InternalServerError);
+            Err(ApiError::InternalServerError)
         }
     }
 }

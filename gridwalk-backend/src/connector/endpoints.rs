@@ -47,16 +47,12 @@ pub async fn test_connection(
         None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
     };
 
-    // Check support level
-    let global_role = match user.check_global_role().await {
-        Some(level) => level,
+    // Only allow user with Super global role to create connections
+    match user.global_role {
+        Some(GlobalRole::Super) => {}
+        Some(_) => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
         None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
     };
-
-    // Only allow user with Super global role to create connections
-    if global_role != GlobalRole::Super {
-        return (StatusCode::FORBIDDEN, "Unauthorized").into_response();
-    }
 
     // Create connection info
     let connection_config = ConnectionConfig::from_req(req);
@@ -66,26 +62,22 @@ pub async fn test_connection(
         ConnectionDetails::Postgis(config) => {
             let mut connector = PostgisConnector::new(config).unwrap();
             match connector.test_connection().await {
-                Ok(_) => {
-                    return (
-                        StatusCode::OK,
-                        Json(json!({
-                            "status": "success",
-                            "message": "Connection test successful"
-                        })),
-                    )
-                        .into_response()
-                }
-                Err(e) => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(json!({
-                            "status": "error",
-                            "message": format!("Connection test failed: {}", e)
-                        })),
-                    )
-                        .into_response()
-                }
+                Ok(_) => (
+                    StatusCode::OK,
+                    Json(json!({
+                        "status": "success",
+                        "message": "Connection test successful"
+                    })),
+                )
+                    .into_response(),
+                Err(e) => (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "status": "error",
+                        "message": format!("Connection test failed: {}", e)
+                    })),
+                )
+                    .into_response(),
             }
         }
     }
@@ -102,7 +94,7 @@ pub async fn create_connection(
     })?;
 
     // Check support level
-    match user.check_global_role().await {
+    match user.global_role {
         Some(GlobalRole::Super) => {}
         _ => return Err(ApiError::Unauthorized),
     }
@@ -152,7 +144,7 @@ pub async fn get_all_connections(
         _ => return Err(ApiError::Unauthorized),
     }
 
-    let connections = ConnectionConfig::get_all(&state.pool).await.map_err(|e| {
+    let connections = ConnectionConfig::get_all(&*state.pool).await.map_err(|e| {
         error!("Failed to get connections: {:?}", e);
         ApiError::InternalServerError
     })?;
@@ -175,7 +167,7 @@ pub async fn get_connection(
     }
 
     // Get connection
-    let connection = ConnectionConfig::from_id(&state.pool, &connection_id)
+    let connection = ConnectionConfig::from_id(&*state.pool, &connection_id)
         .await
         .map_err(|e| {
             error!("Failed to get connection: {:?}", e);
@@ -201,7 +193,7 @@ pub async fn get_connection_capacity(
     }
 
     // Get connection
-    let connection = match ConnectionConfig::from_id(&state.pool, &connection_id).await {
+    let connection = match ConnectionConfig::from_id(&*state.pool, &connection_id).await {
         Ok(connection) => connection,
         Err(e) => {
             error!("Failed to get connection: {:?}", e);
@@ -209,7 +201,7 @@ pub async fn get_connection_capacity(
         }
     };
 
-    let capacity_info = connection.capacity_info(&state.pool).await.map_err(|e| {
+    let capacity_info = connection.capacity_info(&*state.pool).await.map_err(|e| {
         error!("Failed to get connection capacity info: {:?}", e);
         ApiError::InternalServerError
     })?;

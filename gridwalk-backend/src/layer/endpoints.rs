@@ -361,7 +361,7 @@ async fn process_layer(
         })?;
 
     // Get workspace member
-    let member = WorkspaceMember::get(&*state.pool, &workspace, &user)
+    let member = WorkspaceMember::get(&*state.pool, &workspace, user)
         .await
         .map_err(|e| {
             let error = json!({

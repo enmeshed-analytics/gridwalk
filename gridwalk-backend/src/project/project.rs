@@ -31,7 +31,7 @@ impl Project {
             workspace_id: workspace.id,
             id: Uuid::new_v4(),
             name,
-            owner_id: user.id.clone(),
+            owner_id: user.id,
             created_at: chrono::Utc::now(),
         }
     }

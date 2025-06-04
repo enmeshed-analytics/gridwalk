@@ -47,7 +47,7 @@ pub async fn register(
     })?;
 
     let user_password = UserPassword::new(user.id, req.password);
-    user_password.save(&mut tx).await.map_err(|e| {
+    user_password.save(&mut *tx).await.map_err(|e| {
         error!("Failed to create user password: {:?}", e);
         ApiError::InternalServerError
     })?;
@@ -122,7 +122,7 @@ pub async fn login(
         ApiError::InternalServerError
     })?;
     let session = SessionResponse::from(session);
-    return Ok((StatusCode::OK, Json(session)).into_response());
+    Ok((StatusCode::OK, Json(session)).into_response())
 }
 
 pub async fn logout(

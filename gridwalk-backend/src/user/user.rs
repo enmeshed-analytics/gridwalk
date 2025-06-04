@@ -101,11 +101,11 @@ impl User {
     ) -> Result<(), sqlx::Error> {
         let query = "INSERT INTO app_data.users (id, email, first_name, last_name, is_active, global_role) VALUES ($1, $2, $3, $4, $5, $6)";
         sqlx::query(query)
-            .bind(&self.id)
+            .bind(self.id)
             .bind(&self.email)
             .bind(&self.first_name)
             .bind(&self.last_name)
-            .bind(&self.is_active)
+            .bind(self.is_active)
             // Convert the enum to its string representation, or bind None if no role.
             .bind(self.global_role.clone().map(|role| role.to_string()))
             .execute(&mut **tx)
@@ -114,11 +114,14 @@ impl User {
         Ok(())
     }
 
-    pub async fn from_id(pool: &sqlx::PgPool, user_id: &Uuid) -> Result<User, sqlx::Error> {
+    pub async fn from_id<'e, E>(executor: E, user_id: &Uuid) -> Result<User, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let query = "SELECT * FROM app_data.users WHERE id = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(user_id)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await?;
 
         Ok(user)
@@ -148,13 +151,6 @@ impl User {
             .execute(pool)
             .await?;
         Ok(())
-    }
-
-    pub async fn check_global_role(&self) -> Option<GlobalRole> {
-        match &self.global_role {
-            Some(support_level) => Some(support_level.clone()),
-            None => None,
-        }
     }
 }
 
@@ -201,31 +197,34 @@ impl UserPassword {
         }
     }
 
-    pub async fn save(
-        &self,
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    ) -> Result<(), sqlx::Error> {
+    pub async fn save<'e, E>(&self, executor: E) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let query = "
         INSERT INTO app_data.user_passwords (user_id, hash, created_at, updated_at)
         VALUES ($1, $2, $3, $4)";
 
         sqlx::query(query)
-            .bind(&self.user_id)
+            .bind(self.user_id)
             .bind(&self.hashed_password)
-            .bind(&self.created_at)
-            .bind(&self.updated_at)
-            .execute(&mut **tx)
+            .bind(self.created_at)
+            .bind(self.updated_at)
+            .execute(executor)
             .await?;
 
         Ok(())
     }
 
-    pub async fn from_user(pool: &sqlx::PgPool, user: &User) -> Result<UserPassword, sqlx::Error> {
+    pub async fn from_user<'e, E>(executor: E, user: &User) -> Result<UserPassword, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let query = "
         SELECT * FROM app_data.user_passwords WHERE user_id = $1";
         let user_password = sqlx::query_as::<_, UserPassword>(query)
             .bind(user.id)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await?;
 
         Ok(user_password)
@@ -240,6 +239,6 @@ impl UserPassword {
         argon2
             .verify_password(password.as_bytes(), &parsed_hash)
             .map(|_| true)
-            .or_else(|_| Ok(false))
+            .or(Ok(false))
     }
 }
