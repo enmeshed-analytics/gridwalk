@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2,
 };
 use sqlx::postgres::PgPoolOptions;
@@ -14,15 +14,6 @@ pub fn hash_password(password: &str) -> Result<String> {
         .map_err(|e| anyhow!("Failed to hash password: {}", e))?
         .to_string();
     Ok(password_hash)
-}
-
-pub fn verify_password(stored_hash: &str, password_attempt: &str) -> Result<bool> {
-    let parsed_hash = PasswordHash::new(stored_hash)
-        .map_err(|e| anyhow!("Failed to parse stored password hash: {}", e))?;
-
-    Ok(Argon2::default()
-        .verify_password(password_attempt.as_bytes(), &parsed_hash)
-        .is_ok())
 }
 
 pub async fn create_pg_pool(database_url: &str) -> Result<Arc<sqlx::Pool<sqlx::Postgres>>> {

@@ -31,8 +31,8 @@ pub enum ApiError {
     Serialization(#[from] serde_json::Error),
     #[error("Unauthorized")]
     Unauthorized,
-    #[error("Conflict")]
-    Conflict,
+    //#[error("Conflict")]
+    //Conflict,
 }
 
 impl From<HashMap<String, String>> for ApiError {
@@ -125,14 +125,6 @@ impl axum::response::IntoResponse for ApiError {
                 Json(ErrorResponse {
                     code: "UNAUTHORIZED".into(),
                     message: "Unauthorized".into(),
-                    details: None,
-                }),
-            ),
-            ApiError::Conflict => (
-                axum::http::StatusCode::CONFLICT,
-                Json(ErrorResponse {
-                    code: "CONFLICT".into(),
-                    message: "Conflict".into(),
                     details: None,
                 }),
             ),
