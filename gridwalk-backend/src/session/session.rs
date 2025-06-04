@@ -58,7 +58,7 @@ impl Session {
 
     pub async fn delete(&self, pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
         let query = "DELETE FROM app_data.sessions WHERE id = $1";
-        sqlx::query(query).bind(&self.id).execute(pool).await?;
+        sqlx::query(query).bind(self.id).execute(pool).await?;
         Ok(())
     }
 }

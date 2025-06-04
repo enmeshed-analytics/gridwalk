@@ -139,12 +139,11 @@ impl VectorConnector for PostgisConnector {
         let client = pool.get().await?;
 
         // First, check which geometry column exists
-        let check_column_query = format!(
-            "SELECT column_name 
+        let check_column_query = ("SELECT column_name 
             FROM information_schema.columns 
             AND table_name = $1 
-            AND column_name IN ('geom', 'geometry')",
-        );
+            AND column_name IN ('geom', 'geometry')")
+            .to_string();
 
         let geom_column: String = client
             .query_one(&check_column_query, &[&source_id])
@@ -164,14 +163,14 @@ impl VectorConnector for PostgisConnector {
                         256,
                         true
                     ) AS geom
-                    FROM {table} t,
+                    FROM \"{table}\" t,
                     bounds
                     WHERE ST_Intersects(t.{source_geom_column}, bounds.geom)
                 )
                 SELECT ST_AsMVT(mvt_data.*, '{source_id}') AS mvt
                 FROM mvt_data;
                 ",
-            table = format!("\"{}\"", source_id),
+            table = source_id,
             source_geom_column = geom_column,
             z = z,
             x = x,
@@ -192,12 +191,11 @@ impl VectorConnector for PostgisConnector {
             .map_err(|e| anyhow!("Failed to get client from pool: {}", e))?;
 
         // First check which geometry column exists
-        let check_column_query = format!(
-            "SELECT column_name 
+        let check_column_query = ("SELECT column_name 
             FROM information_schema.columns 
             AND table_name = $1 
-            AND column_name IN ('geom', 'geometry')",
-        );
+            AND column_name IN ('geom', 'geometry')")
+            .to_string();
 
         // Get the geometry column name
         let geom_column: String = client

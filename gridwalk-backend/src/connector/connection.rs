@@ -126,7 +126,7 @@ impl ConnectionConfig {
             VALUES ($1, $2, $3, $4, $5, $6, $7)";
 
         sqlx::query(query)
-            .bind(&self.id)
+            .bind(self.id)
             .bind(&self.name)
             .bind(tenancy_str)
             .bind(shared_capacity)
@@ -140,29 +140,38 @@ impl ConnectionConfig {
         Ok(())
     }
 
-    pub async fn from_id(pool: &sqlx::PgPool, connection_id: &Uuid) -> Result<Self, sqlx::Error> {
+    pub async fn from_id<'e, E>(executor: E, connection_id: &Uuid) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let query = "SELECT * FROM connections WHERE id = $1";
         let connection = sqlx::query_as::<_, ConnectionConfig>(query)
             .bind(connection_id)
-            .fetch_one(pool)
+            .fetch_one(executor)
             .await?;
 
         Ok(connection.sanitize())
     }
 
-    pub async fn get_all(pool: &sqlx::PgPool) -> Result<Vec<Self>, sqlx::Error> {
+    pub async fn get_all<'e, E>(executor: E) -> Result<Vec<Self>, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let query = "SELECT * FROM connections";
         let connections = sqlx::query_as::<_, ConnectionConfig>(query)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await?;
 
         Ok(connections.into_iter().map(|c| c.sanitize()).collect())
     }
 
-    pub async fn capacity_info(
+    pub async fn capacity_info<'e, E>(
         &self,
-        pool: &sqlx::PgPool,
-    ) -> Result<ConnectionCapacityInfo, sqlx::Error> {
+        executor: E,
+    ) -> Result<ConnectionCapacityInfo, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
         let capacity = match &self.tenancy {
             ConnectionTenancy::Shared { capacity } => *capacity,
             ConnectionTenancy::Workspace(_) => 1,
@@ -170,8 +179,8 @@ impl ConnectionConfig {
 
         let usage_query = "SELECT COUNT(*) FROM connection_access WHERE connection_id = $1";
         let usage_count: i64 = sqlx::query_scalar(usage_query)
-            .bind(&self.id)
-            .fetch_one(pool)
+            .bind(self.id)
+            .fetch_one(executor)
             .await?;
 
         Ok(ConnectionCapacityInfo {
@@ -182,21 +191,24 @@ impl ConnectionConfig {
     }
 
     // Find connections with shared tenancy that have spare capacity
-    pub async fn get_shared_with_spare_capacity(
-        pool: &sqlx::PgPool,
-    ) -> Result<Vec<ConnectionCapacityInfo>, sqlx::Error> {
+    pub async fn get_shared_with_spare_capacity<'e, E>(
+        executor: E,
+    ) -> Result<Vec<ConnectionCapacityInfo>, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e> + std::marker::Copy,
+    {
         let query = "
             SELECT id, name, tenancy, shared_capacity, workspace_id, connector_type, config, active
             FROM connections
             WHERE tenancy = 'shared' AND active = true";
 
         let connections = sqlx::query_as::<_, ConnectionConfig>(query)
-            .fetch_all(pool)
+            .fetch_all(executor)
             .await?;
 
         let mut results = Vec::new();
         for connection in connections {
-            let capacity_info = connection.capacity_info(&pool).await?;
+            let capacity_info = connection.capacity_info(executor).await?;
             if capacity_info.usage_count < capacity_info.capacity {
                 results.push(capacity_info);
             }
@@ -242,8 +254,8 @@ impl WorkspaceConnectionAccess {
             VALUES ($1, $2)";
 
         sqlx::query(query)
-            .bind(&self.workspace_id)
-            .bind(&self.connection_id)
+            .bind(self.workspace_id)
+            .bind(self.connection_id)
             .execute(executor)
             .await?;
 
@@ -252,7 +264,7 @@ impl WorkspaceConnectionAccess {
 
     pub async fn get_all<'e, E>(
         executor: E,
-        wsp: &Workspace,
+        workspace: &Workspace,
     ) -> Result<Vec<ConnectionConfig>, sqlx::Error>
     where
         E: sqlx::PgExecutor<'e>,
@@ -262,7 +274,7 @@ impl WorkspaceConnectionAccess {
             JOIN workspace_connection_access wca ON c.id = wca.connection_id
             WHERE wca.workspace_id = $1";
         let connections = sqlx::query_as::<_, ConnectionConfig>(query)
-            .bind(&wsp.id)
+            .bind(workspace.id)
             .fetch_all(executor)
             .await?;
 
@@ -271,8 +283,8 @@ impl WorkspaceConnectionAccess {
 
     pub async fn get<'e, E>(
         executor: E,
-        wsp: &Workspace,
-        con_id: &Uuid,
+        workspace: &Workspace,
+        connection_id: &Uuid,
     ) -> Result<Self, sqlx::Error>
     where
         E: sqlx::PgExecutor<'e>,
@@ -281,8 +293,8 @@ impl WorkspaceConnectionAccess {
             SELECT * FROM workspace_connection_access
             WHERE workspace_id = $1 AND connection_id = $2";
         let row = sqlx::query_as::<_, WorkspaceConnectionAccess>(query)
-            .bind(&wsp.id)
-            .bind(con_id)
+            .bind(workspace.id)
+            .bind(connection_id)
             .fetch_one(executor)
             .await?;
         Ok(row)
@@ -301,6 +313,12 @@ pub enum ActiveConnectionError {
     NotFound { id: Uuid },
     #[error("Failed to create connector")]
     ConnectorCreation,
+}
+
+impl Default for ActiveConnections {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ActiveConnections {
@@ -336,13 +354,13 @@ impl ActiveConnections {
         self.sources
             .get(id)
             .map(|entry| entry.clone())
-            .ok_or_else(|| ActiveConnectionError::NotFound { id: *id })
+            .ok_or(ActiveConnectionError::NotFound { id: *id })
     }
 
     pub fn remove_connection(&self, id: &Uuid) -> Result<(), ActiveConnectionError> {
         self.sources
             .remove(id)
             .map(|_| ())
-            .ok_or_else(|| ActiveConnectionError::NotFound { id: *id })
+            .ok_or(ActiveConnectionError::NotFound { id: *id })
     }
 }

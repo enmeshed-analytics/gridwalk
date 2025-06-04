@@ -56,7 +56,7 @@ pub async fn create_workspace(
     // TODO: Limit workspace creation based on global limits per user
 
     // Find a connection with available capacity
-    let connection_capacity_vec = ConnectionConfig::get_shared_with_spare_capacity(&state.pool)
+    let connection_capacity_vec = ConnectionConfig::get_shared_with_spare_capacity(&*state.pool)
         .await
         .map_err(|e| {
             error!("Failed to fetch connections: {:?}", e);
@@ -99,7 +99,7 @@ pub async fn create_workspace(
         Ok(_) => Ok(StatusCode::CREATED),
         Err(e) => {
             error!("Failed to commit transaction: {:?}", e);
-            return Err(ApiError::InternalServerError);
+            Err(ApiError::InternalServerError)
         }
     }
 }
