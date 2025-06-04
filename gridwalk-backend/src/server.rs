@@ -1,11 +1,11 @@
-use crate::app_state::AppState;
 use crate::auth::auth_middleware;
+use crate::AppState;
 use crate::{
-    add_workspace_member, create_connection, create_project, create_workspace, delete_project,
-    delete_workspace, generate_os_token, get_all_connections, get_connection,
+    add_workspace_member, change_password, create_connection, create_project, create_workspace,
+    delete_project, delete_workspace, generate_os_token, get_all_connections, get_connection,
     get_connection_capacity, get_geometry_type, get_projects, get_workspace, get_workspace_members,
     get_workspaces, health_check, list_connections, list_sources, login, logout, profile, register,
-    remove_workspace_member, reset_password, test_connection, tiles, upload_layer, upload_layer_v2,
+    remove_workspace_member, test_connection, tiles, upload_layer,
 };
 use axum::{
     extract::DefaultBodyLimit,
@@ -84,7 +84,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .with_state(shared_state.clone());
 
     let upload_router_new = Router::new()
-        .route("/upload_layer_v2", post(upload_layer_v2))
+        .route("/upload_layer_v2", post(upload_layer))
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
         .layer(create_dynamic_cors())
@@ -98,7 +98,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/workspaces", get(get_workspaces))
         .route("/logout", post(logout))
         .route("/profile", get(profile))
-        .route("/password_reset", post(reset_password))
+        .route("/password_change", post(change_password))
         .route("/connections/test", post(test_connection))
         .route("/connections", post(create_connection))
         .route("/connections", get(get_all_connections))

@@ -1,9 +1,10 @@
-use crate::data::Database;
 use crate::{User, Workspace, WorkspaceRole};
 use anyhow::{anyhow, Result};
 //use duckdb_postgis::core_processor::launch_process_file;
 use duckdb_postgis::duckdb_load::launch_process_file;
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgRow;
+use sqlx::{FromRow, Row};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -24,6 +25,19 @@ pub struct Layer {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+impl<'r> FromRow<'r, PgRow> for Layer {
+    fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
+        Ok(Layer {
+            id: row.try_get("id")?,
+            workspace_id: row.try_get("workspace_id")?,
+            connection_id: row.try_get("connection_id")?,
+            name: row.try_get("name")?,
+            uploaded_by: row.try_get("uploaded_by")?,
+            created_at: row.try_get("created_at")?,
+        })
+    }
+}
+
 impl Layer {
     pub fn from_req(req: CreateLayer, user: &User) -> Self {
         Layer {
@@ -36,24 +50,16 @@ impl Layer {
         }
     }
 
-    pub async fn from_id(database: &Arc<dyn Database>, source_id: &Uuid) -> Result<Self> {
-        let layer = database.get_layer(source_id).await?;
+    pub async fn from_id<'e, E>(executor: E, source_id: &Uuid) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT * FROM app_data.layers WHERE id = $1";
+        let layer = sqlx::query_as::<_, Layer>(query)
+            .bind(source_id)
+            .fetch_one(executor)
+            .await?;
         Ok(layer)
-    }
-
-    // TODO this should not be named CREATE but something else as it is just used to check permissions.
-    pub async fn create(
-        &self,
-        database: &Arc<dyn Database>,
-        user: &User,
-        workspace: &Workspace,
-    ) -> Result<()> {
-        // Get workspace member
-        let requesting_member = workspace.get_member(database, user).await?;
-        if requesting_member.role == WorkspaceRole::Read {
-            return Err(anyhow!("User does not have permissions to create layers."));
-        }
-        Ok(())
     }
 
     // TODO: Make this generic to work with all connections
@@ -72,8 +78,20 @@ impl Layer {
     }
 
     // Change this to match the pattern used elsewhere
-    pub async fn write_record(&self, database: &Arc<dyn Database>) -> Result<()> {
-        database.create_layer_record(self).await?;
+    pub async fn save_layer_info<'e, E>(&self, executor: E) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "INSERT INTO app_data.layers (id, workspace_id, connection_id, name, uploaded_by, created_at) VALUES ($1, $2, $3, $4, $5, $6)";
+        sqlx::query(query)
+            .bind(self.id)
+            .bind(self.workspace_id)
+            .bind(self.connection_id)
+            .bind(&self.name)
+            .bind(self.uploaded_by)
+            .bind(self.created_at)
+            .execute(executor)
+            .await?;
         Ok(())
     }
 }

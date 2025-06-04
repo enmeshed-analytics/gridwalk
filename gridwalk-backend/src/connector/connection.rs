@@ -1,5 +1,5 @@
 use super::{Connector, PostgisConnection, PostgisConnector};
-use crate::{data::Database, Workspace};
+use crate::Workspace;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
@@ -8,7 +8,6 @@ use sqlx::postgres::PgRow;
 use sqlx::{FromRow, Row};
 use std::sync::Arc;
 use strum_macros::Display;
-use tracing::error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Display, Deserialize, Serialize)]
@@ -220,6 +219,15 @@ pub struct WorkspaceConnectionAccess {
     pub workspace_id: Uuid,
 }
 
+impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for WorkspaceConnectionAccess {
+    fn from_row(row: &'r sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+        Ok(Self {
+            connection_id: row.try_get("connection_id")?,
+            workspace_id: row.try_get("workspace_id")?,
+        })
+    }
+}
+
 // The WorkspaceDataAccess struct is used to manage access to data between workspaces.
 impl WorkspaceConnectionAccess {
     pub fn new(connection_id: Uuid, workspace_id: Uuid) -> Self {
@@ -246,25 +254,42 @@ impl WorkspaceConnectionAccess {
         Ok(())
     }
 
-    pub async fn get_all(
-        database: &Arc<dyn Database>,
+    pub async fn get_all<'e, E>(
+        executor: E,
         wsp: &Workspace,
-    ) -> Result<Vec<ConnectionConfig>> {
-        database.get_accessible_connections(wsp).await
+    ) -> Result<Vec<ConnectionConfig>, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "
+            SELECT c.* FROM connections c
+            JOIN workspace_connection_access wca ON c.id = wca.connection_id
+            WHERE wca.workspace_id = $1";
+        let connections = sqlx::query_as::<_, ConnectionConfig>(query)
+            .bind(&wsp.id)
+            .fetch_all(executor)
+            .await?;
+
+        Ok(connections)
     }
 
-    pub async fn get_all_by_connection(
-        database: &Arc<dyn Database>,
-        connection_id: &Uuid,
-    ) -> Result<Vec<WorkspaceConnectionAccess>> {
-        database
-            .get_accessible_connections_by_connection(connection_id)
-            .await
-    }
-
-    pub async fn get(database: &Arc<dyn Database>, wsp: &Workspace, con_id: &Uuid) -> Result<Self> {
-        let con = database.get_accessible_connection(wsp, con_id).await?;
-        Ok(con)
+    pub async fn get<'e, E>(
+        executor: E,
+        wsp: &Workspace,
+        con_id: &Uuid,
+    ) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "
+            SELECT * FROM workspace_connection_access
+            WHERE workspace_id = $1 AND connection_id = $2";
+        let row = sqlx::query_as::<_, WorkspaceConnectionAccess>(query)
+            .bind(&wsp.id)
+            .bind(con_id)
+            .fetch_one(executor)
+            .await?;
+        Ok(row)
     }
 }
 

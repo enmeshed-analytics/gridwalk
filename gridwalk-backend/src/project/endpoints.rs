@@ -1,16 +1,16 @@
-use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::{CreateProject, Project, Workspace, WorkspaceRole};
+use crate::error::ApiError;
+use crate::{AppState, WorkspaceMember};
+use crate::{Project, Workspace, WorkspaceRole};
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     Json,
 };
-use serde::Serialize;
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::debug;
+use tracing::{debug, error};
 use uuid::Uuid;
 
 #[derive(Serialize)]
@@ -18,145 +18,132 @@ pub struct ErrorResponse {
     error: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateProjectReq {
+    pub name: String,
+}
+
 pub async fn create_project(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
+    Extension(auth): Extension<AuthUser>,
     Path(workspace_id): Path<Uuid>,
-    Json(req): Json<CreateProject>,
-) -> impl IntoResponse {
-    // Ensure user is authenticated
-    let user = match auth_user.user {
-        Some(user) => user,
-        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
-    };
+    Json(req): Json<CreateProjectReq>,
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
 
-    // Create project struct from request
-    let project = Project::from_req(req, &workspace_id, &user);
+    let workspace = Workspace::from_id(&*state.pool, &workspace_id)
+        .await
+        .map_err(|_| {
+            error!("Workspace not found: {:?}", workspace_id);
+            ApiError::NotFound("Workspace not found".to_string())
+        })?;
 
-    let workspace = match Workspace::from_id(&state.app_data, &project.workspace_id).await {
-        Ok(ws) => ws,
-        Err(_) => {
-            let error = json!({
-                "error": "Workspace not found",
-                "workspace_id": project.workspace_id
-            });
-            return (StatusCode::NOT_FOUND, Json(error)).into_response();
-        }
-    };
+    // Check if user is a member of the workspace
+    let member = WorkspaceMember::get(&*state.pool, &workspace, &user)
+        .await
+        .map_err(|_| {
+            error!("User is not a member of the workspace: {:?}", workspace_id);
+            ApiError::Unauthorized
+        })?;
 
-    let member = match workspace.get_member(&state.app_data, &user).await {
-        Ok(member) => member,
-        Err(_) => {
-            let error = json!({
-                "error": "Access forbidden",
-                "workspace_id": project.workspace_id
-            });
-            return (StatusCode::FORBIDDEN, Json(error)).into_response();
-        }
-    };
-
-    if member.role != WorkspaceRole::Admin {
-        let error = json!({
-            "error": "Only workspace admins can create projects",
-            "workspace_id": project.workspace_id
-        });
-        return (StatusCode::FORBIDDEN, Json(error)).into_response();
+    // Only workspace admins and owners can create projects
+    if member.role != WorkspaceRole::Admin && member.role != WorkspaceRole::Owner {
+        error!(
+            "User does not have permission to create projects in workspace: {:?}",
+            workspace_id
+        );
+        return Err(ApiError::Unauthorized);
     }
 
-    match project.save(&state.app_data).await {
-        Ok(_) => return (StatusCode::CREATED, Json(project)).into_response(),
+    // Create project struct from request
+    let project = Project::new(&workspace, &user, req.name);
+
+    match project.save(&*state.pool).await {
+        Ok(_) => return Ok((StatusCode::CREATED, Json(project)).into_response()),
         Err(e) => {
-            let error = json!({
-                "error": "Failed to create project",
-                "details": e.to_string()
-            });
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(error)).into_response();
+            error!("Failed to create project: {:?}", e);
+            return Err(ApiError::InternalServerError);
         }
     }
 }
 
 pub async fn get_projects(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
+    Extension(auth): Extension<AuthUser>,
     Path(workspace_id): Path<Uuid>,
-) -> Response {
-    let req_user = match auth_user.user {
-        Some(user) => user,
-        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
-    };
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
 
-    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
-        Ok(ws) => ws,
-        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
-    };
+    let workspace = Workspace::from_id(&*state.pool, &workspace_id)
+        .await
+        .map_err(|_| {
+            error!("Workspace not found: {:?}", workspace_id);
+            ApiError::NotFound("Workspace not found".to_string())
+        })?;
 
-    // All member roles can view projects, continue if record exists.
-    match workspace.get_member(&state.app_data, &req_user).await {
-        Ok(member) => member,
-        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
-    };
+    // Check if user is a member of the workspace
+    WorkspaceMember::get(&*state.pool, &workspace, &user)
+        .await
+        .map_err(|_| {
+            error!("User is not a member of the workspace: {:?}", workspace_id);
+            ApiError::Unauthorized
+        })?;
 
     debug!("Fetching projects for workspace: {:?}", workspace_id);
-    let projects = match Project::get_workspace_projects(&state.app_data, &workspace).await {
-        Ok(projects) => projects,
-        Err(_) => {
-            let error = ErrorResponse {
-                error: "Failed to fetch projects".to_string(),
-            };
-            return Json(error).into_response();
-        }
-    };
+    let projects = Project::all_for_workspace(&*state.pool, &workspace)
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch projects: {:?}", e);
+            ApiError::InternalServerError
+        })?;
 
-    Json(projects).into_response()
+    Ok(Json(projects).into_response())
 }
 
+// TODO: Fix dangling resources
 pub async fn delete_project(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
+    Extension(auth): Extension<AuthUser>,
     Path((workspace_id, project_id)): Path<(Uuid, Uuid)>,
-) -> Response {
-    // Ensure user is authenticated
-    let user = match auth_user.user {
-        Some(user) => user,
-        None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
-    };
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
 
     // First validate workspace access and permissions
     // This ensures user can't probe for workspace existence without access
-    let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
+    let workspace = match Workspace::from_id(&*state.pool, &workspace_id).await {
         Ok(ws) => ws,
-        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
     };
 
-    let member = match workspace.get_member(&state.app_data, &user).await {
-        Ok(member) => member,
-        Err(_) => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
-    };
-
-    if member.role != WorkspaceRole::Admin {
-        return (StatusCode::FORBIDDEN, "Unauthorized").into_response();
+    // Only workspace admins and owners can delete projects. Non-members cannot see existence.
+    match WorkspaceMember::get(&*state.pool, &workspace, &user).await {
+        Ok(member) if matches!(member.role, WorkspaceRole::Owner | WorkspaceRole::Admin) => {}
+        Ok(_) => return Err(ApiError::Unauthorized),
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
     }
 
-    let project = match Project::get(&state.app_data, &workspace_id, &project_id).await {
+    let project = match Project::get(&*state.pool, &workspace_id, &project_id).await {
         Ok(project) => project,
-        Err(_) => return (StatusCode::NOT_FOUND, "Not Found.").into_response(),
+        Err(_) => return Err(ApiError::NotFound("Project not found".to_string())),
     };
 
-    match project.delete(&state.app_data).await {
-        Ok(_) => debug!("Project deleted successfully"),
+    match project.delete(&*state.pool).await {
+        Ok(_) => {
+            debug!("Project deleted successfully: {:?}", project_id);
+            Ok(StatusCode::NO_CONTENT.into_response())
+        }
         Err(e) => {
-            debug!("Failed to delete project: {:?}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to delete project",
-            )
-                .into_response();
+            error!("Failed to delete project: {:?}", e);
+            Err(ApiError::InternalServerError)
         }
     }
-
-    (
-        StatusCode::OK,
-        Json(json!({"status": "success", "message": "Project deleted successfully"})),
-    )
-        .into_response()
 }

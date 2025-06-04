@@ -26,6 +26,7 @@ pub async fn auth_middleware(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, ApiError> {
+    // TODO: Fix CORS issues. Do not skip auth.
     // Allow OPTIONS requests to pass through without auth
     if request.method() == Method::OPTIONS {
         return Ok(next.run(request).await);

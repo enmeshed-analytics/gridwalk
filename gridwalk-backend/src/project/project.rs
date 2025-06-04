@@ -1,14 +1,8 @@
-use crate::data::Database;
-use crate::{User, Workspace, WorkspaceRole};
-use anyhow::{anyhow, Result};
+use crate::{User, Workspace};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use sqlx::postgres::PgRow;
+use sqlx::{FromRow, Row};
 use uuid::Uuid;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateProject {
-    pub name: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
@@ -19,57 +13,89 @@ pub struct Project {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
+impl<'r> FromRow<'r, PgRow> for Project {
+    fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
+        Ok(Self {
+            workspace_id: row.try_get("workspace_id")?,
+            id: row.try_get("id")?,
+            name: row.try_get("name")?,
+            owner_id: row.try_get("owner")?,
+            created_at: row.try_get("created_at")?,
+        })
+    }
+}
+
 impl Project {
-    pub fn from_req(req: CreateProject, workspace_id: &Uuid, user: &User) -> Self {
+    pub fn new(workspace: &Workspace, user: &User, name: String) -> Self {
         Project {
-            workspace_id: *workspace_id,
+            workspace_id: workspace.id,
             id: Uuid::new_v4(),
-            name: req.name,
+            name,
             owner_id: user.id.clone(),
             created_at: chrono::Utc::now(),
         }
     }
 
-    pub async fn get(
-        database: &Arc<dyn Database>,
+    pub async fn get<'e, E>(
+        executor: E,
         workspace_id: &Uuid,
         project_id: &Uuid,
-    ) -> Result<Self> {
-        let project = database.get_project(workspace_id, project_id).await?;
+    ) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT * FROM app_data.projects WHERE workspace_id = $1 AND id = $2";
+        let project = sqlx::query_as::<_, Project>(query)
+            .bind(workspace_id)
+            .bind(project_id)
+            .fetch_one(executor)
+            .await?;
+
         Ok(project)
     }
 
-    pub async fn check_permissions(
-        &self,
-        database: &Arc<dyn Database>,
-        user: &User,
+    pub async fn save<'e, E>(&self, executor: E) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "INSERT INTO app_data.projects (id, workspace_id, name, owner, created_at)
+                     VALUES ($1, $2, $3, $4, $5)";
+        sqlx::query(query)
+            .bind(self.id)
+            .bind(self.workspace_id)
+            .bind(&self.name)
+            .bind(self.owner_id)
+            .bind(self.created_at)
+            .execute(executor)
+            .await?;
+        Ok(())
+    }
+
+    // TODO: Implement this. Make sure all related data is also deleted or archived or ...
+    pub async fn delete<'e, E>(&self, _executor: E) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        Ok(())
+    }
+
+    pub async fn all_for_workspace<'e, E>(
+        executor: E,
         workspace: &Workspace,
-    ) -> Result<()> {
-        // Get workspace member
-        let requesting_member = workspace.get_member(database, user).await?;
-        if requesting_member.role == WorkspaceRole::Read {
-            return Err(anyhow!(
-                "User does not have permissions to create projects."
-            ));
+    ) -> Result<Vec<Project>, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT * FROM app_data.projects WHERE workspace_id = $1";
+        let projects = sqlx::query_as::<_, Project>(query)
+            .bind(workspace.id)
+            .fetch_all(executor)
+            .await?;
+
+        if projects.is_empty() {
+            return Ok(vec![]);
         }
-        Ok(())
-    }
 
-    pub async fn save(&self, database: &Arc<dyn Database>) -> Result<()> {
-        database.create_project(self).await?;
-        Ok(())
-    }
-
-    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
-        database.delete_project(self).await?;
-        Ok(())
-    }
-
-    pub async fn get_workspace_projects(
-        database: &Arc<dyn Database>,
-        workspace: &Workspace,
-    ) -> Result<Vec<Project>> {
-        // Get projects from database
-        database.get_projects(&workspace.id).await
+        Ok(projects)
     }
 }

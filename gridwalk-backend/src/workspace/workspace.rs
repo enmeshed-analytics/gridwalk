@@ -1,10 +1,10 @@
-use crate::data::Database;
-use crate::{User, WorkspaceMember};
+use crate::User;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
-use std::sync::Arc;
 use uuid::Uuid;
+
+use super::WorkspaceMemberWithEmail;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
@@ -57,21 +57,25 @@ impl Workspace {
         Ok(())
     }
 
-    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
-        // TODO: Fix this - leaves dangling references (cascade delete in db and add checks in logic)
-        database.delete_workspace(self).await
-    }
-
-    pub async fn get_members<'e, E>(&self, executor: E) -> Result<Vec<WorkspaceMember>>
+    // TODO: Implement proper deletion logic. Handle deleting/archiving data
+    pub async fn delete<'e, E>(&self, _executor: E) -> Result<()>
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT wm.* FROM app_data.workspace_members wm WHERE wm.workspace_id = $1";
-        let rows = sqlx::query_as::<_, WorkspaceMember>(query)
+        let _query = "DELETE FROM app_data.workspaces WHERE id = $1";
+        // sqlx::query(query).bind(self.id).execute(executor).await?;
+        Ok(())
+    }
+
+    pub async fn get_members<'e, E>(&self, executor: E) -> Result<Vec<WorkspaceMemberWithEmail>>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT wm.*, u.email FROM app_data.workspace_members wm JOIN app_data.users u ON wm.user_id = u.id WHERE wm.workspace_id = $1";
+        let rows = sqlx::query_as::<_, WorkspaceMemberWithEmail>(query)
             .bind(self.id)
             .fetch_all(executor)
             .await?;
-
         Ok(rows)
     }
 
