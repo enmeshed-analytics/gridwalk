@@ -1,16 +1,18 @@
+use crate::error::ApiError;
 use crate::User;
-use crate::{app_state::AppState, Session};
+use crate::{AppState, Session};
 use axum::{
     body::Body,
     extract::{FromRef, State},
-    http::{Method, Request, StatusCode},
+    http::{Method, Request},
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
 };
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use axum_extra::TypedHeader;
 use std::str::FromStr;
 use std::sync::Arc;
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, FromRef)]
@@ -23,7 +25,7 @@ pub async fn auth_middleware(
     auth: Option<TypedHeader<Authorization<Bearer>>>,
     request: Request<Body>,
     next: Next,
-) -> Result<Response, Response> {
+) -> Result<Response, ApiError> {
     // Allow OPTIONS requests to pass through without auth
     if request.method() == Method::OPTIONS {
         return Ok(next.run(request).await);
@@ -31,32 +33,29 @@ pub async fn auth_middleware(
 
     // Require auth for non-OPTIONS requests
     let TypedHeader(auth) = auth.ok_or_else(|| {
-        (StatusCode::UNAUTHORIZED, "Missing authorization header").into_response()
+        error!("Missing authorization header");
+        ApiError::Unauthorized
     })?;
 
     let token = auth.token();
-    let session_id = Uuid::from_str(token)
-        .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid session token").into_response())?;
+    let session_id = Uuid::from_str(token).map_err(|_| (ApiError::Unauthorized))?;
 
-    match Session::from_id(&state.app_data, &session_id).await {
-        Ok(session) => {
-            if let Some(user_id) = session.user_id {
-                match User::from_id(&state.app_data, &user_id).await {
-                    Ok(user) => {
-                        let mut request = request;
-                        request
-                            .extensions_mut()
-                            .insert(AuthUser { user: Some(user) });
-                        Ok(next.run(request).await)
-                    }
-                    Err(_) => {
-                        Err((StatusCode::INTERNAL_SERVER_ERROR, "User not found").into_response())
-                    }
-                }
-            } else {
-                Err((StatusCode::UNAUTHORIZED, "Invalid session").into_response())
-            }
-        }
-        Err(_) => Err((StatusCode::UNAUTHORIZED, "Invalid token").into_response()),
+    let session = Session::from_id(&*state.pool, &session_id)
+        .await
+        .map_err(|_| (ApiError::Unauthorized))?;
+
+    if session.expiry < chrono::Utc::now() {
+        return Err(ApiError::Unauthorized);
     }
+
+    let user = match User::from_id(&*state.pool, &session.user_id).await {
+        Ok(user) => user,
+        Err(_) => return Err(ApiError::Unauthorized),
+    };
+
+    let mut request = request;
+    request
+        .extensions_mut()
+        .insert(AuthUser { user: Some(user) });
+    Ok(next.run(request).await)
 }
