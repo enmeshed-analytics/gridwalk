@@ -8,6 +8,7 @@ use sqlx::postgres::PgRow;
 use sqlx::{FromRow, Row};
 use std::sync::Arc;
 use strum_macros::Display;
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Display, Deserialize, Serialize)]
@@ -299,6 +300,14 @@ pub struct ActiveConnections {
     sources: DashMap<Uuid, Arc<dyn Connector + Send + Sync>>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ActiveConnectionError {
+    #[error("Connection not found: {id}")]
+    NotFound { id: Uuid },
+    #[error("Failed to create connector")]
+    ConnectorCreation,
+}
+
 impl ActiveConnections {
     pub fn new() -> Self {
         Self {
@@ -306,9 +315,18 @@ impl ActiveConnections {
         }
     }
 
-    pub async fn load_connection(&self, connection: ConnectionConfig) -> Result<()> {
+    pub async fn load_connection(
+        &self,
+        connection: ConnectionConfig,
+    ) -> Result<(), ActiveConnectionError> {
         let connector: Arc<dyn Connector + Send + Sync> = match connection.config {
-            ConnectionDetails::Postgis(cfg) => Arc::new(PostgisConnector::new(cfg)?),
+            ConnectionDetails::Postgis(cfg) => match PostgisConnector::new(cfg) {
+                Ok(connector) => Arc::new(connector),
+                Err(e) => {
+                    error!("Failed to create Postgis connector: {}", e);
+                    return Err(ActiveConnectionError::ConnectorCreation);
+                }
+            },
         };
 
         // TODO: connect to the source
@@ -316,15 +334,20 @@ impl ActiveConnections {
         Ok(())
     }
 
-    pub fn get_connection(&self, id: &Uuid) -> Result<Arc<dyn Connector + Send + Sync>> {
+    pub fn get_connection(
+        &self,
+        id: &Uuid,
+    ) -> Result<Arc<dyn Connector + Send + Sync>, ActiveConnectionError> {
         self.sources
             .get(id)
-            .map(|entry| entry.clone()) // clone the Arc, not the connector
-            .ok_or_else(|| anyhow!("Source not found"))
+            .map(|entry| entry.clone())
+            .ok_or_else(|| ActiveConnectionError::NotFound { id: *id })
     }
 
-    pub fn remove_connection(&self, id: &Uuid) -> Result<()> {
-        self.sources.remove(id);
-        Ok(())
+    pub fn remove_connection(&self, id: &Uuid) -> Result<(), ActiveConnectionError> {
+        self.sources
+            .remove(id)
+            .map(|_| ())
+            .ok_or_else(|| ActiveConnectionError::NotFound { id: *id })
     }
 }
