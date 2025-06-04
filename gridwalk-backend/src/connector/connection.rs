@@ -1,6 +1,5 @@
 use super::{Connector, PostgisConnection, PostgisConnector};
 use crate::Workspace;
-use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -55,7 +54,7 @@ impl<'r> FromRow<'r, PgRow> for ConnectionConfig {
                     capacity: shared_capacity.unwrap_or(1) as usize,
                 }
             }
-            _ => return Err(sqlx::Error::Decode(anyhow!("Unknown tenancy type").into())),
+            _ => return Err(sqlx::Error::Decode("Unknown tenancy type".into())),
         };
         let connector_type: String = row.try_get("connector_type")?;
         let config_json: serde_json::Value = row.try_get("config")?;
@@ -73,11 +72,7 @@ impl<'r> FromRow<'r, PgRow> for ConnectionConfig {
                         .map_err(|e| sqlx::Error::Decode(Box::new(e)))?;
                     ConnectionDetails::Postgis(postgis_config)
                 }
-                _ => {
-                    return Err(sqlx::Error::Decode(
-                        anyhow!("Unknown connector type").into(),
-                    ))
-                }
+                _ => return Err(sqlx::Error::Decode("Unknown connector type".into())),
             },
             created_at,
             updated_at,
