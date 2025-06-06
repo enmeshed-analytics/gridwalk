@@ -1,6 +1,6 @@
-use super::{ConnectionDetails, Connector, PostgisConnector};
+use super::{DataStoreConfig, DataStoreDetails, DataStoreTenancy};
 use crate::auth::AuthUser;
-use crate::connector::{ConnectionConfig, ConnectionTenancy};
+use crate::connector::{Connector, PostgisConnector};
 use crate::error::ApiError;
 use crate::AppState;
 use crate::GlobalRole;
@@ -18,15 +18,15 @@ use uuid::Uuid;
 
 // TODO: Allow other connector types
 #[derive(Debug, Deserialize)]
-pub struct CreateGlobalConnectionRequest {
+pub struct CreateDataStoreRequest {
     name: String,
-    tenancy: ConnectionTenancy,
-    config: ConnectionDetails,
+    tenancy: DataStoreTenancy,
+    config: DataStoreDetails,
 }
 
-impl ConnectionConfig {
-    pub fn from_req(req: CreateGlobalConnectionRequest) -> Self {
-        ConnectionConfig {
+impl DataStoreConfig {
+    pub fn from_req(req: CreateDataStoreRequest) -> Self {
+        Self {
             id: Uuid::new_v4(),
             name: req.name,
             tenancy: req.tenancy,
@@ -40,7 +40,7 @@ impl ConnectionConfig {
 
 pub async fn test_connection(
     Extension(auth_user): Extension<AuthUser>,
-    Json(req): Json<CreateGlobalConnectionRequest>,
+    Json(req): Json<CreateDataStoreRequest>,
 ) -> impl IntoResponse {
     let user = match auth_user.user {
         Some(user) => user,
@@ -49,17 +49,17 @@ pub async fn test_connection(
 
     // Only allow user with Super global role to create connections
     match user.global_role {
-        Some(GlobalRole::Super) => {}
+        Some(GlobalRole::Admin) => {}
         Some(_) => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
         None => return (StatusCode::FORBIDDEN, "Unauthorized").into_response(),
     };
 
     // Create connection info
-    let connection_config = ConnectionConfig::from_req(req);
+    let connection_config = DataStoreConfig::from_req(req);
 
     // Test connection
     match connection_config.config {
-        ConnectionDetails::Postgis(config) => {
+        DataStoreDetails::Postgis(config) => {
             let mut connector = PostgisConnector::new(config).unwrap();
             match connector.test_connection().await {
                 Ok(_) => (
@@ -83,10 +83,10 @@ pub async fn test_connection(
     }
 }
 
-pub async fn create_connection(
+pub async fn create_datastore(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
-    Json(req): Json<CreateGlobalConnectionRequest>,
+    Json(req): Json<CreateDataStoreRequest>,
 ) -> Result<StatusCode, ApiError> {
     let user = auth.user.ok_or_else(|| {
         error!("Unauthorized access: no valid user found in middleware");
@@ -95,16 +95,16 @@ pub async fn create_connection(
 
     // Check support level
     match user.global_role {
-        Some(GlobalRole::Super) => {}
+        Some(GlobalRole::Admin) => {}
         _ => return Err(ApiError::Unauthorized),
     }
 
     // Create connection info
-    let connection_config = ConnectionConfig::from_req(req);
+    let connection_config = DataStoreConfig::from_req(req);
 
     // Test connection before creating it
     match &connection_config.config {
-        ConnectionDetails::Postgis(config) => {
+        DataStoreDetails::Postgis(config) => {
             let mut connector = PostgisConnector::new(config.clone()).unwrap();
             if let Err(e) = connector.test_connection().await {
                 error!("Connection test failed: {}", e);
@@ -130,7 +130,7 @@ pub async fn create_connection(
     }
 }
 
-pub async fn get_all_connections(
+pub async fn get_all_datastores(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
 ) -> Result<impl IntoResponse, ApiError> {
@@ -144,14 +144,14 @@ pub async fn get_all_connections(
         _ => return Err(ApiError::Unauthorized),
     }
 
-    let connections = ConnectionConfig::get_all(&*state.pool).await.map_err(|e| {
+    let connections = DataStoreConfig::get_all(&*state.pool).await.map_err(|e| {
         error!("Failed to get connections: {:?}", e);
         ApiError::InternalServerError
     })?;
     Ok(Json(connections))
 }
 
-pub async fn get_connection(
+pub async fn get_datastore(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
     Path(connection_id): Path<Uuid>,
@@ -167,7 +167,7 @@ pub async fn get_connection(
     }
 
     // Get connection
-    let connection = ConnectionConfig::from_id(&*state.pool, &connection_id)
+    let connection = DataStoreConfig::from_id(&*state.pool, &connection_id)
         .await
         .map_err(|e| {
             error!("Failed to get connection: {:?}", e);
@@ -177,7 +177,7 @@ pub async fn get_connection(
     Ok(Json(connection))
 }
 
-pub async fn get_connection_capacity(
+pub async fn get_datastore_capacity(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
     Path(connection_id): Path<Uuid>,
@@ -193,7 +193,7 @@ pub async fn get_connection_capacity(
     }
 
     // Get connection
-    let connection = match ConnectionConfig::from_id(&*state.pool, &connection_id).await {
+    let connection = match DataStoreConfig::from_id(&*state.pool, &connection_id).await {
         Ok(connection) => connection,
         Err(e) => {
             error!("Failed to get connection: {:?}", e);

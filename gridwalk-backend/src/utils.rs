@@ -17,6 +17,7 @@ pub fn hash_password(password: &str) -> Result<String> {
 }
 
 pub async fn create_pg_pool(database_url: &str) -> Result<Arc<sqlx::Pool<sqlx::Postgres>>> {
+    // TODO: Set search_path for the pool
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(database_url)

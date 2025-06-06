@@ -1,8 +1,8 @@
 use crate::auth::AuthUser;
 use crate::error::ApiError;
-use crate::AppState;
 use crate::{
-    ConnectionConfig, User, Workspace, WorkspaceConnectionAccess, WorkspaceMember, WorkspaceRole,
+    AppState, DataStoreConfig, User, Workspace, WorkspaceDataStoreAccess, WorkspaceMember,
+    WorkspaceRole,
 };
 use axum::{
     extract::{Extension, Path, State},
@@ -56,7 +56,7 @@ pub async fn create_workspace(
     // TODO: Limit workspace creation based on global limits per user
 
     // Find a connection with available capacity
-    let connection_capacity_vec = ConnectionConfig::get_shared_with_spare_capacity(&*state.pool)
+    let connection_capacity_vec = DataStoreConfig::get_shared_with_spare_capacity(&*state.pool)
         .await
         .map_err(|e| {
             error!("Failed to fetch connections: {:?}", e);
@@ -72,10 +72,19 @@ pub async fn create_workspace(
             ApiError::InternalServerError
         })?;
 
+    println!(
+        "Selected connection with capacity: {:?}",
+        selected_connection_capacity
+    );
+
     let workspace = Workspace::from_req(req);
     let owner = WorkspaceMember::new(&workspace, &user, WorkspaceRole::Owner);
     let connection_access =
-        WorkspaceConnectionAccess::new(selected_connection_capacity.connection_id, workspace.id);
+        WorkspaceDataStoreAccess::new(selected_connection_capacity.connection_id, workspace.id);
+    println!(
+        "Creating workspace: {:?}, owner: {:?}, connection access: {:?}",
+        workspace, owner, connection_access
+    );
 
     let mut tx = state.pool.begin().await.map_err(|e| {
         error!("Failed to begin transaction: {:?}", e);
@@ -354,7 +363,7 @@ pub async fn list_sources(
         }
     }
 
-    match WorkspaceConnectionAccess::get(&*state.pool, &workspace, &connection_id).await {
+    match WorkspaceDataStoreAccess::get(&*state.pool, &workspace, &connection_id).await {
         Ok(_access) => {}
         Err(_) => return Err(ApiError::NotFound("Connection not found".to_string())),
     }
@@ -371,7 +380,7 @@ pub async fn list_sources(
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ConnectionResponse {
+pub struct DataStoreResponse {
     pub id: String,
     pub name: String,
     pub connector_type: String,
@@ -379,9 +388,9 @@ pub struct ConnectionResponse {
 }
 
 // TODO: Switch to using Connection after retrieving the connection from the database
-impl From<ConnectionConfig> for ConnectionResponse {
-    fn from(con: ConnectionConfig) -> Self {
-        ConnectionResponse {
+impl From<DataStoreConfig> for DataStoreResponse {
+    fn from(con: DataStoreConfig) -> Self {
+        Self {
             id: con.id.to_string(),
             name: con.name,
             connector_type: con.config.to_string(),
@@ -391,7 +400,7 @@ impl From<ConnectionConfig> for ConnectionResponse {
 }
 
 // List all accessible connections for a given workspace
-pub async fn list_connections(
+pub async fn list_datastores(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
     Path(workspace_id): Path<Uuid>,
@@ -412,7 +421,7 @@ pub async fn list_connections(
         Err(_) => return Err(ApiError::Unauthorized),
     }
 
-    let connection_access_list = WorkspaceConnectionAccess::get_all(&*state.pool, &workspace)
+    let connection_access_list = WorkspaceDataStoreAccess::get_all(&*state.pool, &workspace)
         .await
         .map_err(|e| {
             error!("Failed to fetch connection access list: {:?}", e);
@@ -421,9 +430,9 @@ pub async fn list_connections(
 
     // Convert Vec<Connection> to Vec<ConnectionResponse>
     // Removes the config from the response
-    let connection_responses: Vec<ConnectionResponse> = connection_access_list
+    let connection_responses: Vec<DataStoreResponse> = connection_access_list
         .into_iter()
-        .map(ConnectionResponse::from)
+        .map(DataStoreResponse::from)
         .collect();
 
     Ok(Json(connection_responses))

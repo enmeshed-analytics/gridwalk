@@ -102,7 +102,7 @@ impl WorkspaceMember {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "INSERT INTO app_data.workspace_members (workspace_id, user_id, role, joined_at) VALUES ($1, $2, $3, $4) ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role, joined_at = EXCLUDED.joined_at";
+        let query = "INSERT INTO gridwalk.workspace_members (workspace_id, user_id, role, joined_at) VALUES ($1, $2, $3, $4) ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = EXCLUDED.role, joined_at = EXCLUDED.joined_at";
         sqlx::query(query)
             .bind(self.workspace_id)
             .bind(self.user_id)
@@ -123,7 +123,7 @@ impl WorkspaceMember {
         E: sqlx::PgExecutor<'e>,
     {
         let query =
-            "SELECT * FROM app_data.workspace_members WHERE workspace_id = $1 AND user_id = $2";
+            "SELECT * FROM gridwalk.workspace_members WHERE workspace_id = $1 AND user_id = $2";
         let row = sqlx::query_as::<_, WorkspaceMember>(query)
             .bind(workspace.id)
             .bind(user.id)
@@ -138,7 +138,7 @@ impl WorkspaceMember {
         E: sqlx::PgExecutor<'e>,
     {
         let query =
-            "DELETE FROM app_data.workspace_members WHERE workspace_id = $1 AND user_id = $2";
+            "DELETE FROM gridwalk.workspace_members WHERE workspace_id = $1 AND user_id = $2";
         sqlx::query(query)
             .bind(self.workspace_id)
             .bind(self.user_id)

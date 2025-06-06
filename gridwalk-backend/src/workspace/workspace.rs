@@ -32,7 +32,7 @@ impl Workspace {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM app_data.workspaces WHERE id = $1";
+        let query = "SELECT * FROM gridwalk.workspaces WHERE id = $1";
         let row = sqlx::query_as::<_, Workspace>(query)
             .bind(id)
             .fetch_one(executor)
@@ -44,7 +44,7 @@ impl Workspace {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "INSERT INTO app_data.workspaces (id, name, created_at, updated_at, active) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at, active = EXCLUDED.active";
+        let query = "INSERT INTO gridwalk.workspaces (id, name, created_at, updated_at, active) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at, active = EXCLUDED.active";
         sqlx::query(query)
             .bind(self.id)
             .bind(&self.name)
@@ -62,7 +62,7 @@ impl Workspace {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let _query = "DELETE FROM app_data.workspaces WHERE id = $1";
+        let _query = "DELETE FROM gridwalk.workspaces WHERE id = $1";
         // sqlx::query(query).bind(self.id).execute(executor).await?;
         Ok(())
     }
@@ -71,7 +71,7 @@ impl Workspace {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT wm.*, u.email FROM app_data.workspace_members wm JOIN app_data.users u ON wm.user_id = u.id WHERE wm.workspace_id = $1";
+        let query = "SELECT wm.*, u.email FROM gridwalk.workspace_members wm JOIN gridwalk.users u ON wm.user_id = u.id WHERE wm.workspace_id = $1";
         let rows = sqlx::query_as::<_, WorkspaceMemberWithEmail>(query)
             .bind(self.id)
             .fetch_all(executor)
@@ -83,7 +83,7 @@ impl Workspace {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT w.* FROM app_data.workspaces w JOIN app_data.workspace_members wm ON w.id = wm.workspace_id WHERE wm.user_id = $1";
+        let query = "SELECT w.* FROM gridwalk.workspaces w JOIN gridwalk.workspace_members wm ON w.id = wm.workspace_id WHERE wm.user_id = $1";
         let rows = sqlx::query_as::<_, Workspace>(query)
             .bind(user.id)
             .fetch_all(executor)

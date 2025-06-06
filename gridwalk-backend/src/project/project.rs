@@ -44,7 +44,7 @@ impl Project {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM app_data.projects WHERE workspace_id = $1 AND id = $2";
+        let query = "SELECT * FROM gridwalk.projects WHERE workspace_id = $1 AND id = $2";
         let project = sqlx::query_as::<_, Project>(query)
             .bind(workspace_id)
             .bind(project_id)
@@ -58,7 +58,7 @@ impl Project {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "INSERT INTO app_data.projects (id, workspace_id, name, owner, created_at)
+        let query = "INSERT INTO gridwalk.projects (id, workspace_id, name, owner, created_at)
                      VALUES ($1, $2, $3, $4, $5)";
         sqlx::query(query)
             .bind(self.id)
@@ -86,7 +86,7 @@ impl Project {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM app_data.projects WHERE workspace_id = $1";
+        let query = "SELECT * FROM gridwalk.projects WHERE workspace_id = $1";
         let projects = sqlx::query_as::<_, Project>(query)
             .bind(workspace.id)
             .fetch_all(executor)

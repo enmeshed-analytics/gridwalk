@@ -17,7 +17,7 @@ impl<'r> FromRow<'r, PgRow> for Session {
         Ok(Session {
             id: row.try_get("id")?,
             user_id: row.try_get("user_id")?,
-            expiry: row.try_get("session_expiry")?,
+            expiry: row.try_get("expires_at")?,
         })
     }
 }
@@ -29,7 +29,7 @@ impl Session {
     {
         let id = Uuid::new_v4();
         let expiry = chrono::Utc::now() + chrono::Duration::days(30);
-        let query = "INSERT INTO sessions (id, user_id, expires_at) VALUES ($1, $2, $3)";
+        let query = "INSERT INTO gridwalk.sessions (id, user_id, expires_at) VALUES ($1, $2, $3)";
         sqlx::query(query)
             .bind(id)
             .bind(user.id)
@@ -48,7 +48,7 @@ impl Session {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM app_data.sessions WHERE id = $1";
+        let query = "SELECT * FROM gridwalk.sessions WHERE id = $1";
         let row = sqlx::query_as::<_, Session>(query)
             .bind(id)
             .fetch_one(executor)
@@ -57,7 +57,7 @@ impl Session {
     }
 
     pub async fn delete(&self, pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
-        let query = "DELETE FROM app_data.sessions WHERE id = $1";
+        let query = "DELETE FROM gridwalk.sessions WHERE id = $1";
         sqlx::query(query).bind(self.id).execute(pool).await?;
         Ok(())
     }
