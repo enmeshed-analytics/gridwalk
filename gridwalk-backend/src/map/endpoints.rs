@@ -1,7 +1,7 @@
 use crate::auth::AuthUser;
 use crate::error::ApiError;
 use crate::{AppState, WorkspaceMember};
-use crate::{Project, Workspace, WorkspaceRole};
+use crate::{Map, Workspace, WorkspaceRole};
 use axum::{
     extract::{Extension, Path, State},
     http::StatusCode,
@@ -19,15 +19,15 @@ pub struct ErrorResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateProjectReq {
+pub struct CreateMapReq {
     pub name: String,
 }
 
-pub async fn create_project(
+pub async fn create_map(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
     Path(workspace_id): Path<Uuid>,
-    Json(req): Json<CreateProjectReq>,
+    Json(req): Json<CreateMapReq>,
 ) -> Result<impl IntoResponse, ApiError> {
     let user = auth.user.ok_or_else(|| {
         error!("Unauthorized access: no valid user found in middleware");
@@ -49,28 +49,28 @@ pub async fn create_project(
             ApiError::Unauthorized
         })?;
 
-    // Only workspace admins and owners can create projects
+    // Only workspace admins and owners can create maps
     if member.role != WorkspaceRole::Admin && member.role != WorkspaceRole::Owner {
         error!(
-            "User does not have permission to create projects in workspace: {:?}",
+            "User does not have permission to create maps in workspace: {:?}",
             workspace_id
         );
         return Err(ApiError::Unauthorized);
     }
 
-    // Create project struct from request
-    let project = Project::new(&workspace, &user, req.name);
+    // Create map struct from request
+    let map = Map::new(&workspace, &user, req.name);
 
-    match project.save(&*state.pool).await {
-        Ok(_) => Ok((StatusCode::CREATED, Json(project)).into_response()),
+    match map.save(&*state.pool).await {
+        Ok(_) => Ok((StatusCode::CREATED, Json(map)).into_response()),
         Err(e) => {
-            error!("Failed to create project: {:?}", e);
+            error!("Failed to create map: {:?}", e);
             Err(ApiError::InternalServerError)
         }
     }
 }
 
-pub async fn get_projects(
+pub async fn get_maps(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
     Path(workspace_id): Path<Uuid>,
@@ -95,22 +95,22 @@ pub async fn get_projects(
             ApiError::Unauthorized
         })?;
 
-    debug!("Fetching projects for workspace: {:?}", workspace_id);
-    let projects = Project::all_for_workspace(&*state.pool, &workspace)
+    debug!("Fetching maps for workspace: {:?}", workspace_id);
+    let maps = Map::all_for_workspace(&*state.pool, &workspace)
         .await
         .map_err(|e| {
-            error!("Failed to fetch projects: {:?}", e);
+            error!("Failed to fetch maps: {:?}", e);
             ApiError::InternalServerError
         })?;
 
-    Ok(Json(projects).into_response())
+    Ok(Json(maps).into_response())
 }
 
 // TODO: Fix dangling resources
-pub async fn delete_project(
+pub async fn delete_map(
     State(state): State<Arc<AppState>>,
     Extension(auth): Extension<AuthUser>,
-    Path((workspace_id, project_id)): Path<(Uuid, Uuid)>,
+    Path((workspace_id, map_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, ApiError> {
     let user = auth.user.ok_or_else(|| {
         error!("Unauthorized access: no valid user found in middleware");
@@ -124,25 +124,25 @@ pub async fn delete_project(
         Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
     };
 
-    // Only workspace admins and owners can delete projects. Non-members cannot see existence.
+    // Only workspace admins and owners can delete maps. Non-members cannot see existence.
     match WorkspaceMember::get(&*state.pool, &workspace, &user).await {
         Ok(member) if matches!(member.role, WorkspaceRole::Owner | WorkspaceRole::Admin) => {}
         Ok(_) => return Err(ApiError::Unauthorized),
         Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
     }
 
-    let project = match Project::get(&*state.pool, &workspace_id, &project_id).await {
-        Ok(project) => project,
-        Err(_) => return Err(ApiError::NotFound("Project not found".to_string())),
+    let map = match Map::get(&*state.pool, &workspace_id, &map_id).await {
+        Ok(map) => map,
+        Err(_) => return Err(ApiError::NotFound("Map not found".to_string())),
     };
 
-    match project.delete(&*state.pool).await {
+    match map.delete(&*state.pool).await {
         Ok(_) => {
-            debug!("Project deleted successfully: {:?}", project_id);
+            debug!("map deleted successfully: {:?}", map_id);
             Ok(StatusCode::NO_CONTENT.into_response())
         }
         Err(e) => {
-            error!("Failed to delete project: {:?}", e);
+            error!("Failed to delete map: {:?}", e);
             Err(ApiError::InternalServerError)
         }
     }

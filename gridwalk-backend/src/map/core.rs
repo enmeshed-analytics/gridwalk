@@ -5,7 +5,7 @@ use sqlx::{FromRow, Row};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Project {
+pub struct Map {
     pub workspace_id: Uuid,
     pub id: Uuid,
     pub name: String,
@@ -13,7 +13,7 @@ pub struct Project {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-impl<'r> FromRow<'r, PgRow> for Project {
+impl<'r> FromRow<'r, PgRow> for Map {
     fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
         Ok(Self {
             workspace_id: row.try_get("workspace_id")?,
@@ -25,9 +25,9 @@ impl<'r> FromRow<'r, PgRow> for Project {
     }
 }
 
-impl Project {
+impl Map {
     pub fn new(workspace: &Workspace, user: &User, name: String) -> Self {
-        Project {
+        Self {
             workspace_id: workspace.id,
             id: Uuid::new_v4(),
             name,
@@ -39,26 +39,26 @@ impl Project {
     pub async fn get<'e, E>(
         executor: E,
         workspace_id: &Uuid,
-        project_id: &Uuid,
+        map_id: &Uuid,
     ) -> Result<Self, sqlx::Error>
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM gridwalk.projects WHERE workspace_id = $1 AND id = $2";
-        let project = sqlx::query_as::<_, Project>(query)
+        let query = "SELECT * FROM gridwalk.maps WHERE workspace_id = $1 AND id = $2";
+        let map = sqlx::query_as::<_, Self>(query)
             .bind(workspace_id)
-            .bind(project_id)
+            .bind(map_id)
             .fetch_one(executor)
             .await?;
 
-        Ok(project)
+        Ok(map)
     }
 
     pub async fn save<'e, E>(&self, executor: E) -> Result<(), sqlx::Error>
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "INSERT INTO gridwalk.projects (id, workspace_id, name, owner, created_at)
+        let query = "INSERT INTO gridwalk.maps (id, workspace_id, name, owner, created_at)
                      VALUES ($1, $2, $3, $4, $5)";
         sqlx::query(query)
             .bind(self.id)
@@ -82,20 +82,20 @@ impl Project {
     pub async fn all_for_workspace<'e, E>(
         executor: E,
         workspace: &Workspace,
-    ) -> Result<Vec<Project>, sqlx::Error>
+    ) -> Result<Vec<Self>, sqlx::Error>
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM gridwalk.projects WHERE workspace_id = $1";
-        let projects = sqlx::query_as::<_, Project>(query)
+        let query = "SELECT * FROM gridwalk.maps WHERE workspace_id = $1";
+        let maps = sqlx::query_as::<_, Self>(query)
             .bind(workspace.id)
             .fetch_all(executor)
             .await?;
 
-        if projects.is_empty() {
+        if maps.is_empty() {
             return Ok(vec![]);
         }
 
-        Ok(projects)
+        Ok(maps)
     }
 }
