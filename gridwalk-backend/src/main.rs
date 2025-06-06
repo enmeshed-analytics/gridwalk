@@ -3,7 +3,7 @@ mod connector;
 mod datastore;
 mod error;
 mod layer;
-mod project;
+mod map;
 mod server;
 mod session;
 mod user;
@@ -12,7 +12,7 @@ mod workspace;
 
 use crate::datastore::*;
 use crate::layer::*;
-use crate::project::*;
+use crate::map::*;
 use crate::session::*;
 use crate::user::*;
 use crate::utils::create_pg_pool;
