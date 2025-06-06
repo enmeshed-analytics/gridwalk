@@ -1,10 +1,10 @@
 use crate::auth::auth_middleware;
 use crate::AppState;
 use crate::{
-    add_workspace_member, change_password, create_connection, create_project, create_workspace,
-    delete_project, delete_workspace, generate_os_token, get_all_connections, get_connection,
-    get_connection_capacity, get_geometry_type, get_projects, get_workspace, get_workspace_members,
-    get_workspaces, health_check, list_connections, list_sources, login, logout, profile, register,
+    add_workspace_member, change_password, create_datastore, create_project, create_workspace,
+    delete_project, delete_workspace, generate_os_token, get_all_datastores, get_datastore,
+    get_datastore_capacity, get_geometry_type, get_projects, get_workspace, get_workspace_members,
+    get_workspaces, health_check, list_datastores, list_sources, login, logout, profile, register,
     remove_workspace_member, test_connection, tiles, upload_layer,
 };
 use axum::{
@@ -99,13 +99,13 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/logout", post(logout))
         .route("/profile", get(profile))
         .route("/password_change", post(change_password))
-        .route("/connections/test", post(test_connection))
-        .route("/connections", post(create_connection))
-        .route("/connections", get(get_all_connections))
-        .route("/connections/:connection_id", get(get_connection))
+        .route("/datastores/connection-test", post(test_connection))
+        .route("/datastores", post(create_datastore))
+        .route("/datastores", get(get_all_datastores))
+        .route("/datastores/:datastore_id", get(get_datastore))
         .route(
-            "/connections/:connection_id/capacity",
-            get(get_connection_capacity),
+            "/datastores/:datastore_id/capacity",
+            get(get_datastore_capacity),
         )
         .route("/workspace", post(create_workspace))
         .route("/workspaces/:workspace_id", get(get_workspace))
@@ -119,12 +119,9 @@ pub fn create_app(app_state: AppState) -> Router {
             "/workspace/:workspace_id/members/:user_id",
             delete(remove_workspace_member),
         )
+        .route("/workspaces/:workspace_id/datastores", get(list_datastores))
         .route(
-            "/workspaces/:workspace_id/connections",
-            get(list_connections),
-        )
-        .route(
-            "/workspaces/:workspace_id/connections/:connection_id/sources",
+            "/workspaces/:workspace_id/datastores/:datastore_id/sources",
             get(list_sources),
         )
         .route("/workspaces/:workspace_id/projects", post(create_project))
@@ -164,7 +161,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .merge(upload_router)
         .merge(upload_router_new)
         .nest(
-            "/workspaces/:workspace_id/connections/:connection_id/sources/:source_name/tiles",
+            "/workspaces/:workspace_id/datastores/:datastore_id/sources/:source_name/tiles",
             tiles_router,
         )
         .merge(public_router)

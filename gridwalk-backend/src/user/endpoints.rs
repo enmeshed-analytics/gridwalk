@@ -92,8 +92,8 @@ pub async fn login(
     let user = User::from_email(&*state.pool, &params.email.clone())
         .await
         .map_err(|e| {
-            error!("Failed to fetch user: {:?}", e);
-            ApiError::InternalServerError
+            error!("Failed to fetch user from email: {:?}", e);
+            ApiError::Unauthorized
         })?;
 
     let user_password = UserPassword::from_user(&*state.pool, &user)
@@ -122,7 +122,13 @@ pub async fn login(
         ApiError::InternalServerError
     })?;
     let session = SessionResponse::from(session);
-    Ok((StatusCode::OK, Json(session)).into_response())
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "apiKey": session.sid,
+            "expiry": session.expiry
+        })),
+    ))
 }
 
 pub async fn logout(

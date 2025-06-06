@@ -9,7 +9,7 @@ use uuid::Uuid;
 #[derive(PartialEq, Debug, Display, EnumString, Clone, Deserialize, Serialize)]
 #[strum(serialize_all = "snake_case")]
 pub enum GlobalRole {
-    Super,
+    Admin,
     Support,
     Read,
 }
@@ -23,7 +23,7 @@ pub struct User {
     pub global_role: Option<GlobalRole>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
-    pub is_active: bool,
+    pub active: bool,
 }
 
 impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for User {
@@ -39,7 +39,7 @@ impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for User {
             global_role,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
-            is_active: row.try_get("is_active")?,
+            active: row.try_get("active")?,
         })
     }
 }
@@ -59,7 +59,7 @@ pub struct Profile {
     pub email: String,
     pub first_name: String,
     pub last_name: String,
-    pub is_active: bool,
+    pub active: bool,
 }
 
 impl From<User> for Profile {
@@ -69,7 +69,7 @@ impl From<User> for Profile {
             email: user.email,
             first_name: user.first_name,
             last_name: user.last_name,
-            is_active: user.is_active,
+            active: user.active,
         }
     }
 }
@@ -91,7 +91,7 @@ impl User {
             global_role,
             created_at,
             updated_at,
-            is_active: true,
+            active: true,
         }
     }
 
@@ -99,13 +99,13 @@ impl User {
         &self,
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     ) -> Result<(), sqlx::Error> {
-        let query = "INSERT INTO app_data.users (id, email, first_name, last_name, is_active, global_role) VALUES ($1, $2, $3, $4, $5, $6)";
+        let query = "INSERT INTO gridwalk.users (id, email, first_name, last_name, active, global_role) VALUES ($1, $2, $3, $4, $5, $6)";
         sqlx::query(query)
             .bind(self.id)
             .bind(&self.email)
             .bind(&self.first_name)
             .bind(&self.last_name)
-            .bind(self.is_active)
+            .bind(self.active)
             // Convert the enum to its string representation, or bind None if no role.
             .bind(self.global_role.clone().map(|role| role.to_string()))
             .execute(&mut **tx)
@@ -118,7 +118,7 @@ impl User {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM app_data.users WHERE id = $1";
+        let query = "SELECT * FROM gridwalk.users WHERE id = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(user_id)
             .fetch_one(executor)
@@ -131,7 +131,7 @@ impl User {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM app_data.users WHERE email = $1";
+        let query = "SELECT * FROM gridwalk.users WHERE email = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(email)
             .fetch_one(executor)
@@ -143,7 +143,7 @@ impl User {
     pub async fn change_password(&self, pool: &sqlx::PgPool, new_password: &str) -> Result<()> {
         let new_hash = hash_password(new_password)?;
         let updated_at = Utc::now();
-        let query = "UPDATE app_data.user_passwords SET hash = $1, updated_at = $2 WHERE id = $3";
+        let query = "UPDATE gridwalk.user_passwords SET hash = $1, updated_at = $2 WHERE id = $3";
         sqlx::query(query)
             .bind(new_hash)
             .bind(updated_at)
@@ -202,7 +202,7 @@ impl UserPassword {
         E: sqlx::PgExecutor<'e>,
     {
         let query = "
-        INSERT INTO app_data.user_passwords (user_id, hash, created_at, updated_at)
+        INSERT INTO gridwalk.user_passwords (user_id, hash, created_at, updated_at)
         VALUES ($1, $2, $3, $4)";
 
         sqlx::query(query)
@@ -221,7 +221,7 @@ impl UserPassword {
         E: sqlx::PgExecutor<'e>,
     {
         let query = "
-        SELECT * FROM app_data.user_passwords WHERE user_id = $1";
+        SELECT * FROM gridwalk.user_passwords WHERE user_id = $1";
         let user_password = sqlx::query_as::<_, UserPassword>(query)
             .bind(user.id)
             .fetch_one(executor)

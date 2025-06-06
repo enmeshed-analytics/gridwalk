@@ -52,7 +52,7 @@ impl Layer {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT * FROM app_data.layers WHERE id = $1";
+        let query = "SELECT * FROM gridwalk.layers WHERE id = $1";
         let layer = sqlx::query_as::<_, Layer>(query)
             .bind(source_id)
             .fetch_one(executor)
@@ -80,7 +80,7 @@ impl Layer {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "INSERT INTO app_data.layers (id, workspace_id, connection_id, name, uploaded_by, created_at) VALUES ($1, $2, $3, $4, $5, $6)";
+        let query = "INSERT INTO gridwalk.layers (id, workspace_id, connection_id, name, uploaded_by, created_at) VALUES ($1, $2, $3, $4, $5, $6)";
         sqlx::query(query)
             .bind(self.id)
             .bind(self.workspace_id)
