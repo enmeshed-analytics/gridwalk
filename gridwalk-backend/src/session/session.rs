@@ -1,80 +1,64 @@
-use crate::app_state::AppState;
-use crate::data::Database;
-use crate::utils::create_id;
 use crate::User;
 use anyhow::Result;
-use async_trait::async_trait;
-use axum::{
-    extract::FromRequestParts,
-    http::{header, request::Parts, StatusCode},
-};
 use serde::Serialize;
-use std::sync::Arc;
+use sqlx::postgres::PgRow;
+use sqlx::{FromRow, Row};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Session {
-    pub id: String,
-    pub user_id: Option<String>,
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub expiry: chrono::DateTime<chrono::Utc>,
 }
 
-#[async_trait]
-impl<S> FromRequestParts<S> for Session
-where
-    S: Send + Sync,
-    S: std::ops::Deref<Target = Arc<AppState>>,
-{
-    type Rejection = (StatusCode, String);
-
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let auth_header = parts
-            .headers
-            .get(header::AUTHORIZATION)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.strip_prefix("Bearer "))
-            .ok_or((
-                StatusCode::UNAUTHORIZED,
-                "Missing or invalid authorization header".to_string(),
-            ))?;
-
-        // Use the existing from_id method to validate and retrieve the session
-        match Session::from_id(&state.app_data, auth_header).await {
-            Ok(session) => Ok(session),
-            Err(_) => Err((
-                StatusCode::UNAUTHORIZED,
-                "Invalid session token".to_string(),
-            )),
-        }
+impl<'r> FromRow<'r, PgRow> for Session {
+    fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
+        Ok(Session {
+            id: row.try_get("id")?,
+            user_id: row.try_get("user_id")?,
+            expiry: row.try_get("expires_at")?,
+        })
     }
 }
 
 impl Session {
-    // TODO: dead code
-    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<Self> {
-        database.get_session_by_id(id).await
+    pub async fn create<'e, E>(executor: E, user: &User) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let id = Uuid::new_v4();
+        let expiry = chrono::Utc::now() + chrono::Duration::days(30);
+        let query = "INSERT INTO gridwalk.sessions (id, user_id, expires_at) VALUES ($1, $2, $3)";
+        sqlx::query(query)
+            .bind(id)
+            .bind(user.id)
+            .bind(expiry)
+            .execute(executor)
+            .await?;
+
+        Ok(Self {
+            id,
+            user_id: user.id,
+            expiry,
+        })
     }
 
-    pub async fn create<T: Database>(database: T, user: Option<&User>) -> Result<Self> {
-        let session_id = create_id(30).await;
-
-        match user {
-            Some(u) => database.create_session(Some(u), &session_id).await?,
-            None => database.create_session(None, &session_id).await?,
-        };
-
-        match user {
-            Some(u) => Ok(Session {
-                id: session_id,
-                user_id: Some(u.clone().id),
-            }),
-            None => Ok(Session {
-                id: session_id,
-                user_id: None,
-            }),
-        }
+    pub async fn from_id<'e, E>(executor: E, id: &Uuid) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT * FROM gridwalk.sessions WHERE id = $1";
+        let row = sqlx::query_as::<_, Session>(query)
+            .bind(id)
+            .fetch_one(executor)
+            .await?;
+        Ok(row)
     }
 
-    pub async fn delete(&self, database: &Arc<dyn Database>) -> Result<()> {
-        database.delete_session(&self.id).await?;
+    pub async fn delete(&self, pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
+        let query = "DELETE FROM gridwalk.sessions WHERE id = $1";
+        sqlx::query(query).bind(self.id).execute(pool).await?;
         Ok(())
     }
 }

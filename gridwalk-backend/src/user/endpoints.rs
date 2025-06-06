@@ -1,11 +1,11 @@
-use crate::app_state::AppState;
 use crate::auth::AuthUser;
-use crate::utils::{create_id, verify_password};
-use crate::{CreateUser, Profile, Session, User};
+use crate::error::ApiError;
+use crate::AppState;
+use crate::{Profile, Session, User, UserPassword};
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     Json,
 };
 use axum_extra::{
@@ -13,8 +13,10 @@ use axum_extra::{
     TypedHeader,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use std::str::FromStr;
 use std::sync::Arc;
+use tracing::{error, info};
+use uuid::Uuid;
 
 pub async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "healthy" }))
@@ -31,75 +33,102 @@ pub struct RegisterRequest {
 pub async fn register(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterRequest>,
-) -> Response {
-    let user = CreateUser {
-        email: req.email,
-        first_name: req.first_name,
-        last_name: req.last_name,
-        global_role: None,
-        password: req.password,
-    };
-    match User::create(&state.app_data, &user).await {
-        Ok(_) => "registration succeeded".into_response(),
-        Err(_) => "registration failed".into_response(),
+) -> Result<StatusCode, ApiError> {
+    // TODO: Check if the user already exists
+    let mut tx = state.pool.begin().await.map_err(|e| {
+        error!("Failed to begin transaction: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+    let user = User::new(req.email, req.first_name, req.last_name, None);
+
+    user.save(&mut tx).await.map_err(|e| {
+        error!("Failed to create user: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    let user_password = UserPassword::new(user.id, req.password);
+    user_password.save(&mut *tx).await.map_err(|e| {
+        error!("Failed to create user password: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    tx.commit().await.map_err(|e| {
+        error!("Failed to commit transaction: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    Ok(StatusCode::CREATED)
+}
+
+#[derive(Serialize)]
+pub struct SessionResponse {
+    sid: String,
+    expiry: String,
+}
+
+impl From<Session> for SessionResponse {
+    fn from(session: Session) -> Self {
+        Self {
+            sid: session.id.to_string(),
+            expiry: session.expiry.to_string(),
+        }
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct LoginRequest {
     email: String,
     password: String,
 }
 
+// Endpoint to login with username and password
 pub async fn login(
     State(state): State<Arc<AppState>>,
-    Json(req): Json<LoginRequest>,
-) -> impl IntoResponse {
-    // Get user from app db
-    let user_response = User::from_email(&state.app_data, &req.email).await;
-    // Check creds
-    match user_response {
-        Ok(user) => {
-            let password_verified = verify_password(&user.hash, &req.password).unwrap();
-            if !password_verified {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({
-                        "error": "Authentication failed"
-                    })),
-                );
-            }
-            let session_id = create_id(30).await;
-            match state
-                .app_data
-                .create_session(Some(&user), &session_id)
-                .await
-            {
-                Ok(_) => {
-                    // Return session token
-                    let response = json!({
-                        "apiKey": session_id,
-                    });
-                    (StatusCode::OK, Json(response))
-                }
-                Err(_) => {
-                    // Session creation failed
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({
-                            "error": "Failed to create session"
-                        })),
-                    )
-                }
-            }
+    params: Json<LoginRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    info!("Login request received for email: {}", params.email);
+
+    // Check if the user exists in the database
+    let user = User::from_email(&*state.pool, &params.email.clone())
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch user from email: {:?}", e);
+            ApiError::Unauthorized
+        })?;
+
+    let user_password = UserPassword::from_user(&*state.pool, &user)
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch user password: {:?}", e);
+            ApiError::InternalServerError
+        })?;
+
+    match user_password.validate_password(&params.password).await {
+        Ok(true) => {
+            info!("Password is valid");
         }
-        Err(_) => (
-            StatusCode::UNAUTHORIZED,
-            Json(json!({
-                "error": "User not found"
-            })),
-        ),
+        Ok(false) => {
+            error!("Invalid password");
+            return Err(ApiError::Unauthorized);
+        }
+        Err(e) => {
+            error!("Failed to validate password: {:?}", e);
+            return Err(ApiError::InternalServerError);
+        }
     }
+
+    let session = Session::create(&*state.pool, &user).await.map_err(|e| {
+        error!("Failed to create session: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+    let session = SessionResponse::from(session);
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "apiKey": session.sid,
+            "expiry": session.expiry
+        })),
+    ))
 }
 
 pub async fn logout(
@@ -107,12 +136,24 @@ pub async fn logout(
     TypedHeader(authorization): TypedHeader<Authorization<Bearer>>,
 ) -> impl IntoResponse {
     let token = authorization.token();
-    match Session::from_id(&state.app_data, token).await {
-        Ok(session) => {
-            let _ = session.delete(&state.app_data).await;
-            "logged out".into_response()
-        }
-        Err(_) => "logged out".into_response(),
+    // Convert the token to a UUID
+    let session_id = match Uuid::from_str(token) {
+        Ok(id) => id,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "invalid token".to_string()).into_response(),
+    };
+
+    let session = match Session::from_id(&*state.pool, &session_id).await {
+        Ok(session) => session,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "".to_string()).into_response(),
+    };
+
+    match session.delete(&state.pool).await {
+        Ok(_) => (StatusCode::OK, "logout succeeded".to_string()).into_response(),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "logout failed".to_string(),
+        )
+            .into_response(),
     }
 }
 
@@ -126,52 +167,22 @@ pub async fn profile(
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ResetPasswordRequest {
-    email: String,
+pub struct ChangePasswordRequest {
     new_password: String,
 }
 
-pub async fn reset_password(
+pub async fn change_password(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-    Json(req): Json<ResetPasswordRequest>,
-) -> impl IntoResponse {
-    // Ensure user is authenticated
-    let user = match auth_user.user {
-        Some(user) => user,
-        None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({
-                    "error": "Authentication required"
-                })),
-            )
-        }
-    };
+    Extension(auth): Extension<AuthUser>,
+    Json(req): Json<ChangePasswordRequest>,
+) -> Result<StatusCode, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
 
-    // Only allow users to reset their own password
-    if user.email != req.email {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(json!({
-                "error": "Can only reset your own password"
-            })),
-        );
-    }
-
-    // Use the static method to handle the update
-    match User::reset_password(&state.app_data, &req.email, &req.new_password).await {
-        Ok(_) => (
-            StatusCode::OK,
-            Json(json!({
-                "message": "Password updated successfully"
-            })),
-        ),
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "error": "Failed to update password"
-            })),
-        ),
+    match user.change_password(&state.pool, &req.new_password).await {
+        Ok(_) => Ok(StatusCode::OK),
+        Err(_) => Err(ApiError::InternalServerError),
     }
 }
