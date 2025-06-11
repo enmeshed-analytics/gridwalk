@@ -142,7 +142,7 @@ impl VectorConnector for PostgisConnector {
         let check_column_query = ("SELECT column_name 
             FROM information_schema.columns 
             AND table_name = $1 
-            AND column_name IN ('geom', 'geometry')")
+            AND column_name IN ('geom', 'geometry', 'geoms', 'wkb_geometry')")
             .to_string();
 
         let geom_column: String = client
@@ -194,7 +194,7 @@ impl VectorConnector for PostgisConnector {
         let check_column_query = ("SELECT column_name 
             FROM information_schema.columns 
             AND table_name = $1 
-            AND column_name IN ('geom', 'geometry')")
+            AND column_name IN ('geom', 'geometry', 'geoms', 'wkb_geometry')")
             .to_string();
 
         // Get the geometry column name
