@@ -1,5 +1,5 @@
 mod connector;
-mod endpoints;
+mod postgis;
 
 pub use connector::*;
-pub use endpoints::*;
+pub use postgis::*;
