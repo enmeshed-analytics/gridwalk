@@ -19,7 +19,11 @@ pub async fn tiles(
     cookies: Cookies,
     Path((layer_id, z, x, y)): Path<(Uuid, u32, u32, u32)>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let token = cookies.get("sid").unwrap().value().to_string();
+    let token = match cookies.get("sid") {
+        Some(cookie) => cookie.value().to_string(),
+        None => return Err(ApiError::Unauthorized),
+    };
+
     let session_id = match Uuid::from_str(&token) {
         Ok(id) => id,
         Err(_) => return Err(ApiError::Unauthorized),
@@ -74,7 +78,13 @@ pub async fn tiles(
         None => return Err(ApiError::InternalServerError),
     };
 
-    let tile = connector.get_tile(&layer_id, z, x, y).await.unwrap();
+    let tile = match connector.get_tile(&layer_id, z, x, y).await {
+        Ok(tile) => tile,
+        Err(e) => {
+            error!("Failed to get tile: {:?}", e);
+            return Err(ApiError::InternalServerError);
+        }
+    };
 
     let res = Response::builder()
         .status(StatusCode::OK)
@@ -87,7 +97,10 @@ pub async fn tiles(
         .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
         //.header(header::CONTENT_ENCODING, "gzip")
         .body(axum::body::Body::from(tile))
-        .unwrap()
+        .map_err(|e| {
+            error!("Failed to build tile response: {:?}", e);
+            ApiError::InternalServerError
+        })?
         .into_response();
 
     Ok(res)
@@ -128,7 +141,10 @@ pub async fn get_geometry_type(
                 )
                 .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
                 .body(axum::body::Body::from(geom_type_str))
-                .unwrap()
+                .map_err(|e| {
+                    error!("Failed to build geometry type response: {:?}", e);
+                    ApiError::InternalServerError
+                })  
                 .into_response()
         }
         Err(_) => (
