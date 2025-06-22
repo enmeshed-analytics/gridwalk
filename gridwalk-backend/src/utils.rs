@@ -4,6 +4,7 @@ use argon2::{
     Argon2,
 };
 use sqlx::postgres::PgPoolOptions;
+use sqlx::Executor;
 use std::sync::Arc;
 
 pub fn hash_password(password: &str) -> Result<String> {
@@ -20,6 +21,13 @@ pub async fn create_pg_pool(database_url: &str) -> Result<Arc<sqlx::Pool<sqlx::P
     // TODO: Set search_path for the pool
     let pool = PgPoolOptions::new()
         .max_connections(5)
+        .after_connect(|conn, _meta| {
+            Box::pin(async move {
+                conn.execute("SET search_path = gridwalk, \"$user\", public")
+                    .await?;
+                Ok(())
+            })
+        })
         .connect(database_url)
         .await
         .map_err(|e| anyhow!("Failed to create database pool: {}", e))?;
