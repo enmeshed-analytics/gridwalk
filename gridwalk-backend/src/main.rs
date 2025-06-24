@@ -42,7 +42,6 @@ async fn main() -> Result<()> {
         .await
         .unwrap();
 
-    // run migrations
     sqlx::migrate!("./migrations")
         .run(app_db.as_ref())
         .await

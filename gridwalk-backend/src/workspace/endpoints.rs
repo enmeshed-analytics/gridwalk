@@ -63,6 +63,13 @@ pub async fn create_workspace(
             ApiError::InternalServerError
         })?;
 
+    if connection_capacity_vec.is_empty() {
+        error!("No connections with available capacity found");
+        return Err(ApiError::BadRequest(
+            "No connections with available capacity found".to_string(),
+        ));
+    }
+
     // Get connection with the highest available capacity
     let selected_connection_capacity = connection_capacity_vec
         .iter()

@@ -6,22 +6,23 @@ import { ClientProfileSection } from "./profile-section";
 import { Button } from "@/components/ui/button";
 import { Map, Users, Link2, Settings } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 interface ClientSidebarContentProps {
   profileData: ProfileData;
-  workspaceData: Workspace[];
+  workspaces: Workspace[];
 }
 
 export function ClientSidebarContent({
   profileData,
-  workspaceData,
+  workspaces,
 }: ClientSidebarContentProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const activeWorkspaceId =
     pathname?.split("/")[2] ||
-    (workspaceData.length > 0 ? workspaceData[0].id : null);
+    (workspaces.length > 0 ? workspaces[0].id : null);
 
   // Function to check if a link is currently active
   const isActivePath = (path: string) => {
@@ -52,7 +53,7 @@ export function ClientSidebarContent({
     <div className="h-full flex flex-col">
       <ScrollArea className="flex-1">
         <div className="py-2">
-          <ClientWorkspaceDropdown workspaces={workspaceData} />
+          <ClientWorkspaceDropdown workspaces={workspaces} />
           {activeWorkspaceId && (
             <nav className="mt-6 px-3">
               <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2 mb-2">
@@ -60,18 +61,18 @@ export function ClientSidebarContent({
               </h3>
               <div className="space-y-1">
                 <Link
-                  href={`/workspace/${activeWorkspaceId}/maps`}
+                  href={`/maps?workspace=${activeWorkspaceId}`}
                   className="block"
                 >
                   <Button
                     variant="ghost"
                     className={getButtonClasses(
-                      `/workspace/${activeWorkspaceId}/maps`
+                      `/maps`
                     )}
                   >
                     <Map
                       className={getIconClasses(
-                        `/workspace/${activeWorkspaceId}/maps`
+                        `/maps`
                       )}
                     />
                     Maps
@@ -79,18 +80,18 @@ export function ClientSidebarContent({
                 </Link>
 
                 <Link
-                  href={`/workspace/${activeWorkspaceId}/members`}
+                  href={`/members?workspace=${activeWorkspaceId}`}
                   className="block"
                 >
                   <Button
                     variant="ghost"
                     className={getButtonClasses(
-                      `/workspace/${activeWorkspaceId}/members`
+                      `/members`
                     )}
                   >
                     <Users
                       className={getIconClasses(
-                        `/workspace/${activeWorkspaceId}/members`
+                        `/members`
                       )}
                     />
                     Members
@@ -98,37 +99,37 @@ export function ClientSidebarContent({
                 </Link>
 
                 <Link
-                  href={`/workspace/${activeWorkspaceId}/connections`}
+                  href={`/datastores?workspace=${activeWorkspaceId}`}
                   className="block"
                 >
                   <Button
                     variant="ghost"
                     className={getButtonClasses(
-                      `/workspace/${activeWorkspaceId}/connections`
+                      `/connections`
                     )}
                   >
                     <Link2
                       className={getIconClasses(
-                        `/workspace/${activeWorkspaceId}/connections`
+                        `/connections`
                       )}
                     />
-                    Connections
+                    Data Stores
                   </Button>
                 </Link>
 
                 <Link
-                  href={`/workspace/${activeWorkspaceId}/settings`}
+                  href={`/settings?workspace=${activeWorkspaceId}`}
                   className="block"
                 >
                   <Button
                     variant="ghost"
                     className={getButtonClasses(
-                      `/workspace/${activeWorkspaceId}/settings`
+                      `/settings`
                     )}
                   >
                     <Settings
                       className={getIconClasses(
-                        `/workspace/${activeWorkspaceId}/settings`
+                        `/settings`
                       )}
                     />
                     Settings

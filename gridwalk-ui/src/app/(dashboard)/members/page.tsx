@@ -41,14 +41,18 @@ export function getRelativeTime(dateString: string) {
   return formatDate(dateString);
 }
 
-interface PageProps {
-  params: {
-    workspaceId: string;
-  };
+interface PageParams {
+  searchParams: Promise<{
+    workspace?: string;
+  }>;
 }
 
-export default async function WorkspaceMembersPage({ params }: PageProps) {
-  const { workspaceId } = await params;
+export default async function WorkspaceMembersPage({ searchParams }: PageParams) {
+  const workspaceId = (await searchParams).workspace;
+
+  if (!workspaceId) {
+    return <div className="text-2xl text-center text-gray-100">Please select a workspace.</div>;
+  }
 
   // Fetch data server-side
   const [members, profile] = await Promise.all([

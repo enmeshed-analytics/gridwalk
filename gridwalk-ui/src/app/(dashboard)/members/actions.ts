@@ -19,7 +19,7 @@ export async function getWorkspaceMembers(
 
   try {
     const response = await fetch(
-      `${process.env.GRIDWALK_API}/workspace/${workspaceId}/members`,
+      `${process.env.GRIDWALK_API}/workspaces/${workspaceId}/members`,
       {
         method: "GET",
         headers: {

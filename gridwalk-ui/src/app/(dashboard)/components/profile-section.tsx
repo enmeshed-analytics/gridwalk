@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ProfileData, logout } from "../actions";
-import ProfileModal from "../../components/profile-modal";
+import ProfileModal from "./profile-modal";
 
 interface ClientProfileSectionProps {
   profileData: ProfileData;

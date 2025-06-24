@@ -107,16 +107,16 @@ pub fn create_app(app_state: AppState) -> Router {
             "/datastores/:datastore_id/capacity",
             get(get_datastore_capacity),
         )
-        .route("/workspace", post(create_workspace))
+        .route("/workspaces", post(create_workspace))
         .route("/workspaces/:workspace_id", get(get_workspace))
-        .route("/workspace/:workspace_id", delete(delete_workspace))
-        .route("/workspace/members", post(add_workspace_member))
+        .route("/workspaces/:workspace_id", delete(delete_workspace))
+        .route("/workspaces/members", post(add_workspace_member))
         .route(
-            "/workspace/:workspace_id/members",
+            "/workspaces/:workspace_id/members",
             get(get_workspace_members),
         )
         .route(
-            "/workspace/:workspace_id/members/:user_id",
+            "/workspaces/:workspace_id/members/:user_id",
             delete(remove_workspace_member),
         )
         .route("/workspaces/:workspace_id/datastores", get(list_datastores))

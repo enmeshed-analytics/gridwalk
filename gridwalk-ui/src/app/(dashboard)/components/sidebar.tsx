@@ -1,24 +1,18 @@
-// ServerSidebar.tsx - Server Component
 import { Suspense } from "react";
 import { getProfile, getWorkspaces } from "../actions";
 import { ClientSidebarContent } from "./sidebar-content";
 import { ClientMobileSidebar } from "./sidebar-content-mobile";
 
-// This function fetches data on the server
-async function fetchSidebarData() {
-  // Replace these with your actual data fetching functions
-  const profileData = await getProfile();
-  const workspaceData = await getWorkspaces();
-
-  return {
-    profileData,
-    workspaceData,
-  };
+interface SidebarProps {
+  workspaces?: Array<{
+    id: string;
+    name: string;
+  }>;
 }
 
-export async function ServerSidebar() {
+export async function Sidebar({ workspaces }: SidebarProps) {
   // Fetch data on the server
-  const { profileData, workspaceData } = await fetchSidebarData();
+  const profile = await getProfile();
 
   return (
     <>
@@ -28,8 +22,8 @@ export async function ServerSidebar() {
           <Suspense fallback={<div className="p-4">Loading sidebar...</div>}>
             {/* Client component for interactive parts */}
             <ClientSidebarContent
-              profileData={profileData}
-              workspaceData={workspaceData}
+              profileData={profile}
+              workspaces={workspaces}
             />
           </Suspense>
         </aside>
@@ -40,8 +34,8 @@ export async function ServerSidebar() {
         <Suspense fallback={<div>Loading mobile menu...</div>}>
           {/* Client component for mobile interactive parts */}
           <ClientMobileSidebar
-            profileData={profileData}
-            workspaceData={workspaceData}
+            profileData={profile}
+            workspaceData={workspaces}
           />
         </Suspense>
       </div>

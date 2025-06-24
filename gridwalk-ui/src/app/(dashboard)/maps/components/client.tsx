@@ -171,12 +171,17 @@ export default function WorkspaceMapClient({
     }
   };
 
-  const formatDate = (timestamp: number | null): string => {
+
+  const formatDate = (timestamp: string | null): string => {
     if (!timestamp) return "-";
-
-    // Convert Unix timestamp (seconds) to milliseconds
-    const date = new Date(timestamp * 1000);
-
+  
+    const date = new Date(timestamp);
+  
+    if (isNaN(date.getTime())) {
+      // Invalid date string
+      return "-";
+    }
+  
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
@@ -303,7 +308,7 @@ export default function WorkspaceMapClient({
                             {map.name}
                           </div>
                           <div className="md:hidden text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Created: {formatDate(map.created_at)}
+                            Created: 
                           </div>
                         </div>
                       </div>

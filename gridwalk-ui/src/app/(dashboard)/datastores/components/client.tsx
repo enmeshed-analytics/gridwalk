@@ -49,7 +49,7 @@ export default function WorkspaceConnectionsClient({ workspaceId, connections }:
               <div>
                 <CardTitle>Workspace Connections</CardTitle>
                 <CardDescription>
-                  Manage external connections for this workspace.
+                  Manage data stores for this workspace to store vector and raster data.
                 </CardDescription>
               </div>
               <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 w-full md:w-auto">

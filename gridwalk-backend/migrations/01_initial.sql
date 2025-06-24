@@ -1,6 +1,3 @@
-CREATE SCHEMA gridwalk;
-SET search_path TO gridwalk, public;
-
 -- Users table
 CREATE TABLE users (
     id UUID PRIMARY KEY,

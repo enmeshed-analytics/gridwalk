@@ -1,17 +1,21 @@
 import WorkspaceSettingsClient from "./components/client";
-import { getWorkspaces } from "../actions";
+import { getWorkspaces } from "@/app/utils";
 import { deleteWorkspace } from "./actions";
 
-interface PageProps {
-  params: {
-    workspaceId: string;
-  };
+interface PageParams {
+  searchParams: Promise<{
+    workspace?: string;
+  }>;
 }
 
-export default async function WorkspaceConnectionsPage({ params }: PageProps) {
-  const { workspaceId } = await params;
+export default async function WorkspaceSettingsPage({ searchParams }: PageParams) {
+  const workspaceId = (await searchParams).workspace;
   const workspaces = await getWorkspaces();
   const workspace = workspaces.find((w) => w.id === workspaceId);
+
+  if (!workspaceId) {
+    return <div className="text-2xl text-center text-gray-100">Please select a workspace.</div>;
+  }
 
   async function handleDeleteWorkspace() {
     "use server";

@@ -3,7 +3,7 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2,
 };
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgPool, PgPoolOptions};
 use sqlx::Executor;
 use std::sync::Arc;
 
@@ -18,7 +18,11 @@ pub fn hash_password(password: &str) -> Result<String> {
 }
 
 pub async fn create_pg_pool(database_url: &str) -> Result<Arc<sqlx::Pool<sqlx::Postgres>>> {
-    // TODO: Set search_path for the pool
+    let temp_pool = PgPool::connect(database_url).await?;
+    sqlx::query("CREATE SCHEMA IF NOT EXISTS gridwalk")
+        .execute(&temp_pool)
+        .await?;
+    temp_pool.close().await;
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .after_connect(|conn, _meta| {

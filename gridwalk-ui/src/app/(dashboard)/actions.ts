@@ -50,8 +50,11 @@ export async function getProfile(): Promise<ProfileData> {
 export async function createWorkspace(name: string) {
   const cookieStore = await cookies();
   const sid = cookieStore.get("sid");
-
-  const response = await fetch(`${process.env.GRIDWALK_API}/workspace`, {
+  if (!sid?.value) {
+    throw new Error("Authentication token not found");
+  }
+  
+  const response = await fetch(`${process.env.GRIDWALK_API}/workspaces`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${sid?.value}`,
@@ -69,17 +72,6 @@ export type Workspace = {
   id: string;
   name: string;
 };
-
-export async function getWorkspaces(): Promise<Workspace[]> {
-  const authToken = await getAuthToken();
-  const response = await fetch(`${process.env.GRIDWALK_API}/workspaces`, {
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-    },
-  });
-  const data = await response.json();
-  return data;
-}
 
 export type WorkspaceMember = {
   email: string;

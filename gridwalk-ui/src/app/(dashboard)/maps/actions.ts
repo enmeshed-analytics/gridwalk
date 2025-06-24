@@ -55,7 +55,7 @@ export async function getMaps(workspaceId: string): Promise<Map[]> {
 
   try {
     const response = await fetch(
-      `${process.env.GRIDWALK_API}/projects?workspace_id=${workspaceId}`,
+      `${process.env.GRIDWALK_API}/workspaces/${workspaceId}/maps`,
       {
         method: "GET",
         headers: {
