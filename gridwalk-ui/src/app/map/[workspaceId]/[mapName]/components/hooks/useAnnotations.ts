@@ -29,8 +29,12 @@ export function useAnnotations({
           `Adding OS API layer: ${layerId} with ${features.length} features`
         );
 
-        if (map.getLayer(layerId)) {
-          map.removeLayer(layerId);
+        // Remove existing layers and sources
+        if (map.getLayer(`${layerId}-line`)) {
+          map.removeLayer(`${layerId}-line`);
+        }
+        if (map.getLayer(`${layerId}-point`)) {
+          map.removeLayer(`${layerId}-point`);
         }
         if (map.getSource(layerId)) {
           map.removeSource(layerId);
@@ -47,10 +51,12 @@ export function useAnnotations({
           data: featureCollection,
         });
 
+        // Add line layer for line geometries
         map.addLayer({
-          id: layerId,
+          id: `${layerId}-line`,
           type: "line",
           source: layerId,
+          filter: ["==", "$type", "LineString"],
           paint: {
             "line-color": "#3880ff",
             "line-width": 3,
@@ -62,7 +68,20 @@ export function useAnnotations({
           },
         });
 
-        console.log(`Successfully added OS API layer: ${layerId}`);
+        // Add circle layer for point geometries
+        map.addLayer({
+          id: `${layerId}-point`,
+          type: "circle",
+          source: layerId,
+          filter: ["==", "$type", "Point"],
+          paint: {
+            "circle-color": "#3880ff",
+            "circle-radius": 5,
+            "circle-opacity": 0.8,
+          },
+        });
+
+        console.log(`Successfully added OS API layers: ${layerId}`);
       } catch (error) {
         console.error("Error adding OS API layer:", error);
       }
@@ -589,7 +608,7 @@ export function useAnnotations({
           try {
             console.log("🚀 Calling OS API with bbox...");
 
-            const collectionId = "trn-ntwk-street-1";
+            const collectionId = "trn-ntwk-roadnode-1";
 
             const osData = await getCollectionFeaturesByBbox(
               collectionId,
@@ -1032,8 +1051,11 @@ export function useAnnotations({
     const map = mapRef.current;
 
     try {
-      if (map.getLayer(osApiLayerId)) {
-        map.removeLayer(osApiLayerId);
+      if (map.getLayer(`${osApiLayerId}-line`)) {
+        map.removeLayer(`${osApiLayerId}-line`);
+      }
+      if (map.getLayer(`${osApiLayerId}-point`)) {
+        map.removeLayer(`${osApiLayerId}-point`);
       }
       if (map.getSource(osApiLayerId)) {
         map.removeSource(osApiLayerId);

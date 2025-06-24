@@ -56,7 +56,7 @@ export async function getSingleCollectionFeature(
     // limit the number of features returned to 1
     // Change this back to 75 when we want to deploy to production
     // OS limit is 100 anyway
-    queryParams["limit"] = "1";
+    queryParams["limit"] = "100";
 
     const urlParams = new URLSearchParams(queryParams);
     endpoint = `${endpoint}?${urlParams.toString()}`;
