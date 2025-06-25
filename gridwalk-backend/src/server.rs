@@ -4,8 +4,8 @@ use crate::{
     add_workspace_member, change_password, create_datastore, create_map, create_workspace,
     delete_map, delete_workspace, generate_os_token, get_all_datastores, get_datastore,
     get_datastore_capacity, get_geometry_type, get_maps, get_workspace, get_workspace_members,
-    get_workspaces, health_check, list_datastores, list_sources, login, logout, profile, register,
-    remove_workspace_member, test_connection, tiles, upload_layer,
+    get_workspaces, health_check, list_datastores, list_layers, list_sources, login, logout,
+    profile, register, remove_workspace_member, test_connection, tiles, upload_layer,
 };
 use axum::{
     extract::DefaultBodyLimit,
@@ -127,6 +127,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/workspaces/:workspace_id/maps", post(create_map))
         .route("/workspaces/:workspace_id/maps", get(get_maps))
         .route("/workspaces/:workspace_id/maps/:map_id", delete(delete_map))
+        .route("/workspaces/:workspace_id/layers", get(list_layers))
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(100 * 1024 * 1024))
         .layer(middleware::from_fn_with_state(

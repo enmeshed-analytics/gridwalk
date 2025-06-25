@@ -48,6 +48,21 @@ impl Layer {
         }
     }
 
+    pub async fn list_workspace_layers<'e, E>(
+        executor: E,
+        workspace_id: &Uuid,
+    ) -> Result<Vec<Self>, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT * FROM gridwalk.layers WHERE workspace_id = $1";
+        let layers = sqlx::query_as::<_, Layer>(query)
+            .bind(workspace_id)
+            .fetch_all(executor)
+            .await?;
+        Ok(layers)
+    }
+
     pub async fn from_id<'e, E>(executor: E, source_id: &Uuid) -> Result<Self, sqlx::Error>
     where
         E: sqlx::PgExecutor<'e>,

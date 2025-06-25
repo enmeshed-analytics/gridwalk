@@ -2,7 +2,7 @@ use crate::auth::AuthUser;
 use crate::{AppState, WorkspaceMember};
 use crate::{CreateLayer, Layer, User, Workspace, WorkspaceRole};
 use axum::{
-    extract::{Extension, Multipart, State},
+    extract::{Extension, Multipart, Path as RequestPath, State},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
@@ -16,6 +16,54 @@ use tokio::{
     io::AsyncWriteExt,
 };
 use uuid::Uuid;
+
+pub async fn list_layers(
+    State(state): State<Arc<AppState>>,
+    Extension(auth_user): Extension<AuthUser>,
+    RequestPath(workspace_id): RequestPath<Uuid>,
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    // Validate user authorization
+    let user = auth_user.user.as_ref().ok_or_else(|| {
+        let error = json!({
+            "error": "Unauthorized request",
+            "details": null
+        });
+        (StatusCode::UNAUTHORIZED, Json(error))
+    })?;
+    // Validate workspace access
+    let workspace = Workspace::from_id(&*state.pool, &workspace_id)
+        .await
+        .map_err(|e| {
+            let error = json!({
+                "error": "Workspace not found",
+                "details": e.to_string()
+            });
+            (StatusCode::NOT_FOUND, Json(error))
+        })?;
+
+    // Get workspace member - All members can list layers
+    WorkspaceMember::get(&*state.pool, &workspace, user)
+        .await
+        .map_err(|e| {
+            let error = json!({
+                "error": "Access forbidden",
+                "details": e.to_string()
+            });
+            (StatusCode::FORBIDDEN, Json(error))
+        })?;
+
+    let layers = Layer::list_workspace_layers(&*state.pool, &workspace_id)
+        .await
+        .map_err(|e| {
+            let error = json!({
+                "error": "Failed to list layers",
+                "details": e.to_string()
+            });
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(error))
+        })?;
+
+    Ok((StatusCode::OK, Json(layers)))
+}
 
 #[derive(Debug, PartialEq)]
 enum FileType {
