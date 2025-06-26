@@ -1,4 +1,4 @@
-'use server';
+"use server";
 import { cookies } from "next/headers";
 
 export async function getAuthToken() {
@@ -11,16 +11,3 @@ export async function getAuthToken() {
 
   return sid.value;
 }
-
-export async function getWorkspaces(): Promise<Workspace[]> {
-  const authToken = await getAuthToken();
-
-  const response = await fetch(`${process.env.GRIDWALK_API}/workspaces`, {
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-    },
-  });
-  const data = await response.json();
-  return data;
-}
-

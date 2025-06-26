@@ -35,7 +35,7 @@ export function ClientMobileSidebar({
         <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
         <ClientSidebarContent
           profileData={profileData}
-          workspaceData={workspaceData}
+          workspaces={workspaceData}
         />
       </SheetContent>
     </Sheet>

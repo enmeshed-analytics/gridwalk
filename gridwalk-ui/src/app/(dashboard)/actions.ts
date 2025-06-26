@@ -53,7 +53,7 @@ export async function createWorkspace(name: string) {
   if (!sid?.value) {
     throw new Error("Authentication token not found");
   }
-  
+
   const response = await fetch(`${process.env.GRIDWALK_API}/workspaces`, {
     method: "POST",
     headers: {
@@ -79,7 +79,7 @@ export type WorkspaceMember = {
 };
 
 export async function getWorkspaceMembers(
-  workspaceId: string
+  workspaceId: string,
 ): Promise<WorkspaceMember[]> {
   const token = await getAuthToken();
 
@@ -96,7 +96,7 @@ export async function getWorkspaceMembers(
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -145,4 +145,16 @@ export async function logout() {
 
   // Use redirect() after all operations are complete
   redirect("/");
+}
+
+export async function getWorkspaces(): Promise<Workspace[]> {
+  const authToken = await getAuthToken();
+
+  const response = await fetch(`${process.env.GRIDWALK_API}/workspaces`, {
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
+  const data = await response.json();
+  return data;
 }

@@ -10,8 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Workspace, createWorkspace } from '../actions';
-import { getWorkspaces } from '@/app/utils';
+import { Workspace, createWorkspace } from "../actions";
+import { getWorkspaces } from "../actions";
 import { CreateWorkspaceSidebar } from "./create-workspace-modal";
 
 interface ClientWorkspaceDropdownProps {
@@ -27,7 +27,7 @@ export function ClientWorkspaceDropdown({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<string | null>(
-    null
+    null,
   );
 
   const workspaceId = searchParams.get("workspace");
@@ -35,7 +35,7 @@ export function ClientWorkspaceDropdown({
   useEffect(() => {
     const idFromQuery = searchParams.get("workspace");
     const workspaceFromQuery = workspaces.find((w) => w.id === idFromQuery);
-  
+
     if (workspaceFromQuery) {
       setSelectedWorkspace(workspaceFromQuery.name);
     }
@@ -69,7 +69,6 @@ export function ClientWorkspaceDropdown({
     }
   };
 
-
   const handleWorkspaceSelect = async (id: string, name: string) => {
     if (isNavigating) return;
     try {
@@ -83,7 +82,7 @@ export function ClientWorkspaceDropdown({
       console.error("Navigation error:", error);
       const currentWorkspaceId = pathname?.split("/")[2];
       const currentWorkspace = workspaces.find(
-        (w) => w.id === currentWorkspaceId
+        (w) => w.id === currentWorkspaceId,
       );
       if (currentWorkspace) {
         setSelectedWorkspace(currentWorkspace.name);
@@ -110,9 +109,9 @@ export function ClientWorkspaceDropdown({
               size="sm"
               onClick={() => setIsCreateModalOpen(true)}
               className={`hover:bg-blue-100 dark:hover:bg-blue-900/40 p-1 h-6 w-6 rounded-full transition-all duration-300 ${
-                workspaces.length === 0 
-                ? "ring-2 ring-blue-400 animate-pulse" 
-                : ""
+                workspaces.length === 0
+                  ? "ring-2 ring-blue-400 animate-pulse"
+                  : ""
               }`}
               title="Create new workspace"
             >
@@ -132,7 +131,9 @@ export function ClientWorkspaceDropdown({
                 <div className="flex items-center">
                   <Briefcase className="h-4 w-4 mr-2 text-blue-500 dark:text-blue-400" />
                   <span className="truncate">
-                    { workspaces.length === 0 && "No Workspaces" || selectedWorkspace || "Select Workspace" }
+                    {(workspaces.length === 0 && "No Workspaces") ||
+                      selectedWorkspace ||
+                      "Select Workspace"}
                   </span>
                 </div>
                 <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />

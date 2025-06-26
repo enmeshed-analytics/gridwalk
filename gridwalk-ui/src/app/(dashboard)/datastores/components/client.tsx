@@ -1,15 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { WorkspaceConnection } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Search, MoreHorizontal, Database } from "lucide-react";
 import AddConnectionModal from "./add-connection-modal";
@@ -31,13 +38,19 @@ const getConnectorBadgeColor = (connectorType: string) => {
   }
 };
 
-export default function WorkspaceConnectionsClient({ workspaceId, connections }: WorkspaceConnectionsClientProps) {
+export default function WorkspaceConnectionsClient({
+  workspaceId,
+  connections,
+}: WorkspaceConnectionsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Filter connections based on search query
-  const filteredConnections = connections.filter(connection => 
-    connection.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    connection.connector_type.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredConnections = connections.filter(
+    (connection) =>
+      connection.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      connection.connector_type
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -49,7 +62,8 @@ export default function WorkspaceConnectionsClient({ workspaceId, connections }:
               <div>
                 <CardTitle>Workspace Connections</CardTitle>
                 <CardDescription>
-                  Manage data stores for this workspace to store vector and raster data.
+                  Manage data stores for this workspace to store vector and
+                  raster data.
                 </CardDescription>
               </div>
               <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 w-full md:w-auto">
@@ -84,16 +98,28 @@ export default function WorkspaceConnectionsClient({ workspaceId, connections }:
                 <table className="w-full divide-y divide-gray-200 dark:divide-gray-800">
                   <thead className="bg-gray-50 dark:bg-gray-800">
                     <tr>
-                      <th scope="col" className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                      >
                         Name
                       </th>
-                      <th scope="col" className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                      >
                         Connector Type
                       </th>
-                      <th scope="col" className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                      >
                         Status
                       </th>
-                      <th scope="col" className="relative px-4 sm:px-6 py-3 text-right">
+                      <th
+                        scope="col"
+                        className="relative px-4 sm:px-6 py-3 text-right"
+                      >
                         <span className="sr-only">Actions</span>
                       </th>
                     </tr>
@@ -103,7 +129,8 @@ export default function WorkspaceConnectionsClient({ workspaceId, connections }:
                       <tr key={connection.id}>
                         <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            {connection.connector_type.toLowerCase() === "postgis" && (
+                            {connection.connector_type.toLowerCase() ===
+                              "postgis" && (
                               <Database className="h-4 w-4 mr-2 text-green-600" />
                             )}
                             <div>
@@ -112,10 +139,17 @@ export default function WorkspaceConnectionsClient({ workspaceId, connections }:
                               </div>
                               {/* Mobile-only type and status display */}
                               <div className="sm:hidden flex items-center space-x-2 mt-1">
-                                <Badge className={`text-xs ${getConnectorBadgeColor(connection.connector_type)}`}>
+                                <Badge
+                                  className={`text-xs ${getConnectorBadgeColor(
+                                    connection.connector_type
+                                  )}`}
+                                >
                                   {connection.connector_type}
                                 </Badge>
-                                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+                                >
                                   Connected
                                 </Badge>
                               </div>
@@ -123,12 +157,19 @@ export default function WorkspaceConnectionsClient({ workspaceId, connections }:
                           </div>
                         </td>
                         <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
-                          <Badge className={getConnectorBadgeColor(connection.connector_type)}>
+                          <Badge
+                            className={getConnectorBadgeColor(
+                              connection.connector_type
+                            )}
+                          >
                             {connection.connector_type}
                           </Badge>
                         </td>
                         <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                          <Badge
+                            variant="outline"
+                            className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+                          >
                             Connected
                           </Badge>
                         </td>
@@ -159,10 +200,12 @@ export default function WorkspaceConnectionsClient({ workspaceId, connections }:
                 </table>
               </div>
             </div>
-            
+
             {filteredConnections.length === 0 && (
               <div className="text-center py-8">
-                <p className="text-gray-500 dark:text-gray-400">No connections found</p>
+                <p className="text-gray-500 dark:text-gray-400">
+                  No connections found
+                </p>
               </div>
             )}
           </CardContent>

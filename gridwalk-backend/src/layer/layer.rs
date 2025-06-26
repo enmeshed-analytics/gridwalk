@@ -1,6 +1,6 @@
 use crate::User;
 use anyhow::{anyhow, Result};
-use duckdb_postgis::duckdb_load::launch_process_file;
+use duckdb_postgis::duckdb_load::core_processor::process_file;
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;
 use sqlx::{FromRow, Row};
@@ -63,7 +63,7 @@ impl Layer {
     // TODO: Make this generic to work with all connections
     pub async fn send_to_postgis(&self, file_path: &str) -> Result<()> {
         let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk"; // TODO: Use pool
-        let layer_data = launch_process_file(
+        let layer_data = process_file(
             file_path,
             &self.name,
             &postgis_uri,

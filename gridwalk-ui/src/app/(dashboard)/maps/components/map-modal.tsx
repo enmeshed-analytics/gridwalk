@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { CreateMapModalProps, DeleteMapModalProps } from "../../types";
+import { CreateMapModalProps, DeleteMapModalProps } from "@/app/types";
 import {
   Dialog,
   DialogContent,

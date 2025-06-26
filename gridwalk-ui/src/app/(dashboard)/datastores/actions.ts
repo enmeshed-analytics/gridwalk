@@ -5,7 +5,7 @@ export interface WorkspaceConnection {
   id: string;
   name: string;
   connector_type: string;
-};
+}
 
 export async function getWorkspaceConnections(
   workspaceId: string
@@ -72,8 +72,8 @@ export async function createWorkspaceConnection(
     {
       method: "POST",
       headers: {
-	"Content-Type": "application/json",
-	Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(connection),
     }

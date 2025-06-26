@@ -2,7 +2,7 @@
 
 import { getAuthToken } from "@/app/utils";
 import { revalidatePath } from "next/cache";
-import { Map } from "../types";
+import { Map } from "../../types";
 
 export type CreateMapRequest = {
   name: string;
@@ -22,18 +22,19 @@ export async function createMap(data: CreateMapRequest): Promise<MapData> {
   if (!data.workspace_id) throw new Error("Workspace ID is required");
   if (!data.name) throw new Error("Map name is required");
 
-  const response = await fetch(`${process.env.GRIDWALK_API}/create_project`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      workspace_id: data.workspace_id,
-      name: data.name.trim(),
-      ...(data.description && { description: data.description.trim() }),
-    }),
-  });
+  const response = await fetch(
+    `${process.env.GRIDWALK_API}/workspaces/${data.workspace_id}/maps`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        name: data.name.trim(),
+      }),
+    }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -42,7 +43,7 @@ export async function createMap(data: CreateMapRequest): Promise<MapData> {
   }
 
   const mapData = await response.json();
-  revalidatePath(`/workspace/${data.workspace_id}/maps`);
+  revalidatePath(`/maps?workspace=${data.workspace_id}`);
   return mapData;
 }
 
@@ -115,5 +116,5 @@ export async function deleteMap(
   }
 
   // Revalidate the maps list page to reflect the deletion
-  revalidatePath(`/workspaces/${workspaceId}/maps`);
+  revalidatePath(`/maps?workspace=${workspaceId}`);
 }

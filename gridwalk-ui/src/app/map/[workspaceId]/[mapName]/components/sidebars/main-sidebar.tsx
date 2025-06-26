@@ -364,9 +364,7 @@ const MainSidebar = ({
         <div className="mt-auto mb-8">
           <button
             onClick={() => {
-              const pathParts = window.location.pathname.split("/");
-              const workspaceId = pathParts[2];
-              router.push(`/workspace/${workspaceId}/maps`);
+              router.push(`/maps?workspace=${workspaceId}`);
             }}
             className="w-8 h-8 flex items-center justify-center text-white bg-blue-400 hover:text-white hover:bg-blue-500 group relative transition-colors rounded-lg"
             aria-label="Back to workspace"

@@ -15,7 +15,7 @@ import { Search, Plus, Trash2, MapPin } from "lucide-react";
 
 import { CreateMapModal, DeleteMapModal } from "./map-modal";
 import { createMap, deleteMap } from "../actions";
-import { Map } from "../../types";
+import { Map } from "@/app/types";
 
 // Interface for the client component props
 interface WorkspaceMapClientProps {
@@ -30,7 +30,6 @@ interface WorkspaceMapClientProps {
 export default function WorkspaceMapClient({
   workspaceId,
   initialMaps = [],
-  currentWorkspace,
 }: WorkspaceMapClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -171,17 +170,16 @@ export default function WorkspaceMapClient({
     }
   };
 
-
-  const formatDate = (timestamp: string | null): string => {
+  const formatDate = (timestamp: number | null): string => {
     if (!timestamp) return "-";
-  
+
     const date = new Date(timestamp);
-  
+
     if (isNaN(date.getTime())) {
       // Invalid date string
       return "-";
     }
-  
+
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
@@ -227,8 +225,7 @@ export default function WorkspaceMapClient({
           <div>
             <CardTitle>Maps</CardTitle>
             <CardDescription>
-              View and manage maps in{" "}
-              {currentWorkspace?.name || "this workspace"}.
+              View and manage maps in this workspace.
             </CardDescription>
           </div>
           <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 w-full md:w-auto">
@@ -251,8 +248,8 @@ export default function WorkspaceMapClient({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
+      <CardContent className="h-96">
+        <div className="h-full overflow-auto">
           <div className="border rounded-md">
             <table className="w-full divide-y divide-gray-200 dark:divide-gray-800">
               <thead className="bg-gray-50 dark:bg-gray-800">
@@ -308,7 +305,7 @@ export default function WorkspaceMapClient({
                             {map.name}
                           </div>
                           <div className="md:hidden text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Created: 
+                            Created:
                           </div>
                         </div>
                       </div>
@@ -451,7 +448,7 @@ export default function WorkspaceMapClient({
         </div>
 
         {filteredMaps.length === 0 && (
-          <div className="text-center py-8">
+          <div className="flex items-center justify-center h-full">
             <p className="text-gray-500 dark:text-gray-400">No maps found</p>
           </div>
         )}
