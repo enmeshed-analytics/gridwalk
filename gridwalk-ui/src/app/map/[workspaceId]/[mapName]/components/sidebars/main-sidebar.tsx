@@ -44,6 +44,7 @@ const LayersTable = ({
   onStyleClick,
   workspaceId,
 }: LayersTableProps) => {
+  console.log("Rendering LayersTable with connections:", connections);
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
@@ -55,7 +56,7 @@ const LayersTable = ({
             >
               <td className="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">
                 <div className="flex items-center gap-4">
-                  <span className="flex-1 truncate">{String(connection)}</span>
+                  <span className="flex-1 truncate">{String(connection.name)}</span>
                   <div className="flex gap-2 shrink-0">
                     {selectedLayers[index] && (
                       <Button
