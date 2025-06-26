@@ -98,7 +98,7 @@ export async function deleteMap(
   if (!mapId) throw new Error("Map ID is required");
 
   const response = await fetch(
-    `${process.env.GRIDWALK_API}/projects?workspace_id=${workspaceId}&project_id=${mapId}`,
+    `${process.env.GRIDWALK_API}/workspaces/${workspaceId}/maps/${mapId}`,
     {
       method: "DELETE",
       headers: {
