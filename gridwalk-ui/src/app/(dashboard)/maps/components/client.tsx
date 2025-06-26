@@ -248,7 +248,7 @@ export default function WorkspaceMapClient({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="h-96">
+      <CardContent className="min-h-48">
         <div className="h-full overflow-auto">
           <div className="border rounded-md">
             <table className="w-full divide-y divide-gray-200 dark:divide-gray-800">
@@ -446,10 +446,11 @@ export default function WorkspaceMapClient({
             </table>
           </div>
         </div>
-
         {filteredMaps.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500 dark:text-gray-400">No maps found</p>
+          <div className="text-center py-8">
+            <p className="text-white dark:white font-bold">
+              No maps found - please create one!
+            </p>
           </div>
         )}
       </CardContent>
