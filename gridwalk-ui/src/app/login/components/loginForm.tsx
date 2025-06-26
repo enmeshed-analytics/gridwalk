@@ -52,7 +52,7 @@ export default function AuthForm(): JSX.Element {
   };
 
   const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>,
+    e: React.FormEvent<HTMLFormElement>
   ): Promise<void> => {
     e.preventDefault();
     const { email, password, first_name, last_name } = formData;
@@ -85,7 +85,7 @@ export default function AuthForm(): JSX.Element {
   };
 
   const handleResetPassword = async (
-    e: React.FormEvent<HTMLFormElement>,
+    e: React.FormEvent<HTMLFormElement>
   ): Promise<void> => {
     e.preventDefault();
     if (!resetEmail) {
@@ -291,8 +291,8 @@ export default function AuthForm(): JSX.Element {
                 ? "Signing in..."
                 : "Creating account..."
               : isLogin
-                ? "Sign in"
-                : "Create account"}
+              ? "Sign in"
+              : "Create account"}
           </Button>
 
           <div className="text-center text-sm">

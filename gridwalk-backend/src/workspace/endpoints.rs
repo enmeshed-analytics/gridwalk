@@ -1,17 +1,18 @@
 use crate::auth::AuthUser;
-use crate::{app_state::AppState, utils::get_unix_timestamp};
-use crate::{User, Workspace, WorkspaceRole};
+use crate::error::ApiError;
+use crate::{
+    AppState, DataStoreConfig, User, Workspace, WorkspaceDataStoreAccess, WorkspaceMember,
+    WorkspaceRole,
+};
 use axum::{
     extract::{Extension, Path, State},
-    response::{IntoResponse, Response},
+    http::StatusCode,
+    response::IntoResponse,
     Json,
 };
-use futures;
-use futures::future::join_all;
-use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::sync::Arc;
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Serialize)]
@@ -24,19 +25,6 @@ pub struct ReqCreateWorkspace {
     name: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ReqAddWorkspaceMember {
-    workspace_id: String,
-    email: String,
-    role: WorkspaceRole,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ReqRemoveWorkspaceMember {
-    workspace_id: String,
-    email: String,
-}
-
 #[derive(Debug, Serialize)]
 pub struct SimpleMemberResponse {
     role: WorkspaceRole,
@@ -44,260 +32,415 @@ pub struct SimpleMemberResponse {
 }
 
 impl Workspace {
-    pub fn from_req(req: ReqCreateWorkspace, owner: String) -> Self {
+    pub fn from_req(req: ReqCreateWorkspace) -> Self {
         Workspace {
-            id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
             name: req.name,
-            owner,
-            created_at: get_unix_timestamp(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
             active: true,
         }
     }
 }
 
-// TODO: Create all records within a transaction
 pub async fn create_workspace(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
+    Extension(auth): Extension<AuthUser>,
     Json(req): Json<ReqCreateWorkspace>,
-) -> Response {
-    if let Some(owner) = auth_user.user {
-        let wsp = Workspace::from_req(req, owner.clone().id);
-        let primary_connection = state
-            .geo_connections
-            .get_connection("primary")
-            .await
-            .unwrap();
-        match Workspace::create(&state.app_data, &primary_connection, &wsp).await {
-            Ok(_) => {
-                let now = get_unix_timestamp();
-                // TODO: Handle response from adding member
-                let _ = state
-                    .app_data
-                    .add_workspace_member(&wsp, &owner, WorkspaceRole::Admin, now)
-                    .await;
-                Json(json!({ "workspace_id": wsp.id })).into_response()
-            }
-            Err(_) => "workspace not created".into_response(),
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
+
+    // TODO: Limit workspace creation based on global limits per user
+
+    // Find a connection with available capacity
+    let connection_capacity_vec = DataStoreConfig::get_shared_with_spare_capacity(&*state.pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch connections: {:?}", e);
+            ApiError::InternalServerError
+        })?;
+
+    if connection_capacity_vec.is_empty() {
+        error!("No connections with available capacity found");
+        return Err(ApiError::BadRequest(
+            "No connections with available capacity found".to_string(),
+        ));
+    }
+
+    // Get connection with the highest available capacity
+    let selected_connection_capacity = connection_capacity_vec
+        .iter()
+        .max_by_key(|conn| conn.capacity - conn.usage_count)
+        .ok_or_else(|| {
+            error!("No available connections found");
+            ApiError::InternalServerError
+        })?;
+
+    println!(
+        "Selected connection with capacity: {:?}",
+        selected_connection_capacity
+    );
+
+    let workspace = Workspace::from_req(req);
+    let owner = WorkspaceMember::new(&workspace, &user, WorkspaceRole::Owner);
+    let connection_access =
+        WorkspaceDataStoreAccess::new(selected_connection_capacity.connection_id, workspace.id);
+    println!(
+        "Creating workspace: {:?}, owner: {:?}, connection access: {:?}",
+        workspace, owner, connection_access
+    );
+
+    let mut tx = state.pool.begin().await.map_err(|e| {
+        error!("Failed to begin transaction: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    workspace.save(&mut *tx).await.map_err(|e| {
+        error!("Failed to create workspace: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+    owner.save(&mut *tx).await.map_err(|e| {
+        error!("Failed to add workspace member: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+    connection_access.save(&mut *tx).await.map_err(|e| {
+        error!("Failed to create workspace connection access: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    match tx.commit().await {
+        Ok(_) => Ok(StatusCode::CREATED),
+        Err(e) => {
+            error!("Failed to commit transaction: {:?}", e);
+            Err(ApiError::InternalServerError)
         }
-    } else {
-        "workspace not created".into_response()
     }
 }
 
 pub async fn delete_workspace(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<String>,
-) -> Response {
-    if let Some(req_user) = auth_user.user {
-        // Retrieve the workspace to ensure it exists and check permissions
-        if let Ok(workspace) = Workspace::from_id(&state.app_data, &workspace_id).await {
-            if workspace.owner == req_user.id {
-                // Ensure the user is the owner
-                match Workspace::delete(&state.app_data, &workspace_id).await {
-                    Ok(_) => "workspace deleted successfully".into_response(),
-                    Err(_) => "failed to delete workspace".into_response(),
-                }
-            } else {
-                "unauthorised to delete this workspace".into_response()
-            }
-        } else {
-            "workspace not found".into_response()
+    Extension(auth): Extension<AuthUser>,
+    Path(workspace_id): Path<Uuid>,
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
+
+    let workspace = match Workspace::from_id(&*state.pool, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
+    };
+
+    match WorkspaceMember::get(&*state.pool, &workspace, &user).await {
+        Ok(member) if member.role == WorkspaceRole::Owner => member,
+        Ok(_) => {
+            error!("User is not an owner of the workspace: {:?}", workspace_id);
+            return Err(ApiError::Unauthorized);
         }
-    } else {
-        "unauthorised".into_response()
-    }
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
+    };
+
+    // TODO: Remove all members and connections associated with the workspace
+    // TODO: Implement proper deletion logic, does not do anything currently
+    workspace.delete(&*state.pool).await.map_err(|e| {
+        error!("Failed to delete workspace: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    Ok(StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReqAddWorkspaceMember {
+    email: String,
+    role: WorkspaceRole,
 }
 
 pub async fn add_workspace_member(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
+    Extension(auth): Extension<AuthUser>,
+    Path(workspace_id): Path<Uuid>,
     Json(req): Json<ReqAddWorkspaceMember>,
-) -> Response {
-    if let Some(req_user) = auth_user.user {
-        // Get the target user by email
-        let user_to_add = match User::from_email(&state.app_data, &req.email).await {
-            Ok(user) => user,
-            Err(_) => return "user not found".into_response(),
-        };
+) -> Result<impl IntoResponse, ApiError> {
+    let requesting_user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
 
-        // Get the workspace
-        let workspace = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
-            Ok(ws) => ws,
-            Err(_) => return "workspace not found".into_response(),
-        };
+    // Get the workspace
+    let workspace = match Workspace::from_id(&*state.pool, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
+    };
 
-        // Add memeber workspace
-        match workspace
-            .add_member(&state.app_data, &req_user, &user_to_add, req.role)
-            .await
-        {
-            Ok(_) => "member added to workspace successfully".into_response(),
-            Err(_) => "failed to add member to workspace".into_response(),
-        }
-    } else {
-        "unauthorized".into_response()
+    match WorkspaceMember::get(&*state.pool, &workspace, &requesting_user).await {
+        Ok(member) if matches!(member.role, WorkspaceRole::Owner | WorkspaceRole::Admin) => {}
+        _ => return Err(ApiError::Unauthorized),
     }
+
+    // Get the target user by email
+    let user_to_add = match User::from_email(&*state.pool, &req.email).await {
+        Ok(user) => user,
+        Err(_) => return Err(ApiError::NotFound("User not found".to_string())),
+    };
+
+    // Check if the user is already a member of the workspace
+    let existing_member_check = WorkspaceMember::get(&*state.pool, &workspace, &user_to_add).await;
+    if existing_member_check.is_ok() {
+        return Ok(StatusCode::CONFLICT);
+    }
+
+    // Add the user to the workspace
+    let new_member = WorkspaceMember::new(&workspace, &user_to_add, req.role);
+    match new_member.save(&*state.pool).await {
+        Ok(_) => Ok(StatusCode::CREATED),
+        Err(e) => {
+            error!("Failed to add workspace member: {:?}", e);
+            Err(ApiError::InternalServerError)
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReqRemoveWorkspaceMember {
+    email: String,
 }
 
 pub async fn remove_workspace_member(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
+    Extension(auth): Extension<AuthUser>,
+    Path(workspace_id): Path<Uuid>,
     Json(req): Json<ReqRemoveWorkspaceMember>,
-) -> Response {
-    if let Some(req_user) = auth_user.user {
-        // Get the workspace
-        let wsp = match Workspace::from_id(&state.app_data, &req.workspace_id).await {
-            Ok(ws) => ws,
-            Err(_) => return "workspace not found".into_response(),
+) -> Result<impl IntoResponse, ApiError> {
+    let requesting_user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
+
+    // Get the workspace
+    let workspace = match Workspace::from_id(&*state.pool, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
+    };
+
+    // Check if the requesting user is a member of the workspace
+    match WorkspaceMember::get(&*state.pool, &workspace, &requesting_user).await {
+        Ok(member) if matches!(member.role, WorkspaceRole::Owner | WorkspaceRole::Admin) => {}
+        _ => return Err(ApiError::Unauthorized),
+    }
+
+    // Get the target user by email
+    let user_to_remove = match User::from_email(&*state.pool, &req.email).await {
+        Ok(user) => user,
+        Err(_) => return Err(ApiError::NotFound("User not found".to_string())),
+    };
+
+    let member_to_remove =
+        match WorkspaceMember::get(&*state.pool, &workspace, &user_to_remove).await {
+            Ok(member) => member,
+            Err(_) => {
+                return Err(ApiError::NotFound(
+                    "Member not found in workspace".to_string(),
+                ))
+            }
         };
 
-        // Get the user to remove by email instead of id
-        let user = match User::from_email(&state.app_data, &req.email).await {
-            Ok(user) => user,
-            Err(_) => return "user not found".into_response(),
-        };
-
-        // Remove workspace member
-        match wsp.remove_member(&state.app_data, &req_user, &user).await {
-            Ok(_) => "removed workspace member".into_response(),
-            Err(_) => "failed to remove member".into_response(),
+    match member_to_remove.delete(&*state.pool).await {
+        Ok(_) => Ok(StatusCode::OK),
+        Err(e) => {
+            error!("Failed to remove workspace member: {:?}", e);
+            Err(ApiError::InternalServerError)
         }
-    } else {
-        "unauthorized".into_response()
     }
 }
 
 pub async fn get_workspace_members(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<String>,
-) -> impl IntoResponse {
-    if let Some(req_user) = auth_user.user {
-        // Get the workspace
-        let workspace = match Workspace::from_id(&state.app_data, &workspace_id).await {
-            Ok(ws) => ws,
-            Err(_) => {
-                let error = ErrorResponse {
-                    error: "Workspace not found".to_string(),
-                };
-                return Json(error).into_response();
-            }
-        };
+    Extension(auth): Extension<AuthUser>,
+    Path(workspace_id): Path<Uuid>,
+) -> Result<impl IntoResponse, ApiError> {
+    let requesting_user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
 
-        //
-        if let Ok(_member) = workspace.get_member(&state.app_data, &req_user).await {
-            // Get all members and transform to simplified response
-            match workspace.get_members(&state.app_data).await {
-                Ok(members) => {
-                    let users: Vec<SimpleMemberResponse> = futures::stream::iter(members)
-                        .then(|m| {
-                            let state_clone = state.clone();
-                            async move {
-                                if let Ok(user) =
-                                    User::from_id(&state_clone.app_data, &m.user_id).await
-                                {
-                                    SimpleMemberResponse {
-                                        role: m.role,
-                                        email: user.email,
-                                    }
-                                } else {
-                                    SimpleMemberResponse {
-                                        role: m.role,
-                                        email: "Uknown".to_string(),
-                                    }
-                                }
-                            }
-                        })
-                        .collect()
-                        .await;
+    // Get the workspace
+    let workspace = match Workspace::from_id(&*state.pool, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => return Err(ApiError::NotFound("Workspace not found".to_string())),
+    };
 
-                    Json(users).into_response()
-                }
-                Err(_) => {
-                    let error = ErrorResponse {
-                        error: "Failed to fetch workspace members".to_string(),
-                    };
-                    Json(error).into_response()
-                }
-            }
-        } else {
-            let error = ErrorResponse {
-                error: "Unauthorized to view workspace members".to_string(),
-            };
-            Json(error).into_response()
-        }
-    } else {
-        let error = ErrorResponse {
-            error: "Unauthorized".to_string(),
-        };
-        Json(error).into_response()
+    // Check if the requesting user is a member of the workspace
+    match WorkspaceMember::get(&*state.pool, &workspace, &requesting_user).await {
+        Ok(_member) => {}
+        _ => return Err(ApiError::Unauthorized),
     }
+
+    // Get all members of the workspace
+    let members = workspace.get_members(&*state.pool).await.map_err(|e| {
+        error!("Failed to fetch workspace members: {:?}", e);
+        ApiError::InternalServerError
+    })?;
+
+    Ok(Json(members))
 }
 
 pub async fn get_workspaces(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-) -> Response {
-    if let Some(user) = auth_user.user {
-        match Workspace::get_user_workspaces(&state.app_data, &user).await {
-            Ok(workspace_ids) => {
-                let workspaces: Vec<Workspace> = join_all(
-                    workspace_ids
-                        .iter()
-                        .map(|id| Workspace::from_id(&state.app_data, id)),
-                )
-                .await
-                .into_iter()
-                .filter_map(Result::ok)
-                .collect();
+    Extension(auth): Extension<AuthUser>,
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
 
-                Json(workspaces).into_response()
-            }
-            Err(_) => {
-                let error = ErrorResponse {
-                    error: "Failed to fetch workspaces".to_string(),
-                };
-                Json(error).into_response()
-            }
+    match Workspace::get_user_workspaces(&*state.pool, &user).await {
+        Ok(workspaces) => Ok(Json(workspaces)),
+        Err(_) => {
+            error!("Failed to fetch workspaces for user: {:?}", user.id);
+            Err(ApiError::InternalServerError)
         }
-    } else {
-        let error = ErrorResponse {
-            error: "Unauthorized".to_string(),
-        };
-        Json(error).into_response()
     }
 }
 
 pub async fn get_workspace(
     State(state): State<Arc<AppState>>,
-    Extension(auth_user): Extension<AuthUser>,
-    Path(workspace_id): Path<String>,
-) -> Response {
-    if let Some(user) = auth_user.user {
-        match Workspace::from_id(&state.app_data, &workspace_id).await {
-            Ok(workspace) => {
-                if let Ok(_member) = workspace.get_member(&state.app_data, &user).await {
-                    Json(workspace).into_response()
-                } else {
-                    let error = ErrorResponse {
-                        error: "Unauthorized".to_string(),
-                    };
-                    Json(error).into_response()
-                }
-            }
-            Err(_) => {
-                let error = ErrorResponse {
-                    error: "Workspace not found".to_string(),
-                };
-                Json(error).into_response()
-            }
+    Extension(auth): Extension<AuthUser>,
+    Path(workspace_id): Path<Uuid>,
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
+
+    let workspace = Workspace::from_id(&*state.pool, &workspace_id)
+        .await
+        .map_err(|_| {
+            error!("Workspace not found: {:?}", workspace_id);
+            ApiError::NotFound("Workspace not found".to_string())
+        })?;
+
+    // Check if the user is a member of the workspace
+    match WorkspaceMember::get(&*state.pool, &workspace, &user).await {
+        Ok(_member) => {}
+        Err(_) => {
+            error!(
+                "Unauthorized access: user {:?} not a member of workspace {:?}",
+                user.id, workspace_id
+            );
+            return Err(ApiError::Unauthorized);
         }
-    } else {
-        let error = ErrorResponse {
-            error: "Unauthorized".to_string(),
-        };
-        Json(error).into_response()
     }
+
+    Ok(Json(workspace))
+}
+
+// For a workspace with a given connection_id, list all data sources
+// e.g. tables, views, etc.
+pub async fn list_sources(
+    State(state): State<Arc<AppState>>,
+    Extension(auth): Extension<AuthUser>,
+    Path((workspace_id, connection_id)): Path<(Uuid, Uuid)>,
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
+
+    let workspace = Workspace::from_id(&*state.pool, &workspace_id)
+        .await
+        .map_err(|_| {
+            error!("Workspace not found: {:?}", workspace_id);
+            ApiError::NotFound("Workspace not found".to_string())
+        })?;
+
+    // Check if the user is a member of the workspace
+    match WorkspaceMember::get(&*state.pool, &workspace, &user).await {
+        Ok(_member) => {}
+        Err(_) => {
+            error!(
+                "Unauthorized access: user {:?} not a member of workspace {:?}",
+                user.id, workspace_id
+            );
+            return Err(ApiError::Unauthorized);
+        }
+    }
+
+    match WorkspaceDataStoreAccess::get(&*state.pool, &workspace, &connection_id).await {
+        Ok(_access) => {}
+        Err(_) => return Err(ApiError::NotFound("Connection not found".to_string())),
+    }
+
+    let connection = state.connections.get_connection(&connection_id).unwrap();
+
+    match connection.list_sources(&workspace.id).await {
+        Ok(sources) => Ok(Json(sources)),
+        Err(e) => {
+            eprintln!("Error listing sources: {:?}", e);
+            Err(ApiError::InternalServerError)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DataStoreResponse {
+    pub id: String,
+    pub name: String,
+    pub connector_type: String,
+    pub tenancy: String,
+}
+
+// TODO: Switch to using Connection after retrieving the connection from the database
+impl From<DataStoreConfig> for DataStoreResponse {
+    fn from(con: DataStoreConfig) -> Self {
+        Self {
+            id: con.id.to_string(),
+            name: con.name,
+            connector_type: con.config.to_string(),
+            tenancy: con.tenancy.to_string(),
+        }
+    }
+}
+
+// List all accessible connections for a given workspace
+pub async fn list_datastores(
+    State(state): State<Arc<AppState>>,
+    Extension(auth): Extension<AuthUser>,
+    Path(workspace_id): Path<Uuid>,
+) -> Result<impl IntoResponse, ApiError> {
+    let user = auth.user.ok_or_else(|| {
+        error!("Unauthorized access: no valid user found in middleware");
+        ApiError::Unauthorized
+    })?;
+
+    let workspace = match Workspace::from_id(&*state.pool, &workspace_id).await {
+        Ok(ws) => ws,
+        Err(_) => Err(ApiError::NotFound("Workspace not found".to_string()))?,
+    };
+
+    // Check if the requesting user is a member of the workspace
+    match WorkspaceMember::get(&*state.pool, &workspace, &user).await {
+        Ok(_member) => {}
+        Err(_) => return Err(ApiError::Unauthorized),
+    }
+
+    let connection_access_list = WorkspaceDataStoreAccess::get_all(&*state.pool, &workspace)
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch connection access list: {:?}", e);
+            ApiError::InternalServerError
+        })?;
+
+    // Convert Vec<Connection> to Vec<ConnectionResponse>
+    // Removes the config from the response
+    let connection_responses: Vec<DataStoreResponse> = connection_access_list
+        .into_iter()
+        .map(DataStoreResponse::from)
+        .collect();
+
+    Ok(Json(connection_responses))
 }

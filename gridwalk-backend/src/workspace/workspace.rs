@@ -1,183 +1,94 @@
-use crate::data::Database;
-use crate::utils::get_unix_timestamp;
 use crate::User;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::str::FromStr;
-use std::sync::Arc;
+use sqlx::Row;
+use uuid::Uuid;
 
-use crate::{ConnectionAccess, ConnectionAccessConfig, GeoConnector};
+use super::WorkspaceMemberWithEmail;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
-    pub owner: String,
-    pub created_at: u64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
     pub active: bool,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WorkspaceMember {
-    pub workspace_id: String,
-    pub user_id: String,
-    pub role: WorkspaceRole,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum WorkspaceRole {
-    Superuser,
-    Admin,
-    Read,
-}
-
-impl fmt::Display for WorkspaceRole {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            WorkspaceRole::Superuser => write!(f, "superuser"),
-            WorkspaceRole::Admin => write!(f, "admin"),
-            WorkspaceRole::Read => write!(f, "read"),
-        }
+impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for Workspace {
+    fn from_row(row: &'r sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+        Ok(Self {
+            id: row.try_get("id")?,
+            name: row.try_get("name")?,
+            created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
+            active: row.try_get("active")?,
+        })
     }
-}
-
-impl FromStr for WorkspaceRole {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.trim().to_lowercase().as_str() {
-            "superuser" => Ok(WorkspaceRole::Superuser),
-            "admin" => Ok(WorkspaceRole::Admin),
-            "read" => Ok(WorkspaceRole::Read),
-            _ => Err(format!("Unknown role: {}", s)),
-        }
-    }
-}
-
-impl From<&String> for WorkspaceRole {
-    fn from(s: &String) -> Self {
-        WorkspaceRole::from_str(s).unwrap_or(WorkspaceRole::Read)
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct RemoveOrgMember {
-    pub org_id: String,
-    pub user_id: String,
 }
 
 impl Workspace {
-    pub async fn from_id(database: &Arc<dyn Database>, id: &str) -> Result<Self> {
-        Ok(database.get_workspace_by_id(id).await?)
-    }
-
-    pub async fn create(
-        database: &Arc<dyn Database>,
-        connection: &Arc<dyn GeoConnector>,
-        wsp: &Workspace,
-    ) -> Result<()> {
-        // Check for existing org with same name
-        let db_resp = database.create_workspace(wsp).await;
-
-        // Create ConnectionAccess to shared primary db
-        let connection_access = ConnectionAccess {
-            connection_id: "primary".to_string(),
-            workspace_id: wsp.id.clone(),
-            access_config: ConnectionAccessConfig::ReadWrite(wsp.id.clone()),
-        };
-        connection_access.create_record(database).await?;
-        let _ = &connection.create_namespace(&wsp.id).await?;
-
-        match db_resp {
-            Ok(_) => Ok(()),
-            Err(_) => Err(anyhow!("failed to create workspace")),
-        }
-    }
-
-    pub async fn delete(database: &Arc<dyn Database>, workspace_id: &str) -> Result<()> {
-        database
-            .delete_workspace(&Workspace {
-                id: workspace_id.to_string(),
-                name: String::new(),
-                owner: String::new(),
-                created_at: 0,
-                active: false,
-            })
-            .await
-    }
-
-    pub async fn add_member(
-        self,
-        database: &Arc<dyn Database>,
-        req_user: &User,
-        user: &User,
-        role: WorkspaceRole,
-    ) -> Result<()> {
-        let requesting_member = self.clone().get_member(&database, &req_user).await?;
-        if requesting_member.role != WorkspaceRole::Admin {
-            Err(anyhow!("Only Admin can add members"))?
-        }
-
-        let now = get_unix_timestamp();
-        database
-            .add_workspace_member(&self, user, role, now)
+    pub async fn from_id<'e, E>(executor: E, id: &Uuid) -> Result<Self, sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT * FROM gridwalk.workspaces WHERE id = $1";
+        let row = sqlx::query_as::<_, Workspace>(query)
+            .bind(id)
+            .fetch_one(executor)
             .await?;
+        Ok(row)
+    }
+
+    pub async fn save<'e, E>(&self, executor: E) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "INSERT INTO gridwalk.workspaces (id, name, created_at, updated_at, active) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at, active = EXCLUDED.active";
+        sqlx::query(query)
+            .bind(self.id)
+            .bind(&self.name)
+            .bind(self.created_at)
+            .bind(self.updated_at)
+            .bind(self.active)
+            .execute(executor)
+            .await?;
+
         Ok(())
     }
 
-    pub async fn get_member(
-        &self,
-        database: &Arc<dyn Database>,
-        user: &User,
-    ) -> Result<WorkspaceMember> {
-        // TODO: Fix unwrap
-        Ok(database.get_workspace_member(&self, user).await.unwrap())
-    }
-
-    pub async fn get_members(&self, database: &Arc<dyn Database>) -> Result<Vec<WorkspaceMember>> {
-        database.get_workspace_members(self).await
-    }
-
-    pub async fn remove_member(
-        self,
-        database: &Arc<dyn Database>,
-        req_user: &User,
-        user: &User,
-    ) -> Result<()> {
-        let requesting_member = self.clone().get_member(&database, &req_user).await?;
-        if requesting_member.role != WorkspaceRole::Admin {
-            Err(anyhow!("Only Admin can remove members"))?
-        }
-
-        database.remove_workspace_member(&self, user).await?;
+    // TODO: Implement proper deletion logic. Handle deleting/archiving data
+    pub async fn delete<'e, E>(&self, _executor: E) -> Result<()>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let _query = "DELETE FROM gridwalk.workspaces WHERE id = $1";
+        // sqlx::query(query).bind(self.id).execute(executor).await?;
         Ok(())
     }
 
-    pub async fn get_user_workspaces(
-        database: &Arc<dyn Database>,
-        user: &User,
-    ) -> Result<Vec<String>> {
-        database.get_workspaces(user).await
-    }
-}
-
-impl WorkspaceMember {
-    pub async fn get(
-        database: &Arc<dyn Database>,
-        workspace: &Workspace,
-        user: &User,
-    ) -> Result<Self> {
-        Ok(database
-            .get_workspace_member(workspace, user)
-            .await
-            // TODO: Fix unwrap
-            .unwrap())
+    pub async fn get_members<'e, E>(&self, executor: E) -> Result<Vec<WorkspaceMemberWithEmail>>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT wm.*, u.email FROM gridwalk.workspace_members wm JOIN gridwalk.users u ON wm.user_id = u.id WHERE wm.workspace_id = $1";
+        let rows = sqlx::query_as::<_, WorkspaceMemberWithEmail>(query)
+            .bind(self.id)
+            .fetch_all(executor)
+            .await?;
+        Ok(rows)
     }
 
-    pub fn is_admin(&self) -> bool {
-        if self.role == WorkspaceRole::Admin {
-            return true;
-        }
-        false
+    pub async fn get_user_workspaces<'e, E>(executor: E, user: &User) -> Result<Vec<Workspace>>
+    where
+        E: sqlx::PgExecutor<'e>,
+    {
+        let query = "SELECT w.* FROM gridwalk.workspaces w JOIN gridwalk.workspace_members wm ON w.id = wm.workspace_id WHERE wm.user_id = $1";
+        let rows = sqlx::query_as::<_, Workspace>(query)
+            .bind(user.id)
+            .fetch_all(executor)
+            .await?;
+
+        Ok(rows)
     }
 }

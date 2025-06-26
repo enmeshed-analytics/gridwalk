@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
 
       // If authenticated, redirect to workspace
       if (response.ok) {
-        return NextResponse.redirect(new URL("/workspace", request.url));
+        return NextResponse.redirect(new URL("/maps", request.url));
       }
 
       // If not authenticated, allow access to login page

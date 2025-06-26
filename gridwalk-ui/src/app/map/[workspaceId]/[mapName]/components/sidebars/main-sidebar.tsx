@@ -44,6 +44,7 @@ const LayersTable = ({
   onStyleClick,
   workspaceId,
 }: LayersTableProps) => {
+  console.log("Rendering LayersTable with connections:", connections);
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse">
@@ -55,7 +56,7 @@ const LayersTable = ({
             >
               <td className="px-4 py-2 text-xs text-gray-900 dark:text-gray-100">
                 <div className="flex items-center gap-4">
-                  <span className="flex-1 truncate">{String(connection)}</span>
+                  <span className="flex-1 truncate">{String(connection.name)}</span>
                   <div className="flex gap-2 shrink-0">
                     {selectedLayers[index] && (
                       <Button
@@ -364,9 +365,7 @@ const MainSidebar = ({
         <div className="mt-auto mb-8">
           <button
             onClick={() => {
-              const pathParts = window.location.pathname.split("/");
-              const workspaceId = pathParts[2];
-              router.push(`/workspace/${workspaceId}/maps`);
+              router.push(`/maps?workspace=${workspaceId}`);
             }}
             className="w-8 h-8 flex items-center justify-center text-white bg-blue-400 hover:text-white hover:bg-blue-500 group relative transition-colors rounded-lg"
             aria-label="Back to workspace"
