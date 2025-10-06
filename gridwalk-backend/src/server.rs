@@ -70,7 +70,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    let shared_state = Arc::new(app_state);
+    let shared_state = Arc::new(app_state.clone());
 
     let upload_router = Router::new()
         .route("/upload_layer", post(upload_layer))
@@ -142,7 +142,7 @@ pub fn create_app(app_state: AppState) -> Router {
         .route("/login", post(login))
         .route("/os-token", get(generate_os_token)) // Move this to main router with auth
         .route("/health", get(health_check))
-        .with_state(shared_state.clone())
+        .with_state(app_state.clone())
         .layer(cors);
 
     // Create the tiles router with its specific CORS configuration

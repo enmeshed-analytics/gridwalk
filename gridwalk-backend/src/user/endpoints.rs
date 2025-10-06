@@ -22,44 +22,6 @@ pub async fn health_check() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "healthy" }))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct RegisterRequest {
-    email: String,
-    password: String,
-    first_name: String,
-    last_name: String,
-}
-
-pub async fn register(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<RegisterRequest>,
-) -> Result<StatusCode, ApiError> {
-    // TODO: Check if the user already exists
-    let mut tx = state.pool.begin().await.map_err(|e| {
-        error!("Failed to begin transaction: {:?}", e);
-        ApiError::InternalServerError
-    })?;
-    let user = User::new(req.email, req.first_name, req.last_name, None);
-
-    user.save(&mut tx).await.map_err(|e| {
-        error!("Failed to create user: {:?}", e);
-        ApiError::InternalServerError
-    })?;
-
-    let user_password = UserPassword::new(user.id, req.password);
-    user_password.save(&mut *tx).await.map_err(|e| {
-        error!("Failed to create user password: {:?}", e);
-        ApiError::InternalServerError
-    })?;
-
-    tx.commit().await.map_err(|e| {
-        error!("Failed to commit transaction: {:?}", e);
-        ApiError::InternalServerError
-    })?;
-
-    Ok(StatusCode::CREATED)
-}
-
 #[derive(Serialize)]
 pub struct SessionResponse {
     sid: String,
@@ -83,13 +45,13 @@ pub struct LoginRequest {
 
 // Endpoint to login with username and password
 pub async fn login(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppState>,
     params: Json<LoginRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
     info!("Login request received for email: {}", params.email);
 
     // Check if the user exists in the database
-    let user = User::from_email(&*state.pool, &params.email.clone())
+    let user = User::from_email(&*state.pool, &params.email)
         .await
         .map_err(|e| {
             error!("Failed to fetch user from email: {:?}", e);
@@ -181,7 +143,7 @@ pub async fn change_password(
         ApiError::Unauthorized
     })?;
 
-    match user.change_password(&state.pool, &req.new_password).await {
+    match user.change_password(&*state.pool, &req.new_password).await {
         Ok(_) => Ok(StatusCode::OK),
         Err(_) => Err(ApiError::InternalServerError),
     }

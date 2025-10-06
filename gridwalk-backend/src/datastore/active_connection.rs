@@ -51,6 +51,10 @@ impl ActiveConnections {
         Ok(())
     }
 
+    pub fn list(&self) -> Vec<Uuid> {
+        self.sources.iter().map(|entry| *entry.key()).collect()
+    }
+
     pub fn get_connection(
         &self,
         id: &Uuid,

@@ -1,5 +1,5 @@
 use crate::auth::AuthUser;
-use crate::{AppState, WorkspaceMember};
+use crate::{AppState, DataStoreConfig, WorkspaceMember};
 use crate::{CreateLayer, Layer, User, Workspace, WorkspaceRole};
 use axum::{
     extract::{Extension, Multipart, Path as RequestPath, State},
@@ -345,6 +345,32 @@ pub async fn upload_layer(
             }
         }
     }
+
+    let connection_id = context.layer_info.clone().unwrap().connection_id;
+    println!("Connection ID for layer: {}", connection_id);
+    let workspace_id = context.layer_info.clone().unwrap().workspace_id;
+
+    let connections = state.connections.list();
+    println!("Connections: {:?}", connections);
+
+    let data_store_config = DataStoreConfig::from_id(&*state.pool, &connection_id)
+        .await
+        .unwrap();
+
+    println!(
+        "Data store config for connection {}: {:?}",
+        connection_id, data_store_config
+    );
+
+    // Add to active connections
+    state
+        .connections
+        .load_connection(data_store_config)
+        .await
+        .unwrap();
+
+    let connections = state.connections.list();
+    println!("Connections after loading: {:?}", connections);
 
     // Get final path - use shapefile path if it's a shapefile upload
     let final_path = context.file_path.ok_or_else(|| {

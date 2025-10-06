@@ -71,7 +71,7 @@ impl Workspace {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT wm.*, u.email FROM gridwalk.workspace_members wm JOIN gridwalk.users u ON wm.user_id = u.id WHERE wm.workspace_id = $1";
+        let query = "SELECT wm.*, u.email FROM gridwalk.workspace_members wm JOIN app_data.users u ON wm.user_id = u.id WHERE wm.workspace_id = $1";
         let rows = sqlx::query_as::<_, WorkspaceMemberWithEmail>(query)
             .bind(self.id)
             .fetch_all(executor)

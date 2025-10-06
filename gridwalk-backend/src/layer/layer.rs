@@ -77,14 +77,12 @@ impl Layer {
 
     // TODO: Make this generic to work with all connections
     pub async fn send_to_postgis(&self, file_path: &str) -> Result<()> {
-        let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk"; // TODO: Use pool
-        let layer_data = launch_process_file(
-            file_path,
-            &self.name,
-            &postgis_uri,
-            &self.workspace_id.to_string(),
-        )
-        .map_err(|e| anyhow!("Failed to send file to PostGIS: {:?}", e))?;
+        // TODO: Use pool
+        let postgis_uri = "postgresql://admin:password@localhost:5432/gridwalk";
+        // All layers go into the gridwalk schema
+        let layer_data =
+            launch_process_file(file_path, &self.id.to_string(), &postgis_uri, "gridwalk")
+                .map_err(|e| anyhow!("Failed to send file to PostGIS: {:?}", e))?;
         println!("{:?}", layer_data);
         println!("Uploaded to POSTGIS BABY!");
         Ok(())

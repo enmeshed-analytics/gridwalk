@@ -1,35 +1,33 @@
 mod auth;
+mod config;
 mod connector;
 mod datastore;
+mod email;
 mod error;
 mod layer;
 mod map;
 mod server;
 mod session;
+mod settings;
 mod user;
 mod utils;
 mod workspace;
 
+use crate::config::*;
 use crate::datastore::*;
+use crate::email::*;
 use crate::layer::*;
 use crate::map::*;
 use crate::session::*;
+use crate::settings::*;
 use crate::user::*;
-use crate::utils::create_pg_pool;
 use crate::workspace::*;
-use sqlx::postgres::PgPool;
 use std::env;
 use std::sync::Arc;
 
 use anyhow::Result;
 use dotenvy::dotenv;
 use tracing::info;
-
-#[derive(Clone)]
-pub struct AppState {
-    pub pool: Arc<PgPool>,
-    pub connections: ActiveConnections,
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -38,9 +36,10 @@ async fn main() -> Result<()> {
     // Load environment variables from .env file
     dotenv().ok();
 
-    let app_db = create_pg_pool("postgres://admin:password@localhost:5433/gridwalk")
-        .await
-        .unwrap();
+    // Initialize configuration
+    let config = Config::from_env().expect("Failed to load configuration from environment");
+
+    let app_db = init_pool(&config).await;
 
     sqlx::migrate!("./migrations")
         .run(app_db.as_ref())
@@ -50,10 +49,22 @@ async fn main() -> Result<()> {
     // Create GeospatialConnections
     let active_connections = ActiveConnections::new();
 
+    // Initialize EmailService
+    let email_service = EmailService::new(
+        &config.smtp_host,
+        &config.smtp_username,
+        &config.smtp_password,
+        &config.from_email,
+        &config.email_templates_dir,
+        &config.base_url,
+    )
+    .expect("Failed to initialize email service");
+
     // Create initial App State
     let app_state = AppState {
         pool: app_db,
         connections: active_connections,
+        email_service: Arc::new(tokio::sync::Mutex::new(email_service)),
     };
 
     // Create initial user
@@ -68,12 +79,14 @@ async fn main() -> Result<()> {
         Err(_) => {
             let initial_user = User::new(
                 initial_user_email.clone(),
-                "Admin".to_string(),
-                "User".to_string(),
+                Some("admin".to_string()),
+                Some("admin".to_string()),
                 Some(GlobalRole::Admin),
+                UserStatus::Active,
+                None,
             );
             let mut tx = app_state.pool.begin().await?;
-            initial_user.save(&mut tx).await?;
+            initial_user.save(&mut *tx).await?;
             let initial_password = UserPassword::new(initial_user.id, initial_user_password);
             initial_password.save(&mut *tx).await?;
             tx.commit().await?;
