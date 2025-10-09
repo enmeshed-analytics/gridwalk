@@ -38,7 +38,7 @@ export async function getWorkspaceConnections(
 
   try {
     const response = await fetch(
-      `${process.env.GRIDWALK_API}/workspaces/${workspaceId}/connections/primary/sources`,
+      `${process.env.GRIDWALK_API}/workspaces/${workspaceId}/layers`,
       {
         method: "GET",
         headers: {
