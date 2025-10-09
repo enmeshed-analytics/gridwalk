@@ -18,7 +18,7 @@ impl RegistrationApprovalSettings {
     const SETTINGS_KEY: &'static str = "registration_approval";
 
     pub async fn load(pool: &sqlx::PgPool) -> Result<Self, sqlx::Error> {
-        let row = sqlx::query("SELECT value FROM app_data.app_settings WHERE key = $1")
+        let row = sqlx::query("SELECT value FROM gridwalk.app_settings WHERE key = $1")
             .bind(Self::SETTINGS_KEY)
             .fetch_optional(pool)
             .await?;
@@ -38,7 +38,7 @@ impl RegistrationApprovalSettings {
         let value = serde_json::to_value(self).map_err(|e| sqlx::Error::Encode(Box::new(e)))?;
 
         sqlx::query(
-            "INSERT INTO app_data.app_settings (key, value) VALUES ($1, $2)
+            "INSERT INTO gridwalk.app_settings (key, value) VALUES ($1, $2)
              ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
         )
         .bind(Self::SETTINGS_KEY)

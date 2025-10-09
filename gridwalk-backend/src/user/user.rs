@@ -124,7 +124,7 @@ impl User {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "INSERT INTO app_data.users (id, email, first_name, last_name, global_role, status) VALUES ($1, $2, $3, $4, $5, $6::app_data.user_status)";
+        let query = "INSERT INTO gridwalk.users (id, email, first_name, last_name, global_role, status) VALUES ($1, $2, $3, $4, $5, $6::gridwalk.user_status)";
         sqlx::query(query)
             .bind(&self.id)
             .bind(&self.email)
@@ -142,7 +142,7 @@ impl User {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT id, email, first_name, last_name, global_role, created_at, updated_at, status::text as status FROM app_data.users WHERE id = $1";
+        let query = "SELECT id, email, first_name, last_name, global_role, created_at, updated_at, status::text as status FROM gridwalk.users WHERE id = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(user_id)
             .fetch_one(executor)
@@ -160,8 +160,8 @@ impl User {
                 u.id, u.email, u.first_name, u.last_name, u.global_role, 
                 u.created_at, u.updated_at, u.status::text as status,
                 COALESCE(n.notes, '{}'::jsonb) as notes
-            FROM app_data.users u
-            LEFT JOIN app_data.user_notes n ON u.id = n.user_id
+            FROM gridwalk.users u
+            LEFT JOIN gridwalk.user_notes n ON u.id = n.user_id
             WHERE u.id = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(user_id)
@@ -175,7 +175,7 @@ impl User {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT id, email, first_name, last_name, global_role, created_at, updated_at, status::text as status FROM app_data.users WHERE email = $1";
+        let query = "SELECT id, email, first_name, last_name, global_role, created_at, updated_at, status::text as status FROM gridwalk.users WHERE email = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(email)
             .fetch_one(executor)
@@ -193,8 +193,8 @@ impl User {
                 u.id, u.email, u.first_name, u.last_name, u.global_role, 
                 u.created_at, u.updated_at, u.status::text as status,
                 COALESCE(n.notes, '{}'::jsonb) as notes
-            FROM app_data.users u
-            LEFT JOIN app_data.user_notes n ON u.id = n.user_id
+            FROM gridwalk.users u
+            LEFT JOIN gridwalk.user_notes n ON u.id = n.user_id
             WHERE u.email = $1";
         let user = sqlx::query_as::<_, User>(query)
             .bind(email)
@@ -214,7 +214,7 @@ impl User {
         E: sqlx::PgExecutor<'e>,
     {
         let query = "
-            INSERT INTO app_data.user_notes (user_id, notes)
+            INSERT INTO gridwalk.user_notes (user_id, notes)
             VALUES ($1, $2)
             ON CONFLICT (user_id)
             DO UPDATE SET notes = $2, updated_at = CURRENT_TIMESTAMP";
@@ -236,7 +236,7 @@ impl User {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "SELECT notes FROM app_data.user_notes WHERE user_id = $1";
+        let query = "SELECT notes FROM gridwalk.user_notes WHERE user_id = $1";
 
         let result = sqlx::query_scalar::<_, serde_json::Value>(query)
             .bind(&self.id)
@@ -251,7 +251,7 @@ impl User {
     where
         E: sqlx::PgExecutor<'e>,
     {
-        let query = "DELETE FROM app_data.user_notes WHERE user_id = $1";
+        let query = "DELETE FROM gridwalk.user_notes WHERE user_id = $1";
 
         sqlx::query(query).bind(&self.id).execute(executor).await?;
 

@@ -34,7 +34,7 @@ impl VerificationCode {
 
     pub async fn save(&self, pg_pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
         let query = "
-            INSERT INTO app_data.verification_codes (id, user_id, expires_at, created_at)
+            INSERT INTO gridwalk.verification_codes (id, user_id, expires_at, created_at)
             VALUES ($1, $2, $3, $4)";
 
         sqlx::query(query)
@@ -58,8 +58,8 @@ impl VerificationCode {
                 u.id as user_id, u.email, u.first_name, u.last_name, u.global_role, 
                 u.created_at as user_created_at, u.updated_at as user_updated_at, 
                 u.status::text as status
-            FROM app_data.verification_codes vc
-            JOIN app_data.users u ON vc.user_id = u.id
+            FROM gridwalk.verification_codes vc
+            JOIN gridwalk.users u ON vc.user_id = u.id
             WHERE vc.id = $1 AND vc.expires_at > CURRENT_TIMESTAMP";
 
         let row = sqlx::query(query)
@@ -99,7 +99,7 @@ impl VerificationCode {
     }
 
     pub async fn cleanup_expired(pg_pool: &sqlx::PgPool) -> Result<u64, sqlx::Error> {
-        let query = "DELETE FROM app_data.verification_codes WHERE expires_at <= CURRENT_TIMESTAMP";
+        let query = "DELETE FROM gridwalk.verification_codes WHERE expires_at <= CURRENT_TIMESTAMP";
         let result = sqlx::query(query).execute(pg_pool).await?;
         Ok(result.rows_affected())
     }
@@ -108,7 +108,7 @@ impl VerificationCode {
         pg_pool: &sqlx::PgPool,
         user_id: &Uuid,
     ) -> Result<u64, sqlx::Error> {
-        let query = "DELETE FROM app_data.verification_codes WHERE user_id = $1";
+        let query = "DELETE FROM gridwalk.verification_codes WHERE user_id = $1";
         let result = sqlx::query(query).bind(user_id).execute(pg_pool).await?;
         Ok(result.rows_affected())
     }
@@ -118,10 +118,10 @@ impl VerificationCode {
         user_id: &Uuid,
     ) -> Result<(), sqlx::Error> {
         let query = "
-            DELETE FROM app_data.verification_codes 
+            DELETE FROM gridwalk.verification_codes 
             WHERE user_id = $1 
             AND id NOT IN (
-                SELECT id FROM app_data.verification_codes 
+                SELECT id FROM gridwalk.verification_codes 
                 WHERE user_id = $1 
                 ORDER BY created_at DESC 
                 LIMIT 5
